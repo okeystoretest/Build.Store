@@ -6,19 +6,22 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/sync/transport";
+import { usernameToEmail } from "@/lib/auth/username";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 
 const loginSchema = z.object({
-  email: z.string().email("E-mail inválido"),
-  password: z.string().min(6, "Mínimo de 6 caracteres"),
+  username: z.string().min(1, "Informe o usuário"),
+  password: z.string().min(1, "Informe a senha"),
 });
 type LoginValues = z.infer<typeof loginSchema>;
 
 /**
- * Login screen. Uses Supabase email/password. In local-only mode there's no
- * backend, so it explains that and links straight into the app.
+ * Login screen — username + password. Supabase Auth logs in by email, so the
+ * typed username is mapped to an internal email (usernameToEmail) before the
+ * request. The user never sees or types an email. In local-only mode (no
+ * Supabase) it links straight into the app.
  */
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
@@ -34,11 +37,11 @@ export default function LoginPage() {
     setError(null);
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({
-      email: values.email,
+      email: usernameToEmail(values.username),
       password: values.password,
     });
     if (error) {
-      setError("Não foi possível entrar. Verifique suas credenciais.");
+      setError("Não foi possível entrar. Verifique usuário e senha.");
       return;
     }
     window.location.href = "/pos";
@@ -48,9 +51,9 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-margin">
       <div className="w-full max-w-md rounded-xl bg-surface-container-lowest p-lg shadow-level-2">
         <div className="text-center">
-          <h1 className="text-headline-lg text-primary">Build.Store</h1>
+          <h1 className="text-headline-lg text-primary">Serene</h1>
           <p className="mt-1 text-label-sm uppercase tracking-wide text-on-surface-variant">
-            OKEY STORE
+            Premium POS System
           </p>
         </div>
 
@@ -69,16 +72,16 @@ export default function LoginPage() {
         ) : (
           <form onSubmit={handleSubmit(onSubmit)} className="mt-lg space-y-md">
             <div className="space-y-1.5">
-              <Label>E-mail</Label>
+              <Label>Usuário</Label>
               <Input
-                type="email"
-                autoComplete="email"
-                placeholder="voce@loja.com"
-                {...register("email")}
+                type="text"
+                autoComplete="username"
+                placeholder="Ex.: Dev"
+                {...register("username")}
               />
-              {errors.email && (
+              {errors.username && (
                 <p className="px-2 text-label-sm text-error">
-                  {errors.email.message}
+                  {errors.username.message}
                 </p>
               )}
             </div>
