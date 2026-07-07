@@ -58,9 +58,9 @@ export function Sidebar() {
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-outline-variant/50 bg-surface px-md py-lg">
       <div className="px-sm">
-        <h1 className="text-headline-lg leading-none text-primary">Serene</h1>
+        <h1 className="text-headline-lg leading-none text-primary">Build.Store</h1>
         <p className="mt-1 text-label-sm uppercase tracking-wide text-on-surface-variant">
-          Premium POS System
+          OKEY STORE
         </p>
       </div>
 
