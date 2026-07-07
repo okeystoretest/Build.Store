@@ -1,0 +1,162 @@
+import type { Order } from "@/types/domain";
+
+/**
+ * Demo order history. Seeds a realistic sales history on first run so the
+ * dashboard and order list have content before real sales accumulate. Real
+ * sales from the PDV are added alongside these and behave identically.
+ */
+function daysAgo(n: number, hour = 14, min = 0): string {
+  const d = new Date();
+  // Always at least one full day in the past, so genuine sales made today sort
+  // above the demo history in the order list.
+  d.setDate(d.getDate() - (n + 1));
+  d.setHours(hour, min, 0, 0);
+  return d.toISOString();
+}
+
+function line(
+  productId: string,
+  sku: string,
+  name: string,
+  priceCents: number,
+  qty: number,
+  orderId: string,
+) {
+  return {
+    id: `${orderId}-${productId}`,
+    orderId,
+    productId,
+    sku,
+    name,
+    imageUrl: null,
+    unitPriceCents: priceCents,
+    quantity: qty,
+    lineDiscountCents: 0,
+  };
+}
+
+export const DEMO_ORDERS: Order[] = [
+  {
+    id: "demo-8842",
+    reference: "#SRN-8842",
+    customerId: null,
+    customerName: "Alice Martins",
+    items: [line("p-ser-0045", "SER-0045", "Serum Facial Iluminador", 18900, 2, "demo-8842")],
+    subtotalCents: 37800,
+    discountCents: 0,
+    totalCents: 45000,
+    paymentMethod: "credit",
+    tenderedCents: null,
+    changeCents: null,
+    status: "completed",
+    syncStatus: "synced",
+    sellerId: null,
+    sellerName: "Elena Rossi",
+    campaignId: null,
+    createdAt: daysAgo(0, 14, 32),
+    createdBy: null,
+  },
+  {
+    id: "demo-8841",
+    reference: "#SRN-8841",
+    customerId: null,
+    customerName: "João Roberto",
+    items: [line("p-vel-0012", "VEL-0012", "Vela Artesanal Lavanda", 7500, 1, "demo-8841")],
+    subtotalCents: 12050,
+    discountCents: 0,
+    totalCents: 12050,
+    paymentMethod: "cash",
+    tenderedCents: 15000,
+    changeCents: 2950,
+    status: "refunded",
+    syncStatus: "synced",
+    sellerId: null,
+    sellerName: "Elena Rossi",
+    campaignId: null,
+    createdAt: daysAgo(0, 12, 15),
+    createdBy: null,
+  },
+  {
+    id: "demo-8840",
+    reference: "#SRN-8840",
+    customerId: null,
+    customerName: "Clara Pires",
+    items: [line("p-acc-4402", "ACC-4402", "Bracelete Minimalist Gold", 42000, 5, "demo-8840")],
+    subtotalCents: 210000,
+    discountCents: 0,
+    totalCents: 210000,
+    paymentMethod: "pix",
+    tenderedCents: null,
+    changeCents: null,
+    status: "completed",
+    syncStatus: "synced",
+    sellerId: null,
+    sellerName: "Elena Rossi",
+    campaignId: null,
+    createdAt: daysAgo(1, 18, 45),
+    createdBy: null,
+  },
+  {
+    id: "demo-8839",
+    reference: "#SRN-8839",
+    customerId: null,
+    customerName: "Marcos Freitas",
+    items: [line("p-soap-122", "SOAP-122", "Sabonetes Orgânicos Kit", 5800, 1, "demo-8839")],
+    subtotalCents: 8990,
+    discountCents: 0,
+    totalCents: 8990,
+    paymentMethod: "debit",
+    tenderedCents: null,
+    changeCents: null,
+    status: "completed",
+    syncStatus: "synced",
+    sellerId: null,
+    sellerName: "Elena Rossi",
+    campaignId: null,
+    createdAt: daysAgo(1, 15, 2),
+    createdBy: null,
+  },
+  {
+    id: "demo-8838",
+    reference: "#SRN-8838",
+    customerId: null,
+    customerName: "Beatriz Nunes",
+    items: [
+      line("p-dif-8821", "DIF-8821", "Difusor Cerâmica Terracota", 24590, 1, "demo-8838"),
+      line("p-towl-909", "TOWL-909", "Toalha Spa Premium", 11500, 2, "demo-8838"),
+    ],
+    subtotalCents: 47590,
+    discountCents: 2590,
+    totalCents: 45000,
+    paymentMethod: "credit",
+    tenderedCents: null,
+    changeCents: null,
+    status: "completed",
+    syncStatus: "synced",
+    sellerId: null,
+    sellerName: "Elena Rossi",
+    campaignId: null,
+    createdAt: daysAgo(2, 11, 20),
+    createdBy: null,
+  },
+  {
+    id: "demo-8837",
+    reference: "#SRN-8837",
+    customerId: null,
+    customerName: "Renata Alves",
+    items: [line("p-ser-0045", "SER-0045", "Serum Facial Iluminador", 18900, 3, "demo-8837")],
+    subtotalCents: 56700,
+    discountCents: 0,
+    totalCents: 56700,
+    paymentMethod: "pix",
+    tenderedCents: null,
+    changeCents: null,
+    status: "completed",
+    syncStatus: "synced",
+    sellerId: null,
+    sellerName: "Elena Rossi",
+    campaignId: null,
+    createdAt: daysAgo(3, 16, 5),
+    createdBy: null,
+  },
+];

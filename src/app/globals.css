@@ -1,0 +1,83 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/**
+ * Serene Commerce tokens as CSS variables.
+ * Single source of truth consumed by tailwind.config.ts.
+ */
+@layer base {
+  :root {
+    --font-inter: "Inter", system-ui, sans-serif;
+
+    --surface: #fff8f7;
+    --surface-dim: #e0d8d8;
+    --surface-bright: #fff8f7;
+    --surface-container-lowest: #ffffff;
+    --surface-container-low: #faf2f2;
+    --surface-container: #f4ecec;
+    --surface-container-high: #eee6e6;
+    --surface-container-highest: #e8e1e1;
+    --surface-variant: #e8e1e1;
+
+    --on-surface: #1e1b1b;
+    --on-surface-variant: #514343;
+
+    --primary: #835051;
+    --primary-container: #e8a8a8;
+    --primary-fixed: #ffdad9;
+    --primary-fixed-dim: #f8b6b6;
+    --on-primary: #ffffff;
+    --on-primary-container: #6b3b3c;
+
+    --secondary: #785655;
+    --secondary-container: #ffd2d1;
+    --on-secondary: #ffffff;
+    --on-secondary-container: #7b5858;
+
+    --tertiary: #7e5353;
+    --tertiary-container: #e1abab;
+    --on-tertiary: #ffffff;
+    --on-tertiary-container: #663e3f;
+
+    --error: #ba1a1a;
+    --error-container: #ffdad6;
+    --on-error: #ffffff;
+    --on-error-container: #93000a;
+
+    --outline: #847373;
+    --outline-variant: #d6c2c1;
+
+    --inverse-surface: #332f30;
+    --inverse-on-surface: #f7efef;
+    --inverse-primary: #f8b6b6;
+
+    --background: #fff8f7;
+    --on-background: #1e1b1b;
+  }
+
+  * {
+    @apply border-outline-variant;
+  }
+
+  body {
+    @apply bg-background text-on-surface;
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Keep focus visible for the quality floor. */
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
