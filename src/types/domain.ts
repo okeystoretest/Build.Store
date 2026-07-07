@@ -138,6 +138,7 @@ export interface StockMovement {
  */
 export interface User {
   id: UUID;
+  username: string; // login handle; maps to auth email via usernameToEmail()
   fullName: string;
   birthDate: string | null; // YYYY-MM-DD
   role: Role;

@@ -49,6 +49,10 @@ export class BuildStoreDB extends Dexie {
       goals: "id, sellerId, type, campaignId",
       notifications: "id, read, createdAt",
     });
+    // v3 — Fase B: username as a unique login handle on users.
+    this.version(3).stores({
+      users: "id, &username, role, fullName, active",
+    });
   }
 }
 

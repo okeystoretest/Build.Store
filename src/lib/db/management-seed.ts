@@ -8,6 +8,7 @@ import type { User, Campaign, Goal } from "@/types/domain";
 export const SEED_USERS: User[] = [
   {
     id: "u-elena",
+    username: "elena.rossi",
     fullName: "Elena Rossi",
     birthDate: "1990-04-12",
     role: "vendedora",
@@ -16,6 +17,7 @@ export const SEED_USERS: User[] = [
   },
   {
     id: "u-carla",
+    username: "carla.mendes",
     fullName: "Carla Mendes",
     birthDate: "1994-09-03",
     role: "vendedora",
@@ -24,6 +26,7 @@ export const SEED_USERS: User[] = [
   },
   {
     id: "u-lojista",
+    username: "beatriz",
     fullName: "Beatriz (Lojista)",
     birthDate: "1985-01-20",
     role: "lojista",
@@ -32,6 +35,7 @@ export const SEED_USERS: User[] = [
   },
   {
     id: "u-admin",
+    username: "admin",
     fullName: "Administrador",
     birthDate: null,
     role: "admin",

@@ -1,40 +1,63 @@
 -- Build.Store — Supabase schema
 -- Money stored as integer centavos. Timestamps in UTC.
 -- Run in the Supabase SQL editor or via the CLI.
+-- Idempotent: safe to re-run over an existing database without data loss.
 
 create extension if not exists "pgcrypto";
 
 -- ---------------------------------------------------------------------------
--- Enums
+-- Enums (guarded — create type has no "if not exists")
 -- ---------------------------------------------------------------------------
-create type payment_method as enum ('cash', 'credit', 'debit', 'pix', 'wallet');
-create type order_status as enum ('completed', 'refunded', 'cancelled', 'pending');
-create type product_category as enum ('cosmeticos', 'acessorios', 'aromaterapia', 'outros');
-create type stock_reason as enum ('sale', 'restock', 'adjustment', 'loss', 'return');
+do $$ begin
+  create type payment_method as enum ('cash', 'credit', 'debit', 'pix', 'wallet');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type order_status as enum ('completed', 'refunded', 'cancelled', 'pending');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type product_category as enum ('cosmeticos', 'acessorios', 'aromaterapia', 'outros');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type stock_reason as enum ('sale', 'restock', 'adjustment', 'loss', 'return');
+exception when duplicate_object then null; end $$;
+
+do $$ begin
+  create type goal_type as enum ('general', 'campaign');
+exception when duplicate_object then null; end $$;
 
 -- ---------------------------------------------------------------------------
 -- Stores (multi-tenant: each lojista partner is a store)
 -- ---------------------------------------------------------------------------
-create table stores (
+create table if not exists stores (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   created_at timestamptz not null default now()
 );
 
 -- Profiles link auth.users to a store with a role.
-create table profiles (
+create table if not exists profiles (
   id uuid primary key references auth.users (id) on delete cascade,
   store_id uuid not null references stores (id) on delete cascade,
+  username text not null unique,
   full_name text,
   birth_date date,
   role text not null default 'vendedora' check (role in ('vendedora', 'lojista', 'admin')),
   created_at timestamptz not null default now()
 );
 
+-- Migration: add username if profiles already existed from a prior version.
+alter table profiles add column if not exists username text;
+do $$ begin
+  alter table profiles add constraint profiles_username_key unique (username);
+exception when duplicate_object then null; end $$;
+
 -- ---------------------------------------------------------------------------
 -- Products
 -- ---------------------------------------------------------------------------
-create table products (
+create table if not exists products (
   id uuid primary key default gen_random_uuid(),
   store_id uuid not null references stores (id) on delete cascade,
   sku text not null,
@@ -54,13 +77,13 @@ create table products (
   unique (store_id, sku)
 );
 
-create index products_store_category_idx on products (store_id, category);
-create index products_barcode_idx on products (barcode);
+create index if not exists products_store_category_idx on products (store_id, category);
+create index if not exists products_barcode_idx on products (barcode);
 
 -- ---------------------------------------------------------------------------
 -- Customers
 -- ---------------------------------------------------------------------------
-create table customers (
+create table if not exists customers (
   id uuid primary key default gen_random_uuid(),
   store_id uuid not null references stores (id) on delete cascade,
   name text not null,
@@ -72,7 +95,7 @@ create table customers (
 -- ---------------------------------------------------------------------------
 -- Campaigns + goals (Fase A)
 -- ---------------------------------------------------------------------------
-create table campaigns (
+create table if not exists campaigns (
   id uuid primary key default gen_random_uuid(),
   store_id uuid not null references stores (id) on delete cascade,
   name text not null,
@@ -80,9 +103,7 @@ create table campaigns (
   created_at timestamptz not null default now()
 );
 
-create type goal_type as enum ('general', 'campaign');
-
-create table goals (
+create table if not exists goals (
   id uuid primary key default gen_random_uuid(),
   store_id uuid not null references stores (id) on delete cascade,
   seller_id uuid not null references profiles (id) on delete cascade,
@@ -93,12 +114,12 @@ create table goals (
   created_at timestamptz not null default now()
 );
 
-create index goals_seller_idx on goals (seller_id);
+create index if not exists goals_seller_idx on goals (seller_id);
 
 -- ---------------------------------------------------------------------------
 -- Orders + items
 -- ---------------------------------------------------------------------------
-create table orders (
+create table if not exists orders (
   id uuid primary key default gen_random_uuid(),
   store_id uuid not null references stores (id) on delete cascade,
   reference text not null,
@@ -119,10 +140,10 @@ create table orders (
   unique (store_id, reference)
 );
 
-create index orders_store_created_idx on orders (store_id, created_at desc);
-create index orders_status_idx on orders (store_id, status);
+create index if not exists orders_store_created_idx on orders (store_id, created_at desc);
+create index if not exists orders_status_idx on orders (store_id, status);
 
-create table order_items (
+create table if not exists order_items (
   id uuid primary key default gen_random_uuid(),
   order_id uuid not null references orders (id) on delete cascade,
   product_id uuid references products (id) on delete set null,
@@ -134,12 +155,12 @@ create table order_items (
   line_discount_cents integer not null default 0
 );
 
-create index order_items_order_idx on order_items (order_id);
+create index if not exists order_items_order_idx on order_items (order_id);
 
 -- ---------------------------------------------------------------------------
 -- Stock movements (audit trail; drives real-time stock)
 -- ---------------------------------------------------------------------------
-create table stock_movements (
+create table if not exists stock_movements (
   id uuid primary key default gen_random_uuid(),
   store_id uuid not null references stores (id) on delete cascade,
   product_id uuid not null references products (id) on delete cascade,
@@ -150,7 +171,7 @@ create table stock_movements (
   created_at timestamptz not null default now()
 );
 
-create index stock_movements_product_idx on stock_movements (product_id, created_at desc);
+create index if not exists stock_movements_product_idx on stock_movements (product_id, created_at desc);
 
 -- Applying a movement adjusts product stock atomically.
 create or replace function apply_stock_movement()
@@ -164,6 +185,7 @@ begin
 end;
 $$;
 
+drop trigger if exists trg_apply_stock_movement on stock_movements;
 create trigger trg_apply_stock_movement
 after insert on stock_movements
 for each row execute function apply_stock_movement();
@@ -187,34 +209,42 @@ returns uuid language sql stable as $$
   select store_id from profiles where id = auth.uid();
 $$;
 
+drop policy if exists "own profile" on profiles;
 create policy "own profile" on profiles
   for select using (id = auth.uid());
 
+drop policy if exists "store scoped products" on products;
 create policy "store scoped products" on products
   for all using (store_id = current_store_id())
   with check (store_id = current_store_id());
 
+drop policy if exists "store scoped customers" on customers;
 create policy "store scoped customers" on customers
   for all using (store_id = current_store_id())
   with check (store_id = current_store_id());
 
+drop policy if exists "store scoped orders" on orders;
 create policy "store scoped orders" on orders
   for all using (store_id = current_store_id())
   with check (store_id = current_store_id());
 
+drop policy if exists "store scoped order_items" on order_items;
 create policy "store scoped order_items" on order_items
   for all using (
     order_id in (select id from orders where store_id = current_store_id())
   );
 
+drop policy if exists "store scoped stock_movements" on stock_movements;
 create policy "store scoped stock_movements" on stock_movements
   for all using (store_id = current_store_id())
   with check (store_id = current_store_id());
 
+drop policy if exists "store scoped campaigns" on campaigns;
 create policy "store scoped campaigns" on campaigns
   for all using (store_id = current_store_id())
   with check (store_id = current_store_id());
 
+drop policy if exists "store scoped goals" on goals;
 create policy "store scoped goals" on goals
   for all using (store_id = current_store_id())
   with check (store_id = current_store_id());

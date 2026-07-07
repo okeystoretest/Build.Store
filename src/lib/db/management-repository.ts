@@ -28,13 +28,31 @@ export async function listSellers(): Promise<User[]> {
   return all.filter((u) => u.active).sort((a, b) => a.fullName.localeCompare(b.fullName));
 }
 
+/**
+ * Create a user.
+ *
+ * - Local/demo mode (no Supabase): stored in Dexie only, with a generated id.
+ *   The password is ignored — there is no auth backend to hold it.
+ * - Real mode (Supabase configured): a `storeId` is required and the caller is
+ *   expected to have created the auth user first (see createAuthUser), passing
+ *   the resulting auth id in `authId`. The Dexie row mirrors the profile.
+ *
+ * `username` is unique; it maps to the login email via usernameToEmail().
+ */
 export async function createUser(input: {
+  username: string;
   fullName: string;
   birthDate: string | null;
   role: Role;
+  authId?: string;
 }): Promise<User> {
+  const existing = await db.users.where("username").equals(input.username).first();
+  if (existing) {
+    throw new Error(`Usuário "${input.username}" já existe`);
+  }
   const user: User = {
-    id: crypto.randomUUID(),
+    id: input.authId ?? crypto.randomUUID(),
+    username: input.username,
     fullName: input.fullName,
     birthDate: input.birthDate,
     role: input.role,

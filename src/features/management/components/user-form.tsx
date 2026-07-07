@@ -1,16 +1,23 @@
 "use client";
 
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import type { Role } from "@/types/domain";
 import { createUser } from "@/lib/db/management-repository";
+import { createUserAction } from "@/features/management/actions/create-user";
+import { isSupabaseConfigured } from "@/lib/sync/transport";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 
 const userSchema = z.object({
+  username: z
+    .string()
+    .min(3, "Mínimo de 3 caracteres")
+    .regex(/^[a-zA-Z0-9 .]+$/, "Use apenas letras, números, espaço ou ponto"),
   fullName: z.string().min(2, "Informe o nome completo"),
   birthDate: z.string().optional(),
   password: z.string().min(6, "Mínimo de 6 caracteres"),
@@ -25,11 +32,16 @@ const ROLE_LABELS: Record<Role, string> = {
 };
 
 /**
- * User registration. Fields: full name, birth date, password + access level.
- * Password is collected for the real Supabase Auth flow; in local mode users
- * are stored without credentials (demo only).
+ * User registration. Fields: username (login), full name, birth date, access
+ * level and password — matching the `profiles` table.
+ *
+ * - Real mode (Supabase): a server action creates the auth user (email derived
+ *   from the username) + profile row scoped to the caller's store, then the
+ *   Dexie mirror reuses the same id.
+ * - Local/demo mode: stored in Dexie only; the password has no auth backend.
  */
 export function UserForm({ onCreated }: { onCreated: () => void }) {
+  const [serverError, setServerError] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -41,17 +53,55 @@ export function UserForm({ onCreated }: { onCreated: () => void }) {
   });
 
   const submit = async (values: UserValues) => {
-    await createUser({
-      fullName: values.fullName,
-      birthDate: values.birthDate || null,
-      role: values.role,
-    });
-    reset({ role: "vendedora", fullName: "", birthDate: "", password: "" });
-    onCreated();
+    setServerError(null);
+    try {
+      const birthDate = values.birthDate || null;
+
+      if (isSupabaseConfigured()) {
+        const res = await createUserAction({
+          username: values.username,
+          password: values.password,
+          fullName: values.fullName,
+          birthDate,
+          role: values.role,
+        });
+        if (!res.ok) {
+          setServerError(res.error);
+          return;
+        }
+        await createUser({
+          username: values.username,
+          fullName: values.fullName,
+          birthDate,
+          role: values.role,
+          authId: res.authId,
+        });
+      } else {
+        await createUser({
+          username: values.username,
+          fullName: values.fullName,
+          birthDate,
+          role: values.role,
+        });
+      }
+
+      reset({ role: "vendedora", username: "", fullName: "", birthDate: "", password: "" });
+      onCreated();
+    } catch (e) {
+      setServerError(e instanceof Error ? e.message : "Falha ao cadastrar usuário.");
+    }
   };
 
   return (
     <form onSubmit={handleSubmit(submit)} className="space-y-md">
+      <div className="space-y-1.5">
+        <Label>Nome de usuário</Label>
+        <Input {...register("username")} placeholder="Ex.: ana.silva" autoComplete="off" />
+        {errors.username && (
+          <p className="px-2 text-label-sm text-error">{errors.username.message}</p>
+        )}
+      </div>
+
       <div className="space-y-1.5">
         <Label>Nome completo</Label>
         <Input {...register("fullName")} placeholder="Ex.: Ana Silva" />
@@ -77,14 +127,18 @@ export function UserForm({ onCreated }: { onCreated: () => void }) {
 
       <div className="space-y-1.5">
         <Label>Senha</Label>
-        <Input type="password" {...register("password")} placeholder="••••••••" />
+        <Input type="password" {...register("password")} placeholder="••••••••" autoComplete="new-password" />
         {errors.password && (
           <p className="px-2 text-label-sm text-error">{errors.password.message}</p>
         )}
       </div>
 
+      {serverError && (
+        <p className="px-2 text-label-sm text-error">{serverError}</p>
+      )}
+
       <Button type="submit" disabled={isSubmitting}>
-        Cadastrar usuário
+        {isSubmitting ? "Cadastrando..." : "Cadastrar usuário"}
       </Button>
     </form>
   );
