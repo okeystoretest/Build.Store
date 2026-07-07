@@ -1,11 +1,12 @@
+/* stylelint-disable at-rule-no-unknown */
+/* stylelint-disable-next-line at-rule-no-unknown */
 @tailwind base;
+/* stylelint-disable-next-line at-rule-no-unknown */
 @tailwind components;
+/* stylelint-disable-next-line at-rule-no-unknown */
 @tailwind utilities;
+/* stylelint-enable at-rule-no-unknown */
 
-/**
- * Serene Commerce tokens as CSS variables.
- * Single source of truth consumed by tailwind.config.ts.
- */
 @layer base {
   :root {
     --font-inter: "Inter", system-ui, sans-serif;
@@ -56,11 +57,7 @@
     --on-background: #1e1b1b;
   }
 
-  /*
-   * Dark theme — warm, soft and feminine rather than cold gray. Surfaces are
-   * deep warm plum-browns; the rose primary is lifted to a lighter, legible
-   * tint against the dark. Keeps the calming Serene Commerce character at night.
-   */
+  
   .dark {
     --surface: #191113;
     --surface-dim: #191113;
@@ -109,11 +106,12 @@
   }
 
   * {
-    @apply border-outline-variant;
+    border-color: var(--outline-variant);
   }
 
   body {
-    @apply bg-background text-on-surface;
+    background-color: var(--background);
+    color: var(--on-surface);
     font-feature-settings: "cv11", "ss01";
     -webkit-font-smoothing: antialiased;
   }
