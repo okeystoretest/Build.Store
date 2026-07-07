@@ -7,15 +7,20 @@ import {
   Package,
   BarChart3,
   History,
-  Settings,
   HelpCircle,
   Plus,
   LayoutDashboard,
   Users,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
+import { useTheme } from "@/hooks/use-theme";
+
+/** WhatsApp support number for wa.me (digits only): +55 85 9217-8804. */
+const SUPPORT_WHATSAPP = "558592178804";
 
 /**
  * Persistent left navigation. Active item gets a soft primary-fixed pill with a
@@ -42,6 +47,7 @@ const NAV: NavItem[] = [
 export function Sidebar() {
   const pathname = usePathname();
   const { canSeeReports, canSeeManagement } = useAuth();
+  const { theme, toggle } = useTheme();
 
   const visible = NAV.filter((item) => {
     if (item.gate === "reports") return canSeeReports;
@@ -52,9 +58,9 @@ export function Sidebar() {
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-outline-variant/50 bg-surface px-md py-lg">
       <div className="px-sm">
-        <h1 className="text-headline-lg leading-none text-primary">Moça Bonita</h1>
+        <h1 className="text-headline-lg leading-none text-primary">Serene</h1>
         <p className="mt-1 text-label-sm uppercase tracking-wide text-on-surface-variant">
-          & OKEY Store
+          Premium POS System
         </p>
       </div>
 
@@ -91,30 +97,28 @@ export function Sidebar() {
         </Link>
 
         <div className="flex flex-col gap-1">
-          <SidebarLink href="/settings" icon={Settings} label="Configurações" />
-          <SidebarLink href="/support" icon={HelpCircle} label="Suporte" />
+          <button
+            onClick={toggle}
+            className="flex items-center gap-3 rounded-full px-4 py-2.5 text-label-md text-on-surface-variant transition-colors hover:bg-surface-container"
+          >
+            {theme === "dark" ? (
+              <Sun className="h-5 w-5" strokeWidth={1.75} />
+            ) : (
+              <Moon className="h-5 w-5" strokeWidth={1.75} />
+            )}
+            {theme === "dark" ? "Tema claro" : "Tema escuro"}
+          </button>
+          <a
+            href={`https://wa.me/${SUPPORT_WHATSAPP}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 rounded-full px-4 py-2.5 text-label-md text-on-surface-variant transition-colors hover:bg-surface-container"
+          >
+            <HelpCircle className="h-5 w-5" strokeWidth={1.75} />
+            Suporte
+          </a>
         </div>
       </div>
     </aside>
-  );
-}
-
-function SidebarLink({
-  href,
-  icon: Icon,
-  label,
-}: {
-  href: string;
-  icon: typeof Settings;
-  label: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="flex items-center gap-3 rounded-full px-4 py-2.5 text-label-md text-on-surface-variant transition-colors hover:bg-surface-container"
-    >
-      <Icon className="h-5 w-5" strokeWidth={1.75} />
-      {label}
-    </Link>
   );
 }

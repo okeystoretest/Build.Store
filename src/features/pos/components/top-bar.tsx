@@ -1,7 +1,8 @@
 "use client";
 
-import { Search, Bell, CloudOff, Cloud } from "lucide-react";
+import { Search, CloudOff, Cloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/layout/notification-bell";
 import { cn } from "@/lib/utils/cn";
 
 interface TopBarProps {
@@ -61,12 +62,7 @@ export function TopBar({
             : "Offline"}
       </div>
 
-      <button
-        aria-label="Notificações"
-        className="flex h-11 w-11 items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container"
-      >
-        <Bell className="h-5 w-5" strokeWidth={1.75} />
-      </button>
+      <NotificationBell />
 
       <Button onClick={onCheckout} disabled={checkoutDisabled}>
         Finalizar

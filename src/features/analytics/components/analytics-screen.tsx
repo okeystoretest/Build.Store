@@ -17,7 +17,9 @@ export function AnalyticsScreen() {
 
   return (
     <div className="h-full overflow-y-auto px-margin py-md">
-      <div className="grid grid-cols-1 gap-md sm:grid-cols-2 lg:grid-cols-4">
+      <h1 className="mb-md text-headline-lg text-primary">Relatórios</h1>
+
+      <div className="grid grid-cols-2 gap-sm lg:grid-cols-4">
         <StatCard
           label="Receita Total"
           value={formatBRL(summary.revenueCents)}
@@ -40,7 +42,8 @@ export function AnalyticsScreen() {
         />
       </div>
 
-      <div className="mt-md grid grid-cols-1 gap-md lg:grid-cols-[1fr_360px]">
+      {/* Chart + ranking + cash-closing consolidated into one row to cut scroll. */}
+      <div className="mt-sm grid grid-cols-1 gap-sm xl:grid-cols-[1.6fr_1fr_1fr]">
         <div className="rounded-lg bg-surface-container-lowest p-md shadow-level-1">
           <h2 className="text-headline-md text-on-surface">
             Performance de Vendas
@@ -48,67 +51,15 @@ export function AnalyticsScreen() {
           <p className="mt-1 text-label-md text-on-surface-variant">
             Receita diária no período
           </p>
-          <div className="mt-md">
+          <div className="mt-sm">
             <RevenueChart data={daily} />
           </div>
         </div>
 
         <TopProducts items={top} />
-      </div>
-
-      <div className="mt-md grid grid-cols-1 gap-md lg:grid-cols-2">
         <PaymentBreakdown data={payments} />
-
-        <div className="rounded-lg bg-surface-container-lowest p-md shadow-level-1">
-          <h3 className="text-headline-md text-on-surface">
-            Resumo do Período
-          </h3>
-          <div className="mt-md space-y-md">
-            <SummaryRow
-              label="Pedidos concluídos"
-              value={summary.orderCount.toString()}
-            />
-            <SummaryRow
-              label="Itens vendidos"
-              value={summary.itemsSold.toString()}
-            />
-            <SummaryRow
-              label="Ticket médio"
-              value={formatBRL(summary.averageTicketCents)}
-            />
-            <SummaryRow
-              label="Receita total"
-              value={formatBRL(summary.revenueCents)}
-              emphasis
-            />
-          </div>
-        </div>
       </div>
     </div>
   );
 }
 
-function SummaryRow({
-  label,
-  value,
-  emphasis,
-}: {
-  label: string;
-  value: string;
-  emphasis?: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between border-b border-outline-variant/30 pb-md last:border-0 last:pb-0">
-      <span className="text-body-md text-on-surface-variant">{label}</span>
-      <span
-        className={
-          emphasis
-            ? "text-headline-md text-primary"
-            : "text-body-md font-semibold text-on-surface"
-        }
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
