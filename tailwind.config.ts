@@ -1,11 +1,6 @@
 import type { Config } from "tailwindcss";
 
-/**
- * Serene Commerce design tokens.
- * All colors, radii, spacing and type scale are driven from the Build.Store
- * design system. Semantic tokens are exposed as CSS variables in globals.css
- * so both light surfaces and future dark mode resolve from one source.
- */
+
 const config: Config = {
   darkMode: ["class"],
   content: ["./src/**/*.{ts,tsx}"],
