@@ -165,3 +165,56 @@ notify pgrst, 'reload schema';
 -- select proname, prosecdef
 --   from pg_proc
 --  where proname = 'current_store_id';
+
+-- ---------------------------------------------------------------------------
+-- 10) DIAGNÓSTICO DE PERFIS ÓRFÃOS
+--     Causa comum de "nada aparece" SEM erro 500: o usuário logado não tem
+--     linha em `profiles` (ou tem store_id nulo). Nesse caso current_store_id()
+--     retorna NULL, as políticas viram `store_id = NULL` e nenhuma linha é
+--     visível — mesmo com os dados no banco.
+--
+--     (a) Usuários de auth SEM profile:
+-- select u.id, u.email
+--   from auth.users u
+--   left join profiles p on p.id = u.id
+--  where p.id is null;
+--
+--     (b) Profiles com store_id nulo:
+-- select id, username, store_id from profiles where store_id is null;
+--
+--     (c) Quantas linhas cada loja tem (sanidade):
+-- select store_id, count(*) from orders group by store_id;
+
+-- ---------------------------------------------------------------------------
+-- 11) BOOTSTRAP (opcional) — vincula um usuário de auth órfão a uma loja.
+--     Use SOMENTE se o diagnóstico (10a/10b) mostrar o seu usuário sem profile
+--     ou sem store_id. Ajuste o e-mail e o nome da loja.
+--
+--     Cria a loja se não existir e insere/《atualiza》o profile do usuário como
+--     admin dessa loja. Depois disso, o login desse usuário passa a enxergar os
+--     dados da loja.
+-- ---------------------------------------------------------------------------
+-- do $$
+-- declare
+--   v_user_id uuid;
+--   v_store_id uuid;
+--   v_email text := 'SEU_EMAIL_DE_LOGIN_AQUI';       -- ex.: dev@okeystore...
+--   v_store_name text := 'OKEY STORE';
+--   v_username text := 'dev';
+-- begin
+--   select id into v_user_id from auth.users where email = v_email;
+--   if v_user_id is null then
+--     raise exception 'Usuário % não encontrado em auth.users', v_email;
+--   end if;
+--
+--   select id into v_store_id from stores where name = v_store_name limit 1;
+--   if v_store_id is null then
+--     insert into stores (name) values (v_store_name) returning id into v_store_id;
+--   end if;
+--
+--   insert into profiles (id, store_id, username, full_name, role)
+--        values (v_user_id, v_store_id, v_username, v_username, 'admin')
+--   on conflict (id) do update
+--        set store_id = excluded.store_id,
+--            role = 'admin';
+-- end $$;
