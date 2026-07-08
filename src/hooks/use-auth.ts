@@ -61,11 +61,25 @@ export function useAuth() {
         return;
       }
 
-      const { data: profile } = await supabase
+      const { data: profile, error } = await supabase
         .from("profiles")
         .select("full_name, role, photo_url")
         .eq("id", user.id)
-        .single();
+        .maybeSingle();
+
+      // Se a leitura do profile falhar (RLS, rede, etc.), o app cairia no
+      // fallback "vendedora" silenciosamente. Logamos para diagnóstico e
+      // mantemos o usuário informado via console em vez de mascarar o erro.
+      if (error) {
+        console.error("[useAuth] Falha ao ler profile:", error.message);
+      }
+      if (!profile) {
+        console.warn(
+          "[useAuth] Profile não encontrado para o usuário",
+          user.id,
+          "— verifique se o bootstrap criou a linha em profiles.",
+        );
+      }
 
       if (active) {
         setState({
