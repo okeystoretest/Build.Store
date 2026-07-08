@@ -77,21 +77,41 @@ export async function pullAll(): Promise<void> {
   // Cada pull é resiliente: se um deles falhar, os demais ainda aplicam. Um
   // pull que falha vira `null` e NUNCA dispara clear() — preservamos o que já
   // existe localmente em vez de destruir dados por causa de uma falha de rede.
-  const safe = async <T>(fn: () => Promise<T[]>): Promise<T[] | null> => {
+  // O nome do pull e o código/mensagem do Postgres são logados para que uma
+  // falha em produção seja identificável (ex.: 42P17 recursão de RLS, 57014
+  // timeout, 401/permission).
+  const safe = async <T>(
+    label: string,
+    fn: () => Promise<T[]>,
+  ): Promise<T[] | null> => {
     try {
       return await fn();
-    } catch (e) {
-      console.error("[sync] pull parcial falhou:", e);
+    } catch (e: unknown) {
+      const err = e as {
+        code?: string;
+        message?: string;
+        details?: string;
+        hint?: string;
+      };
+      console.error(
+        `[sync] pull "${label}" falhou:`,
+        JSON.stringify({
+          code: err?.code ?? null,
+          message: err?.message ?? String(e),
+          details: err?.details ?? null,
+          hint: err?.hint ?? null,
+        }),
+      );
       return null;
     }
   };
 
   const [products, orders, users, campaigns, goals] = await Promise.all([
-    safe(() => transport.pullProducts(null)),
-    safe(() => transport.pullOrders()),
-    safe(() => transport.pullUsers()),
-    safe(() => transport.pullCampaigns()),
-    safe(() => transport.pullGoals()),
+    safe("products", () => transport.pullProducts(null)),
+    safe("orders", () => transport.pullOrders()),
+    safe("users", () => transport.pullUsers()),
+    safe("campaigns", () => transport.pullCampaigns()),
+    safe("goals", () => transport.pullGoals()),
   ]);
 
   // Produtos: o servidor é a fonte autoritativa do catálogo/estoque. Só

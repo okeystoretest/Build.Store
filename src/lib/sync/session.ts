@@ -32,15 +32,31 @@ export async function getReadySession(): Promise<SessionInfo | null> {
     } = await supabase.auth.getSession();
     if (!session?.user) return null;
 
+    // Resolve o store_id via RPC current_store_id() — que é SECURITY DEFINER e
+    // portanto imune à recursão de RLS em `profiles`. Se a RPC não existir por
+    // algum motivo, cai para a leitura direta do profile.
+    const rpc = await supabase.rpc("current_store_id");
+    if (!rpc.error && typeof rpc.data === "string" && rpc.data) {
+      return { userId: session.user.id, storeId: rpc.data };
+    }
+    if (rpc.error) {
+      console.warn("[sync] current_store_id() indisponível:", rpc.error.message);
+    }
+
     const { data: profile, error } = await supabase
       .from("profiles")
       .select("store_id")
       .eq("id", session.user.id)
       .maybeSingle();
 
-    if (error || !profile?.store_id) return null;
+    if (error) {
+      console.error("[sync] leitura de profile falhou:", error.message);
+      return null;
+    }
+    if (!profile?.store_id) return null;
     return { userId: session.user.id, storeId: profile.store_id as string };
-  } catch {
+  } catch (e) {
+    console.error("[sync] getReadySession exceção:", e);
     return null;
   }
 }
