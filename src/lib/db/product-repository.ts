@@ -1,7 +1,6 @@
 import { db } from "@/lib/db/dexie";
-import { SEED_PRODUCTS } from "@/lib/db/seed";
-import { DEMO_ORDERS } from "@/lib/db/demo-orders";
-import { SEED_USERS, SEED_CAMPAIGNS, SEED_GOALS } from "@/lib/db/management-seed";
+import { isSupabaseConfigured } from "@/lib/sync/transport";
+import { transport } from "@/lib/sync/transport";
 import type { Product, StockMovement } from "@/types/domain";
 
 /**
@@ -10,23 +9,52 @@ import type { Product, StockMovement } from "@/types/domain";
  * Dexie or the network directly — so swapping the backend is a one-file change.
  */
 
-/** Populate the local store once, on first run. Idempotent. */
+/**
+ * IDs dos pedidos de demonstração que existiam em versões anteriores. Mantidos
+ * apenas para PURGAR do IndexedDB de quem já os tinha gravado — nunca mais são
+ * inseridos.
+ */
+const LEGACY_DEMO_ORDER_IDS = [
+  "demo-8842",
+  "demo-8841",
+  "demo-8840",
+  "demo-8839",
+  "demo-8838",
+  "demo-8837",
+];
+
+/**
+ * Executa a inicialização local e remove QUALQUER dado de demonstração legado.
+ *
+ * Os dados de demonstração foram removidos permanentemente do app. Esta função
+ * não injeta mais nada — apenas limpa resíduos de demos que possam ter ficado
+ * gravados no IndexedDB de sessões antigas (pedidos, movimentos de estoque e
+ * o contador de sequência associado). Assim, ao logar, as abas de pedidos,
+ * dashboard e relatórios ficam limpas sem precisar apagar o storage à mão.
+ */
 export async function ensureSeeded(): Promise<void> {
-  const productCount = await db.products.count();
-  if (productCount === 0) {
-    await db.products.bulkPut(SEED_PRODUCTS);
-  }
-  const orderCount = await db.orders.count();
-  if (orderCount === 0) {
-    await db.orders.bulkPut(DEMO_ORDERS);
-    // Continua a numeração sequencial (#PDD-XXX) após os pedidos de demonstração.
-    await db.counters.put({ id: "orderSeq", value: DEMO_ORDERS.length });
-  }
-  const userCount = await db.users.count();
-  if (userCount === 0) {
-    await db.users.bulkPut(SEED_USERS);
-    await db.campaigns.bulkPut(SEED_CAMPAIGNS);
-    await db.goals.bulkPut(SEED_GOALS);
+  await purgeLegacyDemoData();
+}
+
+/** Remove pedidos/movimentos de demonstração remanescentes de versões antigas. */
+async function purgeLegacyDemoData(): Promise<void> {
+  const demoOrders = await db.orders
+    .where("id")
+    .anyOf(LEGACY_DEMO_ORDER_IDS)
+    .toArray();
+
+  if (demoOrders.length > 0) {
+    await db.orders.bulkDelete(demoOrders.map((o) => o.id));
+    // Remove os movimentos de estoque atrelados a esses pedidos.
+    const moves = await db.stockMovements
+      .where("orderId")
+      .anyOf(LEGACY_DEMO_ORDER_IDS)
+      .toArray();
+    if (moves.length > 0) {
+      await db.stockMovements.bulkDelete(moves.map((m) => m.id));
+    }
+    // Zera o contador de referência de pedidos herdado do seed de demonstração.
+    await db.counters.delete("orderSeq");
   }
 }
 
@@ -39,7 +67,19 @@ export async function getProduct(id: string): Promise<Product | undefined> {
 }
 
 export async function upsertProduct(product: Product): Promise<void> {
-  await db.products.put({ ...product, updatedAt: new Date().toISOString() });
+  const saved = { ...product, updatedAt: new Date().toISOString() };
+  await db.products.put(saved);
+
+  // Best-effort: quando há backend e conexão, envia o produto ao Supabase.
+  // O Dexie continua sendo a fonte local; se o push falhar (offline/erro), o
+  // pull de produtos reconcilia depois — não bloqueia a operação do usuário.
+  if (isSupabaseConfigured() && (typeof navigator === "undefined" || navigator.onLine)) {
+    try {
+      await transport.pushProduct(saved);
+    } catch {
+      /* silencioso: reconciliação posterior via pullProducts */
+    }
+  }
 }
 
 /** Remove um produto do estoque (somente Admin, controlado na UI). */
