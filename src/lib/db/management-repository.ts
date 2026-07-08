@@ -44,6 +44,7 @@ export async function createUser(input: {
   fullName: string;
   birthDate: string | null;
   role: Role;
+  photoUrl?: string | null;
   authId?: string;
 }): Promise<User> {
   const existing = await db.users.where("username").equals(input.username).first();
@@ -56,11 +57,25 @@ export async function createUser(input: {
     fullName: input.fullName,
     birthDate: input.birthDate,
     role: input.role,
+    photoUrl: input.photoUrl ?? null,
     active: true,
     createdAt: new Date().toISOString(),
   };
   await db.users.put(user);
   return user;
+}
+
+/** Atualiza campos editáveis de um usuário. */
+export async function updateUser(
+  id: string,
+  patch: Partial<Pick<User, "fullName" | "birthDate" | "role" | "photoUrl" | "active">>,
+): Promise<void> {
+  await db.users.update(id, patch);
+}
+
+/** Remove um usuário do cadastro local. */
+export async function deleteUser(id: string): Promise<void> {
+  await db.users.delete(id);
 }
 
 // --- Campaigns -------------------------------------------------------------
@@ -83,6 +98,17 @@ export async function createCampaign(name: string): Promise<Campaign> {
   };
   await db.campaigns.put(campaign);
   return campaign;
+}
+
+export async function updateCampaign(
+  id: string,
+  patch: Partial<Pick<Campaign, "name" | "active">>,
+): Promise<void> {
+  await db.campaigns.update(id, patch);
+}
+
+export async function deleteCampaign(id: string): Promise<void> {
+  await db.campaigns.delete(id);
 }
 
 // --- Goals -----------------------------------------------------------------
@@ -118,4 +144,15 @@ export async function createGoal(input: {
   };
   await db.goals.put(goal);
   return goal;
+}
+
+export async function updateGoal(
+  id: string,
+  patch: Partial<Pick<Goal, "type" | "campaignId" | "targetCents" | "targetQuantity">>,
+): Promise<void> {
+  await db.goals.update(id, patch);
+}
+
+export async function deleteGoal(id: string): Promise<void> {
+  await db.goals.delete(id);
 }

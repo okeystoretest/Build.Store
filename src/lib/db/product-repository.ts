@@ -19,6 +19,8 @@ export async function ensureSeeded(): Promise<void> {
   const orderCount = await db.orders.count();
   if (orderCount === 0) {
     await db.orders.bulkPut(DEMO_ORDERS);
+    // Continua a numeração sequencial (#PDD-XXX) após os pedidos de demonstração.
+    await db.counters.put({ id: "orderSeq", value: DEMO_ORDERS.length });
   }
   const userCount = await db.users.count();
   if (userCount === 0) {
@@ -38,6 +40,11 @@ export async function getProduct(id: string): Promise<Product | undefined> {
 
 export async function upsertProduct(product: Product): Promise<void> {
   await db.products.put({ ...product, updatedAt: new Date().toISOString() });
+}
+
+/** Remove um produto do estoque (somente Admin, controlado na UI). */
+export async function deleteProduct(id: string): Promise<void> {
+  await db.products.delete(id);
 }
 
 /**

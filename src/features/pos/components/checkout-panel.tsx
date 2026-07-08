@@ -5,7 +5,8 @@ import type { PaymentMethod } from "@/types/domain";
 import { PAYMENT_OPTIONS } from "@/features/pos/types";
 import { formatBRL } from "@/lib/utils/money";
 import { changeCents } from "@/lib/utils/cart";
-import { Keypad } from "./keypad";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils/cn";
 
 interface CheckoutPanelProps {
@@ -13,9 +14,9 @@ interface CheckoutPanelProps {
   method: PaymentMethod;
   onMethodChange: (method: PaymentMethod) => void;
   tenderedCents: number;
-  onTenderDigit: (digit: string) => void;
-  onTenderClear: () => void;
-  onTenderBackspace: () => void;
+  /** Texto do valor recebido (reais) controlado pela tela do PDV. */
+  tenderInput: string;
+  onTenderInput: (value: string) => void;
   onFinalize: () => void;
   canFinalize: boolean;
   /** Seller + campaign selectors, rendered above the finalize button. */
@@ -36,9 +37,8 @@ export function CheckoutPanel({
   method,
   onMethodChange,
   tenderedCents,
-  onTenderDigit,
-  onTenderClear,
-  onTenderBackspace,
+  tenderInput,
+  onTenderInput,
   onFinalize,
   canFinalize,
   meta,
@@ -48,7 +48,7 @@ export function CheckoutPanel({
   const shortfall = isCash && tenderedCents < totalCents;
 
   return (
-    <aside className="flex h-full flex-col gap-md overflow-y-auto border-l border-outline-variant/50 px-margin py-md">
+    <aside className="flex h-full flex-col gap-sm border-l border-outline-variant/50 px-margin py-md">
       <h2 className="text-headline-md text-on-surface">Checkout</h2>
 
       <div className="grid grid-cols-3 gap-sm">
@@ -60,14 +60,14 @@ export function CheckoutPanel({
               key={m}
               onClick={() => onMethodChange(m)}
               className={cn(
-                "flex flex-col items-center gap-2 rounded-md border py-md transition-colors",
+                "flex flex-col items-center gap-1.5 rounded-md border py-3 transition-colors",
                 active
                   ? "border-primary bg-primary-fixed/40 text-primary"
                   : "border-outline-variant text-on-surface-variant hover:bg-surface-container",
               )}
               aria-pressed={active}
             >
-              <Icon className="h-6 w-6" strokeWidth={1.75} />
+              <Icon className="h-5 w-5" strokeWidth={1.75} />
               <span className="text-label-md">{label}</span>
             </button>
           );
@@ -76,43 +76,36 @@ export function CheckoutPanel({
 
       {isCash ? (
         <>
-          <div className="rounded-full bg-surface-container-low px-md py-4">
-            <div className="flex items-center justify-between">
-              <span className="text-label-md text-on-surface-variant">
-                Recebido:
-              </span>
-              <span className="text-headline-md tabular-nums text-on-surface">
-                {formatBRL(tenderedCents)}
-              </span>
-            </div>
+          <div className="space-y-1.5">
+            <Label>Valor recebido</Label>
+            <Input
+              value={tenderInput}
+              onChange={(e) => onTenderInput(e.target.value)}
+              inputMode="decimal"
+              placeholder="0,00"
+              aria-label="Valor recebido em dinheiro"
+              className="text-right text-headline-md tabular-nums"
+            />
           </div>
 
-          <div className="flex items-center justify-between px-md">
-            <span className="text-label-md text-on-surface-variant">
-              Troco calculado
-            </span>
+          <div className="flex items-center justify-between rounded-xl bg-surface-container-low px-4 py-3">
+            <span className="text-label-md text-on-surface-variant">Troco</span>
             <span
               className={cn(
-                "text-headline-md tabular-nums",
+                "text-headline-md font-semibold tabular-nums",
                 shortfall ? "text-error" : "text-primary",
               )}
             >
               {formatBRL(change)}
             </span>
           </div>
-
-          <Keypad
-            onDigit={onTenderDigit}
-            onClear={onTenderClear}
-            onBackspace={onTenderBackspace}
-          />
         </>
       ) : (
-        <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-lg bg-surface-container-low px-md py-xl text-center">
+        <div className="flex flex-1 flex-col items-center justify-center gap-1 rounded-lg bg-surface-container-low px-md py-lg text-center">
           <p className="text-body-md text-on-surface-variant">
             Total a cobrar
           </p>
-          <p className="text-display-lg text-primary">
+          <p className="text-display-md text-primary">
             {formatBRL(totalCents)}
           </p>
           <p className="text-label-sm text-on-surface-variant/70">
@@ -127,7 +120,7 @@ export function CheckoutPanel({
         onClick={onFinalize}
         disabled={!canFinalize}
         className={cn(
-          "mt-auto flex h-16 items-center justify-center gap-2 rounded-full text-body-lg font-semibold transition-colors",
+          "mt-auto flex h-14 items-center justify-center gap-2 rounded-full text-body-lg font-semibold transition-colors",
           canFinalize
             ? "bg-primary-container text-on-primary-container hover:bg-primary-fixed-dim"
             : "cursor-not-allowed bg-surface-container text-on-surface-variant/50",

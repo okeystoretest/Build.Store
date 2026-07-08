@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, Cloud } from "lucide-react";
+import { Search, Cloud, ChevronLeft, ChevronRight } from "lucide-react";
 import { useOrders, type StatusFilter } from "@/features/orders/hooks/use-orders";
 import { refundOrder } from "@/lib/db/order-repository";
 import { useAuth } from "@/hooks/use-auth";
@@ -111,9 +111,36 @@ export function OrdersScreen() {
 
         <OrdersTable orders={o.orders} onRefund={handleRefund} canRefund={canRefund} />
 
-        <p className="px-1 text-label-sm text-on-surface-variant">
-          Exibindo {o.orders.length} de {o.total} pedidos
-        </p>
+        <div className="flex flex-wrap items-center justify-between gap-md px-1">
+          <p className="text-label-sm text-on-surface-variant">
+            Exibindo {o.orders.length} de {o.filteredCount} pedidos filtrados
+            {o.filteredCount !== o.total && ` (${o.total} no total)`}
+          </p>
+
+          {o.pageCount > 1 && (
+            <div className="flex items-center gap-sm">
+              <button
+                onClick={() => o.setPage(o.page - 1)}
+                disabled={o.page <= 1}
+                aria-label="Página anterior"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-outline-variant text-on-surface-variant transition-colors hover:bg-surface-container disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronLeft className="h-4 w-4" strokeWidth={1.75} />
+              </button>
+              <span className="text-label-md text-on-surface-variant">
+                Página {o.page} de {o.pageCount}
+              </span>
+              <button
+                onClick={() => o.setPage(o.page + 1)}
+                disabled={o.page >= o.pageCount}
+                aria-label="Próxima página"
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-outline-variant text-on-surface-variant transition-colors hover:bg-surface-container disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <ChevronRight className="h-4 w-4" strokeWidth={1.75} />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

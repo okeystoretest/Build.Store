@@ -1,5 +1,7 @@
-/** Generate a human-facing order reference like "#SRN-8842". */
-export function orderReference(seq?: number): string {
-  const n = seq ?? Math.floor(1000 + Math.random() * 9000);
-  return `#SRN-${n}`;
+/**
+ * Referência de pedido no padrão "#PDD-XXX", com número sequencial preenchido
+ * com zeros à esquerda (mínimo 3 dígitos): #PDD-001, #PDD-002, ... #PDD-1000.
+ */
+export function orderReference(seq: number): string {
+  return `#PDD-${String(seq).padStart(3, "0")}`;
 }

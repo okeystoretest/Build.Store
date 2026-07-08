@@ -1,11 +1,26 @@
 "use client";
 
 import { useState } from "react";
-import { UserPlus, Megaphone, Target } from "lucide-react";
+import { UserPlus, Megaphone, Target, Pencil, Trash2 } from "lucide-react";
 import { useManagement } from "@/features/management/hooks/use-management";
+import {
+  updateUser,
+  deleteUser,
+  updateCampaign,
+  deleteCampaign,
+  updateGoal,
+  deleteGoal,
+} from "@/lib/db/management-repository";
+import { parseToCents } from "@/lib/utils/money";
+import type { User, Campaign, Goal, Role } from "@/types/domain";
 import { UserForm, ROLE_LABELS } from "./user-form";
 import { CampaignForm } from "./campaign-form";
 import { GoalForm } from "./goal-form";
+import { Modal } from "@/components/ui/modal";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { ToggleGroup } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
 import { formatBRL } from "@/lib/utils/money";
@@ -91,7 +106,39 @@ export function ManagementScreen() {
   );
 }
 
+function ActionButtons({
+  onEdit,
+  onDelete,
+}: {
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <span className="flex items-center gap-1">
+      <button
+        onClick={onEdit}
+        aria-label="Editar"
+        title="Editar"
+        className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-primary"
+      >
+        <Pencil className="h-4 w-4" strokeWidth={1.75} />
+      </button>
+      <button
+        onClick={onDelete}
+        aria-label="Excluir"
+        title="Excluir"
+        className="flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-error-container hover:text-on-error-container"
+      >
+        <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+      </button>
+    </span>
+  );
+}
+
 function UsersList({ users }: { users: ReturnType<typeof useManagement>["users"] }) {
+  const [editing, setEditing] = useState<User | null>(null);
+  const [confirm, setConfirm] = useState<User | null>(null);
+
   return (
     <>
       <h3 className="mb-md text-headline-md text-on-surface">Usuários</h3>
@@ -102,17 +149,132 @@ function UsersList({ users }: { users: ReturnType<typeof useManagement>["users"]
           {users.map((u) => (
             <li
               key={u.id}
-              className="flex items-center justify-between rounded-md bg-surface-container-low px-md py-sm"
+              className="flex items-center justify-between gap-md rounded-md bg-surface-container-low px-md py-sm"
             >
-              <span className="text-body-md text-on-surface">{u.fullName}</span>
-              <Badge tone={u.role === "admin" ? "primary" : "neutral"}>
-                {ROLE_LABELS[u.role]}
-              </Badge>
+              <span className="flex items-center gap-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-fixed/60 text-label-sm font-semibold text-primary">
+                  {u.photoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={u.photoUrl} alt={u.fullName} className="h-full w-full object-cover" />
+                  ) : (
+                    u.fullName.slice(0, 2).toUpperCase()
+                  )}
+                </span>
+                <span className="text-body-md text-on-surface">{u.fullName}</span>
+              </span>
+              <span className="flex items-center gap-2">
+                <Badge tone={u.role === "admin" ? "primary" : "neutral"}>
+                  {ROLE_LABELS[u.role]}
+                </Badge>
+                <ActionButtons
+                  onEdit={() => setEditing(u)}
+                  onDelete={() => setConfirm(u)}
+                />
+              </span>
             </li>
           ))}
         </ul>
       )}
+
+      <Modal open={editing !== null} onClose={() => setEditing(null)} title="Editar usuário">
+        {editing && (
+          <UserEditForm
+            user={editing}
+            onDone={() => setEditing(null)}
+          />
+        )}
+      </Modal>
+
+      <ConfirmDelete
+        open={confirm !== null}
+        label={confirm?.fullName ?? ""}
+        onCancel={() => setConfirm(null)}
+        onConfirm={async () => {
+          if (confirm) await deleteUser(confirm.id);
+          setConfirm(null);
+        }}
+      />
     </>
+  );
+}
+
+function UserEditForm({ user, onDone }: { user: User; onDone: () => void }) {
+  const [fullName, setFullName] = useState(user.fullName);
+  const [birthDate, setBirthDate] = useState(user.birthDate ?? "");
+  const [role, setRole] = useState<Role>(user.role);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(user.photoUrl);
+
+  const handlePhoto = (file: File | undefined) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setPhotoUrl(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const save = async () => {
+    await updateUser(user.id, {
+      fullName: fullName.trim(),
+      birthDate: birthDate || null,
+      role,
+      photoUrl,
+    });
+    onDone();
+  };
+
+  return (
+    <div className="space-y-md">
+      <div className="space-y-1.5">
+        <Label>Foto do usuário</Label>
+        <div className="flex items-center gap-md">
+          <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-surface-container text-label-md font-semibold text-primary">
+            {photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={photoUrl} alt="Prévia" className="h-full w-full object-cover" />
+            ) : (
+              user.fullName.slice(0, 2).toUpperCase()
+            )}
+          </div>
+          <label className="cursor-pointer rounded-full border border-primary-container px-5 py-2.5 text-label-md text-primary hover:bg-primary-fixed/40">
+            Trocar foto
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => handlePhoto(e.target.files?.[0])}
+            />
+          </label>
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <Label>Nome completo</Label>
+        <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
+      </div>
+
+      <div className="grid grid-cols-2 gap-md">
+        <div className="space-y-1.5">
+          <Label>Data de nascimento</Label>
+          <Input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
+        </div>
+        <div className="space-y-1.5">
+          <Label>Nível de acesso</Label>
+          <Select value={role} onChange={(e) => setRole(e.target.value as Role)}>
+            <option value="vendedora">Vendedora</option>
+            <option value="lojista">Lojista</option>
+            <option value="admin">Admin</option>
+          </Select>
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-sm pt-sm">
+        <Button variant="ghost" onClick={onDone}>
+          Cancelar
+        </Button>
+        <Button onClick={save} disabled={!fullName.trim()}>
+          Salvar alterações
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -121,6 +283,15 @@ function CampaignsList({
 }: {
   campaigns: ReturnType<typeof useManagement>["campaigns"];
 }) {
+  const [editing, setEditing] = useState<Campaign | null>(null);
+  const [name, setName] = useState("");
+  const [confirm, setConfirm] = useState<Campaign | null>(null);
+
+  const openEdit = (c: Campaign) => {
+    setEditing(c);
+    setName(c.name);
+  };
+
   return (
     <>
       <h3 className="mb-md text-headline-md text-on-surface">Campanhas</h3>
@@ -131,16 +302,72 @@ function CampaignsList({
           {campaigns.map((c) => (
             <li
               key={c.id}
-              className="flex items-center justify-between rounded-md bg-surface-container-low px-md py-sm"
+              className="flex items-center justify-between gap-md rounded-md bg-surface-container-low px-md py-sm"
             >
               <span className="text-body-md text-on-surface">{c.name}</span>
-              <Badge tone={c.active ? "success" : "neutral"}>
-                {c.active ? "Ativa" : "Inativa"}
-              </Badge>
+              <span className="flex items-center gap-2">
+                <Badge tone={c.active ? "success" : "neutral"}>
+                  {c.active ? "Ativa" : "Inativa"}
+                </Badge>
+                <ActionButtons
+                  onEdit={() => openEdit(c)}
+                  onDelete={() => setConfirm(c)}
+                />
+              </span>
             </li>
           ))}
         </ul>
       )}
+
+      <Modal open={editing !== null} onClose={() => setEditing(null)} title="Editar campanha">
+        {editing && (
+          <div className="space-y-md">
+            <div className="space-y-1.5">
+              <Label>Nome da campanha</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} />
+            </div>
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 text-body-md text-on-surface">
+                <input
+                  type="checkbox"
+                  checked={editing.active}
+                  onChange={(e) =>
+                    setEditing({ ...editing, active: e.target.checked })
+                  }
+                />
+                Campanha ativa
+              </label>
+            </div>
+            <div className="flex justify-end gap-sm pt-sm">
+              <Button variant="ghost" onClick={() => setEditing(null)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={async () => {
+                  await updateCampaign(editing.id, {
+                    name: name.trim(),
+                    active: editing.active,
+                  });
+                  setEditing(null);
+                }}
+                disabled={!name.trim()}
+              >
+                Salvar
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <ConfirmDelete
+        open={confirm !== null}
+        label={confirm?.name ?? ""}
+        onCancel={() => setConfirm(null)}
+        onConfirm={async () => {
+          if (confirm) await deleteCampaign(confirm.id);
+          setConfirm(null);
+        }}
+      />
     </>
   );
 }
@@ -154,10 +381,21 @@ function GoalsList({
   sellers: ReturnType<typeof useManagement>["sellers"];
   campaigns: ReturnType<typeof useManagement>["campaigns"];
 }) {
+  const [editing, setEditing] = useState<Goal | null>(null);
+  const [amount, setAmount] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [confirm, setConfirm] = useState<Goal | null>(null);
+
   const sellerName = (id: string) =>
     sellers.find((s) => s.id === id)?.fullName ?? "—";
   const campaignName = (id: string | null) =>
     campaigns.find((c) => c.id === id)?.name ?? "—";
+
+  const openEdit = (g: Goal) => {
+    setEditing(g);
+    setAmount(g.targetCents != null ? (g.targetCents / 100).toString() : "");
+    setQuantity(g.targetQuantity != null ? g.targetQuantity.toString() : "");
+  };
 
   return (
     <>
@@ -167,17 +405,20 @@ function GoalsList({
       ) : (
         <ul className="space-y-sm">
           {goals.map((g) => (
-            <li
-              key={g.id}
-              className="rounded-md bg-surface-container-low px-md py-sm"
-            >
+            <li key={g.id} className="rounded-md bg-surface-container-low px-md py-sm">
               <div className="flex items-center justify-between">
                 <span className="text-body-md font-medium text-on-surface">
                   {sellerName(g.sellerId)}
                 </span>
-                <Badge tone={g.type === "general" ? "primary" : "neutral"}>
-                  {g.type === "general" ? "Geral" : "Campanha"}
-                </Badge>
+                <span className="flex items-center gap-2">
+                  <Badge tone={g.type === "general" ? "primary" : "neutral"}>
+                    {g.type === "general" ? "Geral" : "Campanha"}
+                  </Badge>
+                  <ActionButtons
+                    onEdit={() => openEdit(g)}
+                    onDelete={() => setConfirm(g)}
+                  />
+                </span>
               </div>
               <p className="mt-1 text-label-md text-on-surface-variant">
                 {g.type === "general"
@@ -188,7 +429,100 @@ function GoalsList({
           ))}
         </ul>
       )}
+
+      <Modal open={editing !== null} onClose={() => setEditing(null)} title="Editar meta">
+        {editing && (
+          <div className="space-y-md">
+            <p className="text-body-md text-on-surface-variant">
+              {sellerName(editing.sellerId)} ·{" "}
+              {editing.type === "general" ? "Meta geral" : campaignName(editing.campaignId)}
+            </p>
+            {editing.type === "general" ? (
+              <div className="space-y-1.5">
+                <Label>Meta em valor (R$)</Label>
+                <Input
+                  inputMode="decimal"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="5.000,00"
+                />
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Label>Meta em quantidade de itens</Label>
+                <Input
+                  type="number"
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                />
+              </div>
+            )}
+            <div className="flex justify-end gap-sm pt-sm">
+              <Button variant="ghost" onClick={() => setEditing(null)}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={async () => {
+                  await updateGoal(editing.id, {
+                    targetCents:
+                      editing.type === "general" ? parseToCents(amount) : null,
+                    targetQuantity:
+                      editing.type === "campaign" ? Number(quantity) || 0 : null,
+                  });
+                  setEditing(null);
+                }}
+              >
+                Salvar
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <ConfirmDelete
+        open={confirm !== null}
+        label={confirm ? `meta de ${sellerName(confirm.sellerId)}` : ""}
+        onCancel={() => setConfirm(null)}
+        onConfirm={async () => {
+          if (confirm) await deleteGoal(confirm.id);
+          setConfirm(null);
+        }}
+      />
     </>
+  );
+}
+
+function ConfirmDelete({
+  open,
+  label,
+  onCancel,
+  onConfirm,
+}: {
+  open: boolean;
+  label: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Modal open={open} onClose={onCancel} title="Confirmar exclusão">
+      <div className="space-y-md">
+        <p className="text-body-md text-on-surface">
+          Tem certeza que deseja excluir <strong>{label}</strong>? Essa ação não
+          pode ser desfeita.
+        </p>
+        <div className="flex justify-end gap-sm">
+          <Button variant="ghost" onClick={onCancel}>
+            Cancelar
+          </Button>
+          <button
+            onClick={onConfirm}
+            className="rounded-full bg-error px-6 py-3 text-label-md font-semibold text-on-error transition-opacity hover:opacity-90"
+          >
+            Excluir
+          </button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 

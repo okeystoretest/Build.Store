@@ -1,15 +1,19 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLiveOrders } from "@/features/orders/hooks/use-live-orders";
 import type { Order, OrderStatus } from "@/types/domain";
 
 export type StatusFilter = OrderStatus | "all";
 
+/** Quantidade de pedidos exibidos por página. */
+export const ORDERS_PER_PAGE = 5;
+
 /**
  * Order history view state: text search, status filter and date range, applied
  * over the live Dexie order list. Period total is derived from the filtered set
- * so the header figure always matches what's shown.
+ * so the header figure always matches what's shown. A lista é paginada em
+ * blocos de ORDERS_PER_PAGE (5) pedidos.
  */
 export function useOrders() {
   const orders = useLiveOrders();
@@ -17,6 +21,7 @@ export function useOrders() {
   const [status, setStatus] = useState<StatusFilter>("all");
   const [from, setFrom] = useState<string>("");
   const [to, setTo] = useState<string>("");
+  const [page, setPage] = useState(1);
 
   const filtered = useMemo<Order[]>(() => {
     if (!orders) return [];
@@ -42,8 +47,27 @@ export function useOrders() {
     [filtered],
   );
 
+  const pageCount = Math.max(1, Math.ceil(filtered.length / ORDERS_PER_PAGE));
+
+  // Reinicia para a primeira página sempre que os filtros mudam.
+  useEffect(() => {
+    setPage(1);
+  }, [query, status, from, to]);
+
+  // Mantém a página dentro dos limites quando a lista encolhe.
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
+
+  const paged = useMemo(
+    () =>
+      filtered.slice((page - 1) * ORDERS_PER_PAGE, page * ORDERS_PER_PAGE),
+    [filtered, page],
+  );
+
   return {
-    orders: filtered,
+    orders: paged,
+    filteredCount: filtered.length,
     total: orders?.length ?? 0,
     periodTotalCents,
     loading: orders === undefined,
@@ -55,5 +79,8 @@ export function useOrders() {
     setFrom,
     to,
     setTo,
+    page,
+    setPage,
+    pageCount,
   };
 }

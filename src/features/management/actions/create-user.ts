@@ -18,6 +18,7 @@ export async function createUserAction(input: {
   fullName: string;
   birthDate: string | null;
   role: Role;
+  photoUrl?: string | null;
 }): Promise<{ ok: true; authId: string } | { ok: false; error: string }> {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -71,6 +72,7 @@ export async function createUserAction(input: {
     full_name: input.fullName,
     birth_date: input.birthDate,
     role: input.role,
+    photo_url: input.photoUrl ?? null,
   });
 
   if (profileErr) {

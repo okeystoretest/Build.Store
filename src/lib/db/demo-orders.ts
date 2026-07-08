@@ -38,7 +38,7 @@ function line(
 export const DEMO_ORDERS: Order[] = [
   {
     id: "demo-8842",
-    reference: "#SRN-8842",
+    reference: "#PDD-006",
     customerId: null,
     customerName: "Alice Martins",
     items: [line("p-ser-0045", "SER-0045", "Serum Facial Iluminador", 18900, 2, "demo-8842")],
@@ -58,7 +58,7 @@ export const DEMO_ORDERS: Order[] = [
   },
   {
     id: "demo-8841",
-    reference: "#SRN-8841",
+    reference: "#PDD-005",
     customerId: null,
     customerName: "João Roberto",
     items: [line("p-vel-0012", "VEL-0012", "Vela Artesanal Lavanda", 7500, 1, "demo-8841")],
@@ -78,7 +78,7 @@ export const DEMO_ORDERS: Order[] = [
   },
   {
     id: "demo-8840",
-    reference: "#SRN-8840",
+    reference: "#PDD-004",
     customerId: null,
     customerName: "Clara Pires",
     items: [line("p-acc-4402", "ACC-4402", "Bracelete Minimalist Gold", 42000, 5, "demo-8840")],
@@ -98,7 +98,7 @@ export const DEMO_ORDERS: Order[] = [
   },
   {
     id: "demo-8839",
-    reference: "#SRN-8839",
+    reference: "#PDD-003",
     customerId: null,
     customerName: "Marcos Freitas",
     items: [line("p-soap-122", "SOAP-122", "Sabonetes Orgânicos Kit", 5800, 1, "demo-8839")],
@@ -118,7 +118,7 @@ export const DEMO_ORDERS: Order[] = [
   },
   {
     id: "demo-8838",
-    reference: "#SRN-8838",
+    reference: "#PDD-002",
     customerId: null,
     customerName: "Beatriz Nunes",
     items: [
@@ -141,7 +141,7 @@ export const DEMO_ORDERS: Order[] = [
   },
   {
     id: "demo-8837",
-    reference: "#SRN-8837",
+    reference: "#PDD-001",
     customerId: null,
     customerName: "Renata Alves",
     items: [line("p-ser-0045", "SER-0045", "Serum Facial Iluminador", 18900, 3, "demo-8837")],

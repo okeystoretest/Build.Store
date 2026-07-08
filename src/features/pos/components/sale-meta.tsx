@@ -3,9 +3,12 @@
 import type { User, Campaign } from "@/types/domain";
 import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 
 interface SaleMetaProps {
+  customerName: string;
+  onCustomerNameChange: (v: string) => void;
   sellers: User[];
   campaigns: Campaign[];
   sellerId: string | null;
@@ -17,11 +20,13 @@ interface SaleMetaProps {
 }
 
 /**
- * Checkout meta: responsible seller + optional campaign attribution.
- * When "faz parte de campanha" is checked, a campaign dropdown appears and the
- * POS screen blocks finalize until one is chosen.
+ * Checkout meta: nome do cliente (obrigatório) + vendedora responsável +
+ * atribuição opcional de campanha. A venda só finaliza com o nome do cliente
+ * preenchido; quando "faz parte de campanha" está marcado, exige uma campanha.
  */
 export function SaleMeta({
+  customerName,
+  onCustomerNameChange,
   sellers,
   campaigns,
   sellerId,
@@ -31,8 +36,27 @@ export function SaleMeta({
   campaignId,
   onCampaignChange,
 }: SaleMetaProps) {
+  const customerMissing = customerName.trim().length === 0;
   return (
     <div className="space-y-md rounded-lg bg-surface-container-low px-md py-md">
+      <div className="space-y-1.5">
+        <Label>
+          Cliente <span className="text-error">*</span>
+        </Label>
+        <Input
+          value={customerName}
+          onChange={(e) => onCustomerNameChange(e.target.value)}
+          placeholder="Nome do cliente"
+          aria-label="Nome do cliente"
+          aria-required="true"
+        />
+        {customerMissing && (
+          <p className="px-2 text-label-sm text-error">
+            Informe o nome do cliente para finalizar a venda.
+          </p>
+        )}
+      </div>
+
       <div className="space-y-1.5">
         <Label>Vendedora responsável</Label>
         <Select

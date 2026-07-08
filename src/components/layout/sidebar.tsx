@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutGrid,
+  ShoppingCart,
   Package,
   BarChart3,
   History,
@@ -13,11 +13,14 @@ import {
   Users,
   Sun,
   Moon,
+  LogOut,
 } from "lucide-react";
+import { useLiveQuery } from "dexie-react-hooks";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
+import { db } from "@/lib/db/dexie";
 
 /** WhatsApp support number for wa.me (digits only): +55 85 9217-8804. */
 const SUPPORT_WHATSAPP = "558592178804";
@@ -30,13 +33,13 @@ const SUPPORT_WHATSAPP = "558592178804";
 interface NavItem {
   href: string;
   label: string;
-  icon: typeof LayoutGrid;
+  icon: typeof ShoppingCart;
   /** Permission key gating visibility; undefined = always visible. */
   gate?: "reports" | "management";
 }
 
 const NAV: NavItem[] = [
-  { href: "/pos", label: "PDV", icon: LayoutGrid },
+  { href: "/pos", label: "PDV", icon: ShoppingCart },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/inventory", label: "Estoque", icon: Package },
   { href: "/reports", label: "Relatórios", icon: BarChart3, gate: "reports" },
@@ -46,8 +49,17 @@ const NAV: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { canSeeReports, canSeeManagement } = useAuth();
+  const { canSeeReports, canSeeManagement, userId, signOut } = useAuth();
   const { theme, toggle } = useTheme();
+
+  // Usuário atual: por id (Supabase) ou o admin (modo local) — para exibir a
+  // foto de perfil acima do título.
+  const users = useLiveQuery(() => db.users.toArray(), []);
+  const currentUser =
+    (userId && users?.find((u) => u.id === userId)) ||
+    users?.find((u) => u.role === "admin") ||
+    users?.[0] ||
+    null;
 
   const visible = NAV.filter((item) => {
     if (item.gate === "reports") return canSeeReports;
@@ -55,12 +67,40 @@ export function Sidebar() {
     return true;
   });
 
+  const initials = (currentUser?.fullName ?? "BS")
+    .split(" ")
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
   return (
     <aside className="flex w-64 shrink-0 flex-col border-r border-outline-variant/50 bg-surface px-md py-lg">
-      <div className="px-sm">
-        <h1 className="text-headline-lg leading-none text-primary">Build.Store</h1>
+      <div className="flex flex-col items-center px-sm text-center">
+        <div className="h-16 w-16 overflow-hidden rounded-full bg-primary-fixed/60 ring-2 ring-primary-container">
+          {currentUser?.photoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={currentUser.photoUrl}
+              alt={currentUser.fullName}
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <span className="flex h-full w-full items-center justify-center text-headline-md font-semibold text-primary">
+              {initials}
+            </span>
+          )}
+        </div>
+        {currentUser && (
+          <p className="mt-2 text-label-md font-medium text-on-surface">
+            {currentUser.fullName}
+          </p>
+        )}
+        <h1 className="mt-1 text-headline-lg leading-none text-primary">
+          Build.Store
+        </h1>
         <p className="mt-1 text-label-sm uppercase tracking-wide text-on-surface-variant">
-          OKEY STORE
+          OKEY STORE - PDV
         </p>
       </div>
 
@@ -117,6 +157,13 @@ export function Sidebar() {
             <HelpCircle className="h-5 w-5" strokeWidth={1.75} />
             Suporte
           </a>
+          <button
+            onClick={signOut}
+            className="flex items-center gap-3 rounded-full px-4 py-2.5 text-label-md text-error transition-colors hover:bg-error-container hover:text-on-error-container"
+          >
+            <LogOut className="h-5 w-5" strokeWidth={1.75} />
+            Sair
+          </button>
         </div>
       </div>
     </aside>

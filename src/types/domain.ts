@@ -52,6 +52,10 @@ export interface Product {
   stock: number;
   /** Reorder threshold; stock at/below this raises a low-stock alert. */
   lowStockThreshold: number;
+  /** Grade de peças — cor (opcional). */
+  color: string | null;
+  /** Grade de peças — tamanho (opcional). */
+  size: string | null;
   imageUrl: string | null;
   active: boolean;
   createdAt: ISODateString;
@@ -142,6 +146,8 @@ export interface User {
   fullName: string;
   birthDate: string | null; // YYYY-MM-DD
   role: Role;
+  /** Foto de perfil (data URL local; Supabase Storage em produção). */
+  photoUrl: string | null;
   active: boolean;
   createdAt: ISODateString;
 }

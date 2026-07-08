@@ -23,6 +23,8 @@ export const productFormSchema = z.object({
     .number({ invalid_type_error: "Informe o limite" })
     .int("Use um número inteiro")
     .min(0, "Não pode ser negativo"),
+  color: z.string().optional(),
+  size: z.string().optional(),
   imageUrl: z.string().optional(),
 });
 

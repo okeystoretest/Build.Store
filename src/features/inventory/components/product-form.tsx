@@ -45,6 +45,8 @@ export function ProductForm({ product, onSubmit, onCancel }: ProductFormProps) {
           priceReais: product.priceCents / 100,
           stock: product.stock,
           lowStockThreshold: product.lowStockThreshold,
+          color: product.color ?? "",
+          size: product.size ?? "",
         }
       : {
           stock: 0,
@@ -72,6 +74,8 @@ export function ProductForm({ product, onSubmit, onCancel }: ProductFormProps) {
       unit: "unidade",
       stock: values.stock,
       lowStockThreshold: values.lowStockThreshold,
+      color: values.color?.trim() ? values.color.trim() : null,
+      size: values.size?.trim() ? values.size.trim() : null,
       imageUrl,
     });
   };
@@ -130,6 +134,16 @@ export function ProductForm({ product, onSubmit, onCancel }: ProductFormProps) {
         </Field>
         <Field label="Alerta em" error={errors.lowStockThreshold?.message}>
           <Input type="number" {...register("lowStockThreshold", { valueAsNumber: true })} />
+        </Field>
+      </div>
+
+      {/* Grade de peças */}
+      <div className="grid grid-cols-2 gap-md">
+        <Field label="Cor" error={errors.color?.message}>
+          <Input {...register("color")} placeholder="Ex.: Rosa" />
+        </Field>
+        <Field label="Tamanho" error={errors.size?.message}>
+          <Input {...register("size")} placeholder="Ex.: M" />
         </Field>
       </div>
 

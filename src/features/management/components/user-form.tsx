@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Upload, ImageIcon } from "lucide-react";
 import type { Role } from "@/types/domain";
 import { createUser } from "@/lib/db/management-repository";
 import { createUserAction } from "@/features/management/actions/create-user";
@@ -42,6 +43,7 @@ const ROLE_LABELS: Record<Role, string> = {
  */
 export function UserForm({ onCreated }: { onCreated: () => void }) {
   const [serverError, setServerError] = useState<string | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
@@ -51,6 +53,13 @@ export function UserForm({ onCreated }: { onCreated: () => void }) {
     resolver: zodResolver(userSchema),
     defaultValues: { role: "vendedora" },
   });
+
+  const handlePhoto = (file: File | undefined) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setPhotoUrl(reader.result as string);
+    reader.readAsDataURL(file);
+  };
 
   const submit = async (values: UserValues) => {
     setServerError(null);
@@ -64,6 +73,7 @@ export function UserForm({ onCreated }: { onCreated: () => void }) {
           fullName: values.fullName,
           birthDate,
           role: values.role,
+          photoUrl,
         });
         if (!res.ok) {
           setServerError(res.error);
@@ -74,6 +84,7 @@ export function UserForm({ onCreated }: { onCreated: () => void }) {
           fullName: values.fullName,
           birthDate,
           role: values.role,
+          photoUrl,
           authId: res.authId,
         });
       } else {
@@ -82,10 +93,12 @@ export function UserForm({ onCreated }: { onCreated: () => void }) {
           fullName: values.fullName,
           birthDate,
           role: values.role,
+          photoUrl,
         });
       }
 
       reset({ role: "vendedora", username: "", fullName: "", birthDate: "", password: "" });
+      setPhotoUrl(null);
       onCreated();
     } catch (e) {
       setServerError(e instanceof Error ? e.message : "Falha ao cadastrar usuário.");
@@ -94,6 +107,30 @@ export function UserForm({ onCreated }: { onCreated: () => void }) {
 
   return (
     <form onSubmit={handleSubmit(submit)} className="space-y-md">
+      <div className="space-y-1.5">
+        <Label>Foto do usuário</Label>
+        <div className="flex items-center gap-md">
+          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-surface-container">
+            {photoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={photoUrl} alt="Prévia" className="h-full w-full object-cover" />
+            ) : (
+              <ImageIcon className="h-7 w-7 text-on-surface-variant/40" strokeWidth={1.5} />
+            )}
+          </div>
+          <label className="flex cursor-pointer items-center gap-2 rounded-full border border-primary-container px-5 py-3 text-label-md text-primary transition-colors hover:bg-primary-fixed/40">
+            <Upload className="h-4 w-4" strokeWidth={1.75} />
+            Enviar foto
+            <input
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => handlePhoto(e.target.files?.[0])}
+            />
+          </label>
+        </div>
+      </div>
+
       <div className="space-y-1.5">
         <Label>Nome de usuário</Label>
         <Input {...register("username")} placeholder="Ex.: ana.silva" autoComplete="off" />

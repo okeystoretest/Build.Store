@@ -1,32 +1,50 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Plus, Package, AlertTriangle, Cloud, LayoutGrid, List } from "lucide-react";
+import { Search, Plus, Package, AlertTriangle, Cloud, LayoutGrid, List, Trash2 } from "lucide-react";
 import type { Product } from "@/types/domain";
 import { useInventory } from "@/features/inventory/hooks/use-inventory";
-import { upsertProduct } from "@/lib/db/product-repository";
+import { upsertProduct, deleteProduct } from "@/lib/db/product-repository";
 import { notifyProductAdded } from "@/lib/db/notification-repository";
 import { useAuth } from "@/hooks/use-auth";
 import { ProductCard, ProductRow } from "./product-card";
 import { ProductForm } from "./product-form";
+import { ProductDetail } from "./product-detail";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup } from "@/components/ui/toggle-group";
 
 /**
  * Estoque screen. Search + Grid/List toggle + product list. Category removed.
- * Only Admin can add products; Lojista/Admin can edit. Adding a product as
- * Admin emits a notification (Ref/Nome/Quantidade) to other users.
+ * Somente Admin pode adicionar, editar ou excluir produtos. Lojista e Vendedora
+ * apenas visualizam o produto (imagem, ref, nome, preço e grade). Adicionar um
+ * produto como Admin emite uma notificação (Ref/Nome/Quantidade).
  */
 export function InventoryScreen() {
   const inv = useInventory();
-  const { canAddProducts, canEditProducts } = useAuth();
+  // Apenas Admin gerencia o estoque (adicionar/editar/excluir).
+  const { canAddProducts } = useAuth();
+  const canManage = canAddProducts;
   const [editing, setEditing] = useState<Product | null>(null);
+  const [viewing, setViewing] = useState<Product | null>(null);
   const [creating, setCreating] = useState(false);
 
   const closeModal = () => {
     setEditing(null);
+    setViewing(null);
     setCreating(false);
+  };
+
+  // Clique no produto: Admin edita; demais perfis abrem a visualização.
+  const handleProductClick = (product: Product) => {
+    if (canManage) setEditing(product);
+    else setViewing(product);
+  };
+
+  const handleDelete = async (product: Product) => {
+    if (!canManage) return;
+    await deleteProduct(product.id);
+    closeModal();
   };
 
   const handleSubmit = async (values: Partial<Product>) => {
@@ -44,6 +62,8 @@ export function InventoryScreen() {
       unit: "unidade",
       stock: values.stock ?? 0,
       lowStockThreshold: values.lowStockThreshold ?? 5,
+      color: values.color ?? editing?.color ?? null,
+      size: values.size ?? editing?.size ?? null,
       imageUrl: values.imageUrl ?? editing?.imageUrl ?? null,
       active: true,
       createdAt: editing?.createdAt ?? now,
@@ -76,7 +96,7 @@ export function InventoryScreen() {
           Cloud Sync
         </div>
 
-        {canAddProducts && (
+        {canManage && (
           <Button size="lg" onClick={() => setCreating(true)}>
             <Plus className="h-5 w-5" strokeWidth={2} />
             Adicionar Novo Produto
@@ -118,24 +138,45 @@ export function InventoryScreen() {
         ) : inv.view === "grid" ? (
           <div className="mt-md grid grid-cols-2 gap-md sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
             {inv.products.map((p) => (
-              <ProductCard key={p.id} product={p} onEdit={setEditing} canEdit={canEditProducts} />
+              <ProductCard key={p.id} product={p} onOpen={handleProductClick} canManage={canManage} />
             ))}
           </div>
         ) : (
           <div className="mt-md space-y-sm">
             {inv.products.map((p) => (
-              <ProductRow key={p.id} product={p} onEdit={setEditing} canEdit={canEditProducts} />
+              <ProductRow key={p.id} product={p} onOpen={handleProductClick} canManage={canManage} />
             ))}
           </div>
         )}
       </div>
 
+      {/* Admin: criar/editar (com opção de excluir na edição). */}
       <Modal
         open={creating || editing !== null}
         onClose={closeModal}
         title={editing ? "Editar produto" : "Adicionar novo produto"}
       >
         <ProductForm product={editing} onSubmit={handleSubmit} onCancel={closeModal} />
+        {editing && canManage && (
+          <div className="mt-md border-t border-outline-variant/40 pt-md">
+            <button
+              onClick={() => handleDelete(editing)}
+              className="flex items-center gap-2 rounded-full border border-error/40 px-5 py-2.5 text-label-md text-error transition-colors hover:bg-error-container hover:text-on-error-container"
+            >
+              <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+              Excluir produto
+            </button>
+          </div>
+        )}
+      </Modal>
+
+      {/* Lojista/Vendedora: visualização somente leitura. */}
+      <Modal
+        open={viewing !== null}
+        onClose={closeModal}
+        title="Detalhes do produto"
+      >
+        {viewing && <ProductDetail product={viewing} />}
       </Modal>
     </div>
   );

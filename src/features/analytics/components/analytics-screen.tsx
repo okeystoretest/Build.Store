@@ -1,8 +1,10 @@
 "use client";
 
-import { DollarSign, Receipt, ShoppingBag, RotateCcw } from "lucide-react";
+import { DollarSign, Receipt, ShoppingBag, RotateCcw, AlertTriangle, TrendingDown } from "lucide-react";
 import { useAnalytics } from "@/features/analytics/hooks/use-analytics";
+import { useStockAlerts } from "@/features/analytics/hooks/use-stock-alerts";
 import { StatCard } from "./stat-card";
+import { StockAlertCard } from "./stock-alert-card";
 import { RevenueChart } from "./revenue-chart";
 import { TopProducts } from "./top-products";
 import { PaymentBreakdown } from "./payment-breakdown";
@@ -11,9 +13,11 @@ import { formatBRL } from "@/lib/utils/money";
 /**
  * Analytics dashboard. Every figure derives from the live order list, so a sale
  * or refund updates KPIs, chart, ranking and cash-closing report in real time.
+ * Inclui dois cards de alerta de estoque (mínimo atingido / próximo do mínimo).
  */
 export function AnalyticsScreen() {
   const { summary, top, payments, daily } = useAnalytics();
+  const stock = useStockAlerts();
 
   return (
     <div className="h-full overflow-y-auto px-margin py-md">
@@ -39,6 +43,22 @@ export function AnalyticsScreen() {
           label="Taxa de Estorno"
           value={`${(summary.refundRate * 100).toFixed(1)}%`}
           icon={RotateCcw}
+        />
+      </div>
+
+      {/* Alertas de estoque */}
+      <div className="mt-sm grid grid-cols-1 gap-sm sm:grid-cols-2">
+        <StockAlertCard
+          label="Estoque mínimo atingido"
+          items={stock.atMinimum}
+          icon={AlertTriangle}
+          tone="critical"
+        />
+        <StockAlertCard
+          label="Próximos do estoque mínimo"
+          items={stock.nearMinimum}
+          icon={TrendingDown}
+          tone="warning"
         />
       </div>
 

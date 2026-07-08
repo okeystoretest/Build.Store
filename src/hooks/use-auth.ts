@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useLiveQuery } from "dexie-react-hooks";
 import { createClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured } from "@/lib/sync/transport";
+import { db } from "@/lib/db/dexie";
+import {
+  getLocalUserId,
+  clearLocalUserId,
+} from "@/lib/auth/local-session";
 import type { Role } from "@/types/domain";
 
 export interface AuthState {
@@ -10,6 +16,7 @@ export interface AuthState {
   userId: string | null;
   email: string | null;
   fullName: string | null;
+  photoUrl: string | null;
   role: Role;
 }
 
@@ -29,11 +36,14 @@ export function useAuth() {
     userId: null,
     email: null,
     fullName: null,
+    photoUrl: null,
     role: "admin",
   });
 
   useEffect(() => {
     if (!isSupabaseConfigured()) {
+      // Modo local: o usuário é resolvido a partir da sessão local + Dexie,
+      // no efeito abaixo. Aqui apenas encerramos o loading.
       setState((s) => ({ ...s, loading: false }));
       return;
     }
@@ -53,7 +63,7 @@ export function useAuth() {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("full_name, role")
+        .select("full_name, role, photo_url")
         .eq("id", user.id)
         .single();
 
@@ -63,6 +73,7 @@ export function useAuth() {
           userId: user.id,
           email: user.email ?? null,
           fullName: profile?.full_name ?? null,
+          photoUrl: (profile?.photo_url as string | null) ?? null,
           role: (profile?.role as Role) ?? "vendedora",
         });
       }
@@ -72,6 +83,29 @@ export function useAuth() {
       active = false;
     };
   }, []);
+
+  // Modo local: acompanha o usuário selecionado no login (sessão local) contra
+  // a lista viva de usuários no Dexie. Fora do modo local, isto é ignorado.
+  const localUsers = useLiveQuery(() => db.users.toArray(), []);
+
+  useEffect(() => {
+    if (isSupabaseConfigured() || localUsers === undefined) return;
+    const localId = getLocalUserId();
+    const current =
+      (localId && localUsers.find((u) => u.id === localId)) ||
+      localUsers.find((u) => u.role === "admin") ||
+      localUsers[0] ||
+      null;
+
+    setState({
+      loading: false,
+      userId: current?.id ?? null,
+      email: null,
+      fullName: current?.fullName ?? null,
+      photoUrl: current?.photoUrl ?? null,
+      role: current?.role ?? "admin",
+    });
+  }, [localUsers]);
 
   const { role } = state;
 
@@ -83,8 +117,12 @@ export function useAuth() {
   const canRefund = role === "lojista" || role === "admin";
 
   const signOut = useCallback(async () => {
-    if (!isSupabaseConfigured()) return;
-    await createClient().auth.signOut();
+    if (isSupabaseConfigured()) {
+      await createClient().auth.signOut();
+    } else {
+      // Modo local: encerra a sessão local (seletor de perfil).
+      clearLocalUserId();
+    }
     window.location.href = "/login";
   }, []);
 

@@ -10,6 +10,12 @@ import type {
   AppNotification,
 } from "@/types/domain";
 
+/** Contador sequencial nomeado (ex.: numeração de pedidos #PDD-XXX). */
+export interface Counter {
+  id: string;
+  value: number;
+}
+
 /**
  * Local IndexedDB mirror (Dexie).
  * Products/customers are cached for offline lookup; orders and stock movements
@@ -28,6 +34,7 @@ export class BuildStoreDB extends Dexie {
   campaigns!: Table<Campaign, string>;
   goals!: Table<Goal, string>;
   notifications!: Table<AppNotification, string>;
+  counters!: Table<Counter, string>;
 
   constructor() {
     super("build-store");
@@ -52,6 +59,10 @@ export class BuildStoreDB extends Dexie {
     // v3 — Fase B: username as a unique login handle on users.
     this.version(3).stores({
       users: "id, &username, role, fullName, active",
+    });
+    // v4 — contador sequencial para numeração de pedidos (#PDD-XXX).
+    this.version(4).stores({
+      counters: "id",
     });
   }
 }

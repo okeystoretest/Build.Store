@@ -89,6 +89,8 @@ const config: Config = {
       },
       fontSize: {
         "display-lg": ["48px", { lineHeight: "1.1", letterSpacing: "-0.02em", fontWeight: "600" }],
+        "display-md": ["40px", { lineHeight: "1.12", letterSpacing: "-0.02em", fontWeight: "600" }],
+        "display-sm": ["32px", { lineHeight: "1.15", letterSpacing: "-0.01em", fontWeight: "600" }],
         "headline-lg": ["32px", { lineHeight: "1.2", fontWeight: "600" }],
         "headline-lg-mobile": ["24px", { lineHeight: "1.2", fontWeight: "600" }],
         "headline-md": ["24px", { lineHeight: "1.3", fontWeight: "500" }],
@@ -99,8 +101,8 @@ const config: Config = {
       },
       boxShadow: {
         // Ambient elevation from the design system
-        "level-1": "0px 4px 20px rgba(232, 168, 168, 0.08)",
-        "level-2": "0px 12px 32px rgba(74, 63, 63, 0.05)",
+        "level-1": "0px 4px 20px rgba(131, 80, 81, 0.10)",
+        "level-2": "0px 12px 32px rgba(74, 63, 63, 0.10)",
       },
     },
   },

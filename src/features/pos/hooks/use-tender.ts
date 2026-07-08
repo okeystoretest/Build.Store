@@ -27,5 +27,21 @@ export function useTender() {
 
   const clear = useCallback(() => setCents(0), []);
 
-  return { cents, pushDigit, backspace, clear, set: setCents };
+  /**
+   * Define o valor recebido a partir de um texto em reais digitado pelo
+   * usuário (ex.: "12,50" ou "12.50"). Converte para centavos; entradas
+   * inválidas ou vazias zeram o valor.
+   */
+  const setFromReais = useCallback((input: string) => {
+    const normalized = input.replace(/\./g, "").replace(",", ".").trim();
+    if (normalized === "") {
+      setCents(0);
+      return;
+    }
+    const value = Number(normalized);
+    if (Number.isNaN(value) || value < 0) return;
+    setCents(Math.min(Math.round(value * 100), 99_999_999));
+  }, []);
+
+  return { cents, pushDigit, backspace, clear, set: setCents, setFromReais };
 }

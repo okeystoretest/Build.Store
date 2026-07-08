@@ -42,7 +42,7 @@ export async function recordSale(input: RecordSaleInput): Promise<Order> {
 
   const order: Order = {
     id: orderId,
-    reference: orderReference(),
+    reference: "", // definida na transação, a partir do contador sequencial
     customerId: input.customerId ?? null,
     customerName: input.customerName ?? null,
     items,
@@ -69,7 +69,20 @@ export async function recordSale(input: RecordSaleInput): Promise<Order> {
     db.orders,
     db.products,
     db.stockMovements,
+    db.counters,
     async () => {
+      // Número sequencial do pedido (#PDD-XXX), incrementado atomicamente.
+      // Se o contador ainda não existe (bases criadas antes desta versão),
+      // inicializa a partir da quantidade de pedidos já existentes.
+      let counter = await db.counters.get("orderSeq");
+      if (!counter) {
+        const existing = await db.orders.count();
+        counter = { id: "orderSeq", value: existing };
+      }
+      const nextSeq = counter.value + 1;
+      await db.counters.put({ id: "orderSeq", value: nextSeq });
+      order.reference = orderReference(nextSeq);
+
       await db.orders.put(order);
 
       for (const item of input.items) {

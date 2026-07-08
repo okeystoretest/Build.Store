@@ -1,6 +1,6 @@
 "use client";
 
-import { Pencil, ImageIcon } from "lucide-react";
+import { Pencil, ImageIcon, Eye } from "lucide-react";
 import type { Product } from "@/types/domain";
 import { formatBRL } from "@/lib/utils/money";
 import { stockLevel } from "@/features/inventory/types";
@@ -8,20 +8,26 @@ import { cn } from "@/lib/utils/cn";
 
 interface ProductCardProps {
   product: Product;
-  onEdit: (product: Product) => void;
-  canEdit?: boolean;
+  /** Abre o produto: Admin edita; demais perfis visualizam. */
+  onOpen: (product: Product) => void;
+  /** True apenas para Admin (mostra o ícone de edição). */
+  canManage?: boolean;
 }
 
 /**
- * Inventory product card (grid mode). Category chip removed per spec; low-stock
- * badge kept. Compact to fit 5 per row on desktop.
+ * Card de produto (modo grade). O card inteiro é clicável: Admin abre a edição,
+ * Lojista/Vendedora abrem a visualização somente leitura. O ícone no canto
+ * reflete a ação disponível (lápis para Admin, olho para os demais).
  */
-export function ProductCard({ product, onEdit, canEdit = true }: ProductCardProps) {
+export function ProductCard({ product, onOpen, canManage = false }: ProductCardProps) {
   const level = stockLevel(product);
   const low = level !== "ok";
 
   return (
-    <div className="flex flex-col rounded-lg bg-surface-container-lowest p-sm shadow-level-1">
+    <button
+      onClick={() => onOpen(product)}
+      className="flex flex-col rounded-lg bg-surface-container-lowest p-sm text-left shadow-level-1 transition-shadow hover:shadow-level-2"
+    >
       <div className="relative">
         <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-md bg-surface-container">
           {product.imageUrl ? (
@@ -59,27 +65,31 @@ export function ProductCard({ product, onEdit, canEdit = true }: ProductCardProp
             </p>
           </div>
 
-          {canEdit && (
-            <button
-              onClick={() => onEdit(product)}
-              aria-label={`Editar ${product.name}`}
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-fixed text-primary transition-colors hover:bg-primary-container hover:text-on-primary-container"
-            >
+          <span
+            aria-hidden
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-fixed text-primary"
+          >
+            {canManage ? (
               <Pencil className="h-4 w-4" strokeWidth={1.75} />
-            </button>
-          )}
+            ) : (
+              <Eye className="h-4 w-4" strokeWidth={1.75} />
+            )}
+          </span>
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
-/** Inventory product row (list mode). */
-export function ProductRow({ product, onEdit, canEdit = true }: ProductCardProps) {
+/** Linha de produto (modo lista). */
+export function ProductRow({ product, onOpen, canManage = false }: ProductCardProps) {
   const low = stockLevel(product) !== "ok";
 
   return (
-    <div className="flex items-center gap-md rounded-lg bg-surface-container-lowest px-md py-sm shadow-level-1">
+    <button
+      onClick={() => onOpen(product)}
+      className="flex w-full items-center gap-md rounded-lg bg-surface-container-lowest px-md py-sm text-left shadow-level-1 transition-shadow hover:shadow-level-2"
+    >
       <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-surface-container">
         {product.imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -105,15 +115,16 @@ export function ProductRow({ product, onEdit, canEdit = true }: ProductCardProps
         {formatBRL(product.priceCents)}
       </p>
 
-      {canEdit && (
-        <button
-          onClick={() => onEdit(product)}
-          aria-label={`Editar ${product.name}`}
-          className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-fixed text-primary transition-colors hover:bg-primary-container hover:text-on-primary-container"
-        >
+      <span
+        aria-hidden
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-fixed text-primary"
+      >
+        {canManage ? (
           <Pencil className="h-4 w-4" strokeWidth={1.75} />
-        </button>
-      )}
-    </div>
+        ) : (
+          <Eye className="h-4 w-4" strokeWidth={1.75} />
+        )}
+      </span>
+    </button>
   );
 }

@@ -25,6 +25,7 @@ export function POSScreen() {
   const liveProducts = useLiveProducts() ?? [];
   const { products, query, setQuery, findByCode } = useProducts(liveProducts);
   const tender = useTender();
+  const [tenderInput, setTenderInput] = useState("");
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const [saving, setSaving] = useState(false);
   const sync = useSync();
@@ -34,15 +35,19 @@ export function POSScreen() {
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [isCampaign, setIsCampaign] = useState(false);
   const [campaignId, setCampaignId] = useState<string | null>(null);
+  // Cliente da venda (obrigatório para finalizar).
+  const [customerName, setCustomerName] = useState("");
 
   const { totalCents } = cart.totals;
   const isCash = method === "cash";
   // Campaign attribution, when flagged, requires a chosen campaign to finalize.
   const campaignOk = !isCampaign || campaignId !== null;
+  const customerOk = customerName.trim().length > 0;
   const canFinalize =
     cart.items.length > 0 &&
     (!isCash || tender.cents >= totalCents) &&
-    campaignOk;
+    campaignOk &&
+    customerOk;
 
   // Enter on the search field with an exact code match adds that product.
   const handleQueryChange = (value: string) => {
@@ -66,15 +71,18 @@ export function POSScreen() {
         globalDiscountCents: cart.globalDiscountCents,
         paymentMethod: method,
         tenderedCents: method === "cash" ? tender.cents : null,
+        customerName: customerName.trim(),
         sellerId,
         sellerName: seller?.fullName ?? null,
         campaignId: isCampaign ? campaignId : null,
       });
       cart.clear();
       tender.clear();
+      setTenderInput("");
       setMethod("cash");
       setIsCampaign(false);
       setCampaignId(null);
+      setCustomerName("");
       // Keep the selected seller for the next sale (same operator, common case).
       await sync.refreshPending();
       void sync.flush();
@@ -109,13 +117,17 @@ export function POSScreen() {
           method={method}
           onMethodChange={setMethod}
           tenderedCents={tender.cents}
-          onTenderDigit={tender.pushDigit}
-          onTenderClear={tender.clear}
-          onTenderBackspace={tender.backspace}
+          tenderInput={tenderInput}
+          onTenderInput={(value) => {
+            setTenderInput(value);
+            tender.setFromReais(value);
+          }}
           onFinalize={finalize}
           canFinalize={canFinalize}
           meta={
             <SaleMeta
+              customerName={customerName}
+              onCustomerNameChange={setCustomerName}
               sellers={sellers}
               campaigns={campaigns}
               sellerId={sellerId}

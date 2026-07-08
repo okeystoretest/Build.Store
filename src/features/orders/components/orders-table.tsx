@@ -31,8 +31,8 @@ const STATUS_TONE: Record<OrderStatus, "success" | "error" | "neutral" | "primar
 
 const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   cash: "Dinheiro",
-  credit: "Cartão de Crédito",
-  debit: "Cartão de Débito",
+  credit: "Cartão",
+  debit: "Cartão",
   pix: "Pix",
   wallet: "Carteira Digital",
 };
