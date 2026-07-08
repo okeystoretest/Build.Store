@@ -148,7 +148,7 @@ function SellerCard({ block, rank }: { block: SellerBlock; rank: number }) {
     >
       <div className="flex items-center justify-between gap-md">
         <span className="flex items-center gap-3">
-          <span className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-fixed/60 text-body-lg font-semibold text-primary">
+          <span className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-fixed/60 text-headline-md font-semibold text-primary">
             {seller.photoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={seller.photoUrl} alt={seller.fullName} className="h-full w-full object-cover" />

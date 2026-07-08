@@ -23,6 +23,11 @@ export async function markAllRead(): Promise<void> {
   );
 }
 
+/** Remove todas as notificações. */
+export async function clearNotifications(): Promise<void> {
+  await db.notifications.clear();
+}
+
 /**
  * Emit the "new product" notification. Per spec, fired when an Admin adds a
  * product; carries Referência (sku), Nome and Quantidade.

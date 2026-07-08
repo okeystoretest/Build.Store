@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Bell, Package } from "lucide-react";
+import { Bell, Package, Trash2 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useNotifications } from "@/hooks/use-notifications";
@@ -12,7 +12,7 @@ import { useNotifications } from "@/hooks/use-notifications";
  * Opening the menu marks everything read.
  */
 export function NotificationBell() {
-  const { items, unread, markAllRead } = useNotifications();
+  const { items, unread, markAllRead, clearNotifications } = useNotifications();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -48,10 +48,19 @@ export function NotificationBell() {
 
       {open && (
         <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-lg bg-surface-container-lowest shadow-level-2">
-          <div className="border-b border-outline-variant/40 px-md py-sm">
+          <div className="flex items-center justify-between border-b border-outline-variant/40 px-md py-sm">
             <p className="text-label-md font-semibold text-on-surface">
               Notificações
             </p>
+            {items.length > 0 && (
+              <button
+                onClick={() => void clearNotifications()}
+                className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-label-sm text-on-surface-variant transition-colors hover:bg-surface-container hover:text-error"
+              >
+                <Trash2 className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Limpar
+              </button>
+            )}
           </div>
           {items.length === 0 ? (
             <p className="px-md py-lg text-center text-body-md text-on-surface-variant">

@@ -1,5 +1,6 @@
 import { db } from "@/lib/db/dexie";
 import { transport, isSupabaseConfigured } from "@/lib/sync/transport";
+import { getReadySession } from "@/lib/sync/session";
 import type { Order } from "@/types/domain";
 
 /**
@@ -60,64 +61,100 @@ export async function pullAll(): Promise<void> {
   if (!isSupabaseConfigured()) return;
   if (!isOnline()) return;
 
+  // GATE CRÍTICO: só sincroniza com uma sessão pronta (usuário autenticado COM
+  // store_id resolvível). Sem isso, os pulls dependentes de RLS voltariam
+  // vazios sem erro — e um clear() cego apagaria o Dexie. Este era o bug de
+  // "dados somem em outro dispositivo / após Ctrl+F5": o pull rodava antes do
+  // cookie de sessão propagar e limpava o espelho local com nada.
+  const session = await getReadySession();
+  if (!session) {
+    console.warn(
+      "[sync] pullAll adiado: sessão ainda não está pronta (sem store_id).",
+    );
+    return;
+  }
+
+  // Cada pull é resiliente: se um deles falhar, os demais ainda aplicam. Um
+  // pull que falha vira `null` e NUNCA dispara clear() — preservamos o que já
+  // existe localmente em vez de destruir dados por causa de uma falha de rede.
+  const safe = async <T>(fn: () => Promise<T[]>): Promise<T[] | null> => {
+    try {
+      return await fn();
+    } catch (e) {
+      console.error("[sync] pull parcial falhou:", e);
+      return null;
+    }
+  };
+
   const [products, orders, users, campaigns, goals] = await Promise.all([
-    transport.pullProducts(null),
-    transport.pullOrders(),
-    transport.pullUsers(),
-    transport.pullCampaigns(),
-    transport.pullGoals(),
+    safe(() => transport.pullProducts(null)),
+    safe(() => transport.pullOrders()),
+    safe(() => transport.pullUsers()),
+    safe(() => transport.pullCampaigns()),
+    safe(() => transport.pullGoals()),
   ]);
 
-  // Produtos: o servidor é a fonte autoritativa do catálogo/estoque. Antes de
-  // substituir, protege produtos criados localmente que ainda não existem no
-  // servidor (ex.: cadastrados offline) — tenta empurrá-los; os que subirem
-  // voltam no próximo pull. Assim o clear() não descarta trabalho não salvo.
-  const serverProductIds = new Set(products.map((p) => p.id));
-  const localOnlyProducts = (await db.products.toArray()).filter(
-    (p) => !serverProductIds.has(p.id),
-  );
-  for (const p of localOnlyProducts) {
-    try {
-      await transport.pushProduct(p);
-    } catch {
-      /* mantém localmente; tentaremos de novo no próximo ciclo */
+  // Produtos: o servidor é a fonte autoritativa do catálogo/estoque. Só
+  // reconcilia se o pull teve sucesso (products !== null). Antes de substituir,
+  // protege produtos criados localmente que ainda não existem no servidor
+  // (cadastrados offline) — tenta empurrá-los; os que subirem voltam no próximo
+  // pull. Assim o merge não descarta trabalho não salvo.
+  if (products !== null) {
+    const serverProductIds = new Set(products.map((p) => p.id));
+    const localOnlyProducts = (await db.products.toArray()).filter(
+      (p) => !serverProductIds.has(p.id),
+    );
+    for (const p of localOnlyProducts) {
+      try {
+        await transport.pushProduct(p);
+      } catch {
+        /* mantém localmente; tentaremos de novo no próximo ciclo */
+      }
     }
+    // Substitui pelo estado do servidor + quaisquer locais que não subiram.
+    await db.products.clear();
+    if (products.length > 0) await db.products.bulkPut(products);
+    if (localOnlyProducts.length > 0)
+      await db.products.bulkPut(localOnlyProducts);
   }
-  // Rebaixa o catálogo do servidor + quaisquer locais que não subiram, para não
-  // perder cadastros offline enquanto o push não conclui.
-  const stillLocalOnly = localOnlyProducts.filter(
-    (p) => !serverProductIds.has(p.id),
-  );
-  await db.products.clear();
-  if (products.length > 0) await db.products.bulkPut(products);
-  if (stillLocalOnly.length > 0) await db.products.bulkPut(stillLocalOnly);
 
-  // Usuários, campanhas e metas: idem — substitui pelo estado do servidor.
-  await db.users.clear();
-  if (users.length > 0) await db.users.bulkPut(users);
+  // Usuários, campanhas e metas: substitui pelo estado do servidor SOMENTE
+  // quando o pull correspondente teve sucesso. Pull nulo (falha/RLS) = mantém
+  // o que já existe no Dexie — nunca esvazia por engano.
+  if (users !== null) {
+    await db.users.clear();
+    if (users.length > 0) await db.users.bulkPut(users);
+  }
 
-  await db.campaigns.clear();
-  if (campaigns.length > 0) await db.campaigns.bulkPut(campaigns);
+  if (campaigns !== null) {
+    await db.campaigns.clear();
+    if (campaigns.length > 0) await db.campaigns.bulkPut(campaigns);
+  }
 
-  await db.goals.clear();
-  if (goals.length > 0) await db.goals.bulkPut(goals);
+  if (goals !== null) {
+    await db.goals.clear();
+    if (goals.length > 0) await db.goals.bulkPut(goals);
+  }
 
-  // Pedidos: preserva os que ainda não subiram (pending/error). Remove só os
-  // que já estavam sincronizados e regrava a versão do servidor por cima.
-  const unsynced = await db.orders
-    .where("syncStatus")
-    .anyOf("pending", "error")
-    .toArray();
-  const unsyncedIds = new Set(unsynced.map((o) => o.id));
+  // Pedidos: preserva os que ainda não subiram (pending/error). Só reconcilia
+  // se o pull teve sucesso; remove apenas os que já estavam sincronizados e
+  // regrava a versão do servidor por cima.
+  if (orders !== null) {
+    const unsynced = await db.orders
+      .where("syncStatus")
+      .anyOf("pending", "error")
+      .toArray();
+    const unsyncedIds = new Set(unsynced.map((o) => o.id));
 
-  const syncedLocalIds = (await db.orders.toArray())
-    .filter((o) => !unsyncedIds.has(o.id))
-    .map((o) => o.id);
-  if (syncedLocalIds.length > 0) await db.orders.bulkDelete(syncedLocalIds);
+    const syncedLocalIds = (await db.orders.toArray())
+      .filter((o) => !unsyncedIds.has(o.id))
+      .map((o) => o.id);
+    if (syncedLocalIds.length > 0) await db.orders.bulkDelete(syncedLocalIds);
 
-  // Grava do servidor apenas os pedidos que não têm versão local pendente.
-  const serverOrders = orders.filter((o) => !unsyncedIds.has(o.id));
-  if (serverOrders.length > 0) await db.orders.bulkPut(serverOrders);
+    // Grava do servidor apenas os pedidos que não têm versão local pendente.
+    const serverOrders = orders.filter((o) => !unsyncedIds.has(o.id));
+    if (serverOrders.length > 0) await db.orders.bulkPut(serverOrders);
+  }
 }
 
 /** True when the browser reports connectivity. */

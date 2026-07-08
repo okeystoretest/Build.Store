@@ -115,7 +115,11 @@ export function useCart() {
     globalDiscountCents: state.globalDiscountCents,
     totals,
     count,
-    add: useCallback((product: Product) => dispatch({ type: "ADD", product }), []),
+    add: useCallback((product: Product) => {
+      // Produto sem estoque não pode ser vendido.
+      if (product.stock <= 0) return;
+      dispatch({ type: "ADD", product });
+    }, []),
     increment: useCallback(
       (productId: string) => dispatch({ type: "INCREMENT", productId }),
       [],

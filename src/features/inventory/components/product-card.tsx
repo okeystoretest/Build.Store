@@ -22,11 +22,15 @@ interface ProductCardProps {
 export function ProductCard({ product, onOpen, canManage = false }: ProductCardProps) {
   const level = stockLevel(product);
   const low = level !== "ok";
+  const outOfStock = product.stock <= 0;
 
   return (
     <button
       onClick={() => onOpen(product)}
-      className="flex flex-col rounded-lg bg-surface-container-lowest p-sm text-left shadow-level-1 transition-shadow hover:shadow-level-2"
+      className={cn(
+        "flex flex-col rounded-lg bg-surface-container-lowest p-sm text-left shadow-level-1 transition-shadow hover:shadow-level-2",
+        outOfStock && "opacity-50",
+      )}
     >
       <div className="relative">
         <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-md bg-surface-container">
@@ -37,11 +41,15 @@ export function ProductCard({ product, onOpen, canManage = false }: ProductCardP
             <ImageIcon className="h-9 w-9 text-on-surface-variant/40" strokeWidth={1.5} />
           )}
         </div>
-        {low && (
+        {outOfStock ? (
+          <span className="absolute left-2 top-2 rounded-full bg-error px-2.5 py-0.5 text-label-sm font-semibold uppercase tracking-wide text-on-error">
+            Esgotado
+          </span>
+        ) : low ? (
           <span className="absolute left-2 top-2 rounded-full bg-primary-container px-2.5 py-0.5 text-label-sm font-semibold uppercase tracking-wide text-on-primary-container">
             ! Baixo
           </span>
-        )}
+        ) : null}
       </div>
 
       <div className="mt-sm flex flex-1 flex-col px-1">
@@ -84,11 +92,15 @@ export function ProductCard({ product, onOpen, canManage = false }: ProductCardP
 /** Linha de produto (modo lista). */
 export function ProductRow({ product, onOpen, canManage = false }: ProductCardProps) {
   const low = stockLevel(product) !== "ok";
+  const outOfStock = product.stock <= 0;
 
   return (
     <button
       onClick={() => onOpen(product)}
-      className="flex w-full items-center gap-md rounded-lg bg-surface-container-lowest px-md py-sm text-left shadow-level-1 transition-shadow hover:shadow-level-2"
+      className={cn(
+        "flex w-full items-center gap-md rounded-lg bg-surface-container-lowest px-md py-sm text-left shadow-level-1 transition-shadow hover:shadow-level-2",
+        outOfStock && "opacity-50",
+      )}
     >
       <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-surface-container">
         {product.imageUrl ? (
@@ -105,10 +117,18 @@ export function ProductRow({ product, onOpen, canManage = false }: ProductCardPr
       </div>
 
       <div className="flex items-center gap-1.5 text-label-md">
-        <span className={cn("h-2 w-2 rounded-full", low ? "bg-error" : "bg-[#3ba55c]")} />
-        <span className={low ? "text-error" : "text-on-surface-variant"}>
-          {product.stock} un
-        </span>
+        {outOfStock ? (
+          <span className="rounded-full bg-error px-2 py-0.5 text-label-sm font-semibold uppercase text-on-error">
+            Esgotado
+          </span>
+        ) : (
+          <>
+            <span className={cn("h-2 w-2 rounded-full", low ? "bg-error" : "bg-[#3ba55c]")} />
+            <span className={low ? "text-error" : "text-on-surface-variant"}>
+              {product.stock} un
+            </span>
+          </>
+        )}
       </div>
 
       <p className="w-28 text-right text-body-md font-semibold text-primary">
