@@ -85,6 +85,13 @@ export async function upsertProduct(product: Product): Promise<void> {
 /** Remove um produto do estoque (somente Admin, controlado na UI). */
 export async function deleteProduct(id: string): Promise<void> {
   await db.products.delete(id);
+  if (isSupabaseConfigured() && (typeof navigator === "undefined" || navigator.onLine)) {
+    try {
+      await transport.deleteProduct(id);
+    } catch {
+      /* silencioso: reconciliação posterior via pull */
+    }
+  }
 }
 
 /**

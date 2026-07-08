@@ -1,4 +1,5 @@
 import { db } from "@/lib/db/dexie";
+import { transport, isSupabaseConfigured } from "@/lib/sync/transport";
 import type {
   User,
   Campaign,
@@ -12,6 +13,22 @@ import type {
  * Dexie-backed so all of Gestão/Dashboard works offline; Supabase sync mirrors
  * these via the transport in production.
  */
+
+/**
+ * Executa um push best-effort ao backend quando há Supabase e conexão. Nunca
+ * bloqueia nem lança: o Dexie é a fonte local e o pull reconcilia depois. Só
+ * evita que escritas de Gestão (campanhas, metas, usuários) fiquem presas em
+ * um único dispositivo.
+ */
+async function bestEffort(fn: () => Promise<void>): Promise<void> {
+  if (!isSupabaseConfigured()) return;
+  if (typeof navigator !== "undefined" && !navigator.onLine) return;
+  try {
+    await fn();
+  } catch {
+    /* silencioso: reconciliação posterior via pull */
+  }
+}
 
 /** Default campaign commission rate applied per sale (2.5%). */
 export const CAMPAIGN_COMMISSION_RATE = 0.025;
@@ -71,11 +88,14 @@ export async function updateUser(
   patch: Partial<Pick<User, "fullName" | "birthDate" | "role" | "photoUrl" | "active">>,
 ): Promise<void> {
   await db.users.update(id, patch);
+  await bestEffort(() => transport.pushUserUpdate(id, patch));
 }
 
 /** Remove um usuário do cadastro local. */
 export async function deleteUser(id: string): Promise<void> {
   await db.users.delete(id);
+  // Desativa o profile no servidor (não apagamos auth.users daqui).
+  await bestEffort(() => transport.pushUserUpdate(id, { active: false }));
 }
 
 // --- Campaigns -------------------------------------------------------------
@@ -97,6 +117,7 @@ export async function createCampaign(name: string): Promise<Campaign> {
     createdAt: new Date().toISOString(),
   };
   await db.campaigns.put(campaign);
+  await bestEffort(() => transport.pushCampaign(campaign));
   return campaign;
 }
 
@@ -105,10 +126,13 @@ export async function updateCampaign(
   patch: Partial<Pick<Campaign, "name" | "active">>,
 ): Promise<void> {
   await db.campaigns.update(id, patch);
+  const updated = await db.campaigns.get(id);
+  if (updated) await bestEffort(() => transport.pushCampaign(updated));
 }
 
 export async function deleteCampaign(id: string): Promise<void> {
   await db.campaigns.delete(id);
+  await bestEffort(() => transport.deleteCampaign(id));
 }
 
 // --- Goals -----------------------------------------------------------------
@@ -143,6 +167,7 @@ export async function createGoal(input: {
     createdAt: new Date().toISOString(),
   };
   await db.goals.put(goal);
+  await bestEffort(() => transport.pushGoal(goal));
   return goal;
 }
 
@@ -151,8 +176,11 @@ export async function updateGoal(
   patch: Partial<Pick<Goal, "type" | "campaignId" | "targetCents" | "targetQuantity">>,
 ): Promise<void> {
   await db.goals.update(id, patch);
+  const updated = await db.goals.get(id);
+  if (updated) await bestEffort(() => transport.pushGoal(updated));
 }
 
 export async function deleteGoal(id: string): Promise<void> {
   await db.goals.delete(id);
+  await bestEffort(() => transport.deleteGoal(id));
 }

@@ -1,5 +1,6 @@
 import { Sidebar } from "@/components/layout/sidebar";
 import { LocalAuthGuard } from "@/components/layout/local-auth-guard";
+import { SyncBootstrap } from "@/components/layout/sync-bootstrap";
 
 /** Shell for authenticated app screens: fixed sidebar + scrollable workspace. */
 export default function AppLayout({
@@ -9,6 +10,7 @@ export default function AppLayout({
 }) {
   return (
     <LocalAuthGuard>
+      <SyncBootstrap />
       <div className="flex h-screen overflow-hidden bg-background">
         <Sidebar />
         <main className="flex-1 overflow-y-auto">{children}</main>
