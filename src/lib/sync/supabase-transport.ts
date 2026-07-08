@@ -281,35 +281,61 @@ export class SupabaseTransport implements SyncTransport {
   }
 
   async pullOrders(): Promise<Order[]> {
-    // Cabeçalhos + itens numa consulta aninhada. RLS já limita à loja do
-    // usuário, então não é preciso filtrar por store_id aqui.
-    const { data, error } = await this.supabase
+    // Traz os pedidos mais recentes com um teto explícito. O join aninhado
+    // orders(*, order_items(*)) sob RLS ficava caro e estourava o statement
+    // timeout do Postgres (erro 57014) conforme o histórico crescia. Aqui:
+    //   1) buscamos só os cabeçalhos recentes (LIMIT), ordenados por data;
+    //   2) buscamos os itens desses pedidos em UMA query por id (in-list).
+    // Duas queries simples são muito mais baratas que um join aninhado com
+    // subselect de RLS reavaliado por linha. RLS já limita à loja do usuário.
+    const MAX_ORDERS = 500;
+
+    const { data: headers, error: headErr } = await this.supabase
       .from("orders")
-      .select("*, order_items(*)")
-      .order("created_at", { ascending: false });
-    if (error) throw error;
+      .select(
+        "id, reference, customer_id, customer_name, subtotal_cents, discount_cents, total_cents, payment_method, tendered_cents, change_cents, status, seller_id, seller_name, campaign_id, created_by, created_at",
+      )
+      .order("created_at", { ascending: false })
+      .limit(MAX_ORDERS);
+    if (headErr) throw headErr;
 
-    return (data ?? []).map((r): Order => {
-      const items: Order["items"] = (r.order_items ?? []).map(
-        (it: Record<string, unknown>) => ({
-          id: it.id as string,
-          orderId: r.id as string,
-          productId: (it.product_id as string) ?? "",
-          sku: it.sku as string,
-          name: it.name as string,
-          imageUrl: (it.image_url as string | null) ?? null,
-          unitPriceCents: it.unit_price_cents as number,
-          quantity: it.quantity as number,
-          lineDiscountCents: (it.line_discount_cents as number) ?? 0,
-        }),
-      );
+    const orderRows = headers ?? [];
+    if (orderRows.length === 0) return [];
 
-      return {
+    const orderIds = orderRows.map((o) => o.id as string);
+
+    const { data: itemRows, error: itemsErr } = await this.supabase
+      .from("order_items")
+      .select("*")
+      .in("order_id", orderIds);
+    if (itemsErr) throw itemsErr;
+
+    // Agrupa itens por pedido para montagem O(n).
+    const itemsByOrder = new Map<string, Order["items"]>();
+    for (const it of itemRows ?? []) {
+      const oid = it.order_id as string;
+      const list = itemsByOrder.get(oid) ?? [];
+      list.push({
+        id: it.id as string,
+        orderId: oid,
+        productId: (it.product_id as string) ?? "",
+        sku: it.sku as string,
+        name: it.name as string,
+        imageUrl: (it.image_url as string | null) ?? null,
+        unitPriceCents: it.unit_price_cents as number,
+        quantity: it.quantity as number,
+        lineDiscountCents: (it.line_discount_cents as number) ?? 0,
+      });
+      itemsByOrder.set(oid, list);
+    }
+
+    return orderRows.map(
+      (r): Order => ({
         id: r.id,
         reference: r.reference,
         customerId: r.customer_id ?? null,
         customerName: r.customer_name ?? null,
-        items,
+        items: itemsByOrder.get(r.id as string) ?? [],
         subtotalCents: r.subtotal_cents,
         discountCents: r.discount_cents,
         totalCents: r.total_cents,
@@ -324,8 +350,8 @@ export class SupabaseTransport implements SyncTransport {
         campaignId: r.campaign_id ?? null,
         createdAt: r.created_at,
         createdBy: r.created_by ?? null,
-      };
-    });
+      }),
+    );
   }
 
   async pullUsers(): Promise<User[]> {
