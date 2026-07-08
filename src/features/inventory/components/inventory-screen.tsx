@@ -64,6 +64,7 @@ export function InventoryScreen() {
       lowStockThreshold: values.lowStockThreshold ?? 5,
       color: values.color ?? editing?.color ?? null,
       size: values.size ?? editing?.size ?? null,
+      grade: values.grade ?? editing?.grade ?? [],
       imageUrl: values.imageUrl ?? editing?.imageUrl ?? null,
       active: true,
       createdAt: editing?.createdAt ?? now,

@@ -1,7 +1,16 @@
--- Build.Store — Supabase schema
+-- Build.Store — Supabase schema (atualizado)
 -- Money stored as integer centavos. Timestamps in UTC.
 -- Run in the Supabase SQL editor or via the CLI.
 -- Idempotent: safe to re-run over an existing database without data loss.
+--
+-- Este arquivo é a fonte de verdade do backend e espelha o modelo de domínio
+-- em src/types/domain.ts. Além das tabelas originais, esta versão adiciona:
+--   • products.color / products.size      (grade de peças)
+--   • profiles.photo_url / profiles.active (foto e status do usuário)
+--   • notifications                        (sino de notificações)
+--   • order_counters + next_order_reference (numeração #PDD-XXX por loja)
+-- Todas as adições usam "add column if not exists" / "create table if not
+-- exists" para migração segura sobre bases já existentes.
 
 create extension if not exists "pgcrypto";
 
@@ -28,6 +37,10 @@ do $$ begin
   create type goal_type as enum ('general', 'campaign');
 exception when duplicate_object then null; end $$;
 
+do $$ begin
+  create type notification_kind as enum ('product_added', 'info');
+exception when duplicate_object then null; end $$;
+
 -- ---------------------------------------------------------------------------
 -- Stores (multi-tenant: each lojista partner is a store)
 -- ---------------------------------------------------------------------------
@@ -45,14 +58,32 @@ create table if not exists profiles (
   full_name text,
   birth_date date,
   role text not null default 'vendedora' check (role in ('vendedora', 'lojista', 'admin')),
+  photo_url text,
+  active boolean not null default true,
   created_at timestamptz not null default now()
 );
 
--- Migration: add username if profiles already existed from a prior version.
+-- Migrations para bases criadas em versões anteriores.
 alter table profiles add column if not exists username text;
+alter table profiles add column if not exists photo_url text;
+alter table profiles add column if not exists active boolean not null default true;
+-- Só adiciona a UNIQUE em (username) se ainda não existir. Quando a tabela é
+-- criada por este mesmo script, "username text unique" já cria a constraint
+-- automática profiles_username_key — recriá-la lança 42P07 (duplicate_table).
 do $$ begin
-  alter table profiles add constraint profiles_username_key unique (username);
-exception when duplicate_object then null; end $$;
+  if not exists (
+    select 1
+      from pg_constraint
+     where conrelid = 'profiles'::regclass
+       and contype = 'u'
+       and conkey = array[
+         (select attnum from pg_attribute
+           where attrelid = 'profiles'::regclass and attname = 'username')
+       ]
+  ) then
+    alter table profiles add constraint profiles_username_key unique (username);
+  end if;
+exception when duplicate_table or duplicate_object then null; end $$;
 
 -- ---------------------------------------------------------------------------
 -- Products
@@ -70,12 +101,20 @@ create table if not exists products (
   unit text not null default 'un',
   stock integer not null default 0,
   low_stock_threshold integer not null default 5,
+  color text,
+  size text,
+  grade jsonb not null default '[]'::jsonb,
   image_url text,
   active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (store_id, sku)
 );
+
+-- Migrations: grade de peças (cor/tamanho) para bases já existentes.
+alter table products add column if not exists color text;
+alter table products add column if not exists size text;
+alter table products add column if not exists grade jsonb not null default '[]'::jsonb;
 
 create index if not exists products_store_category_idx on products (store_id, category);
 create index if not exists products_barcode_idx on products (barcode);
@@ -158,6 +197,47 @@ create table if not exists order_items (
 create index if not exists order_items_order_idx on order_items (order_id);
 
 -- ---------------------------------------------------------------------------
+-- Order counters (numeração sequencial #PDD-XXX por loja)
+-- Localmente a numeração vive no Dexie (tabela counters). No servidor, cada
+-- loja tem seu próprio contador para gerar referências sem colisão entre
+-- dispositivos. next_order_reference() incrementa de forma atômica.
+-- ---------------------------------------------------------------------------
+create table if not exists order_counters (
+  store_id uuid primary key references stores (id) on delete cascade,
+  value integer not null default 0
+);
+
+create or replace function next_order_reference(p_store_id uuid)
+returns text language plpgsql as $$
+declare
+  next_val integer;
+begin
+  insert into order_counters (store_id, value)
+       values (p_store_id, 1)
+  on conflict (store_id)
+    do update set value = order_counters.value + 1
+  returning value into next_val;
+
+  return '#PDD-' || lpad(next_val::text, 3, '0');
+end;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- Notifications (sino de notificações; product_added, info)
+-- ---------------------------------------------------------------------------
+create table if not exists notifications (
+  id uuid primary key default gen_random_uuid(),
+  store_id uuid not null references stores (id) on delete cascade,
+  kind notification_kind not null default 'info',
+  title text not null,
+  body text not null,
+  read boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists notifications_store_created_idx on notifications (store_id, created_at desc);
+
+-- ---------------------------------------------------------------------------
 -- Stock movements (audit trail; drives real-time stock)
 -- ---------------------------------------------------------------------------
 create table if not exists stock_movements (
@@ -202,16 +282,33 @@ alter table order_items enable row level security;
 alter table stock_movements enable row level security;
 alter table campaigns enable row level security;
 alter table goals enable row level security;
+alter table notifications enable row level security;
+alter table order_counters enable row level security;
 
 -- Helper: the store the current user belongs to.
+-- SECURITY DEFINER + search_path fixo: roda com privilégios do dono e NÃO
+-- re-dispara a RLS de profiles. Isso é essencial — sem isso, políticas que
+-- chamam current_store_id() ao ler profiles entrariam em recursão infinita
+-- ("infinite recursion detected in policy for relation profiles").
 create or replace function current_store_id()
-returns uuid language sql stable as $$
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
   select store_id from profiles where id = auth.uid();
 $$;
 
 drop policy if exists "own profile" on profiles;
 create policy "own profile" on profiles
   for select using (id = auth.uid());
+
+-- Perfis da mesma loja podem ser lidos (atribuição de vendedora, etc.).
+-- Seguro agora que current_store_id() é SECURITY DEFINER (não recursa).
+drop policy if exists "store profiles read" on profiles;
+create policy "store profiles read" on profiles
+  for select using (store_id = current_store_id());
 
 drop policy if exists "store scoped products" on products;
 create policy "store scoped products" on products
@@ -246,5 +343,15 @@ create policy "store scoped campaigns" on campaigns
 
 drop policy if exists "store scoped goals" on goals;
 create policy "store scoped goals" on goals
+  for all using (store_id = current_store_id())
+  with check (store_id = current_store_id());
+
+drop policy if exists "store scoped notifications" on notifications;
+create policy "store scoped notifications" on notifications
+  for all using (store_id = current_store_id())
+  with check (store_id = current_store_id());
+
+drop policy if exists "store scoped order_counters" on order_counters;
+create policy "store scoped order_counters" on order_counters
   for all using (store_id = current_store_id())
   with check (store_id = current_store_id());

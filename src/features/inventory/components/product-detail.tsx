@@ -39,21 +39,39 @@ export function ProductDetail({ product }: { product: Product }) {
         <p className="mb-sm text-label-md font-semibold uppercase tracking-wide text-on-surface-variant">
           Grade de peças
         </p>
-        <div className="grid grid-cols-2 gap-sm">
+        <GradeList product={product} />
+      </div>
+    </div>
+  );
+}
+
+/** Lista a grade (pares cor/tamanho); cai no legado color/size se necessário. */
+function GradeList({ product }: { product: Product }) {
+  const grade =
+    product.grade && product.grade.length > 0
+      ? product.grade
+      : product.color || product.size
+        ? [{ color: product.color, size: product.size }]
+        : [];
+
+  if (grade.length === 0) {
+    return <p className="text-body-md text-on-surface-variant">—</p>;
+  }
+
+  return (
+    <div className="space-y-sm">
+      {grade.map((g, i) => (
+        <div key={i} className="grid grid-cols-2 gap-sm">
           <div className="rounded-md bg-surface-container-low px-md py-sm">
             <p className="text-label-sm text-on-surface-variant">Cor</p>
-            <p className="text-body-md text-on-surface">
-              {product.color ?? "—"}
-            </p>
+            <p className="text-body-md text-on-surface">{g.color ?? "—"}</p>
           </div>
           <div className="rounded-md bg-surface-container-low px-md py-sm">
             <p className="text-label-sm text-on-surface-variant">Tamanho</p>
-            <p className="text-body-md text-on-surface">
-              {product.size ?? "—"}
-            </p>
+            <p className="text-body-md text-on-surface">{g.size ?? "—"}</p>
           </div>
         </div>
-      </div>
+      ))}
     </div>
   );
 }

@@ -96,7 +96,7 @@ export function Sidebar() {
             {currentUser.fullName}
           </p>
         )}
-        <h1 className="mt-1 text-headline-lg leading-none text-primary">
+        <h1 className="font-logo mt-1 text-[2rem] leading-none text-primary">
           Build.Store
         </h1>
         <p className="mt-1 text-label-sm uppercase tracking-wide text-on-surface-variant">

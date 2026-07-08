@@ -41,7 +41,7 @@ function Shell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen items-center justify-center bg-background px-margin">
       <div className="w-full max-w-md rounded-xl bg-surface-container-lowest p-lg shadow-level-2">
         <div className="text-center">
-          <h1 className="text-headline-lg text-primary">Build.Store</h1>
+          <h1 className="font-logo text-[2rem] text-primary">Build.Store</h1>
           <p className="mt-1 text-label-sm uppercase tracking-wide text-on-surface-variant">
             OKEY STORE - PDV
           </p>

@@ -24,10 +24,10 @@ const PERIOD_OPTIONS: { value: DashboardPeriod; label: string }[] = [
 
 /** Cores de destaque dos cards de métrica (ícone + borda de realce à esquerda). */
 const METRIC_STYLES = {
-  revenue: { bg: "bg-[#e8f5e9]", fg: "text-[#2e7d32]", border: "border-l-[#2e7d32]" },
-  ticket: { bg: "bg-[#e3f2fd]", fg: "text-[#1565c0]", border: "border-l-[#1565c0]" },
-  items: { bg: "bg-[#f3e5f5]", fg: "text-[#7b1fa2]", border: "border-l-[#7b1fa2]" },
-  prize: { bg: "bg-[#fff3e0]", fg: "text-[#e65100]", border: "border-l-[#e65100]" },
+  revenue: { bg: "bg-[#e8f5e9]", fg: "text-[#2e7d32]", border: "border-[#2e7d32]" },
+  ticket: { bg: "bg-[#e3f2fd]", fg: "text-[#1565c0]", border: "border-[#1565c0]" },
+  items: { bg: "bg-[#f3e5f5]", fg: "text-[#7b1fa2]", border: "border-[#7b1fa2]" },
+  prize: { bg: "bg-[#fff3e0]", fg: "text-[#e65100]", border: "border-[#e65100]" },
 } as const;
 
 /** Cor do troféu conforme a posição no ranking de premiação. */
@@ -143,8 +143,8 @@ function SellerCard({ block, rank }: { block: SellerBlock; rank: number }) {
 
   return (
     <div
-      className="animate-pop-in rounded-xl border border-l-4 border-outline-variant/40 bg-surface-container-lowest p-md shadow-level-1"
-      style={{ borderLeftColor: medal }}
+      className="animate-pop-in rounded-xl border bg-surface-container-lowest p-md shadow-level-1"
+      style={{ borderColor: medal }}
     >
       <div className="flex items-center justify-between gap-md">
         <span className="flex items-center gap-3">
@@ -253,8 +253,8 @@ function ProgressBlock({
   const color = progressColor(ratio);
   return (
     <div
-      className="rounded-xl border border-l-4 border-outline-variant/40 bg-surface-container-lowest p-md shadow-level-1"
-      style={{ borderLeftColor: color }}
+      className="rounded-xl border bg-surface-container-lowest p-md shadow-level-1"
+      style={{ borderColor: color }}
     >
       <div className="flex items-center justify-between">
         <h2 className="text-headline-md text-on-surface">{title}</h2>
@@ -293,7 +293,7 @@ function Metric({
 }) {
   return (
     <div
-      className={`rounded-xl border border-outline-variant/40 border-l-4 ${style.border} bg-surface-container-lowest p-md shadow-level-1`}
+      className={`rounded-xl border ${style.border} bg-surface-container-lowest p-md shadow-level-1`}
     >
       <div className="flex items-center justify-between gap-sm">
         <p className="text-label-md uppercase tracking-wide text-on-surface-variant">

@@ -157,3 +157,10 @@
 .animate-pop-in {
   animation: pop-in 400ms ease-out both;
 }
+
+/* Logo "Build.Store" — fonte script feminina (Dancing Script). */
+.font-logo {
+  font-family: "Dancing Script", "Inter", cursive;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}

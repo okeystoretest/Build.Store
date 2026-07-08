@@ -37,6 +37,15 @@ export type ProductCategory =
   | "aromaterapia"
   | "outros";
 
+/**
+ * Item da grade de peças: um par cor/tamanho. Um produto pode ter vários
+ * (ex.: Rosa/P, Rosa/M, Azul/G).
+ */
+export interface GradeItem {
+  color: string | null;
+  size: string | null;
+}
+
 export interface Product {
   id: UUID;
   sku: string;
@@ -52,10 +61,12 @@ export interface Product {
   stock: number;
   /** Reorder threshold; stock at/below this raises a low-stock alert. */
   lowStockThreshold: number;
-  /** Grade de peças — cor (opcional). */
+  /** Grade de peças — cor (legado; primeiro item da grade). */
   color: string | null;
-  /** Grade de peças — tamanho (opcional). */
+  /** Grade de peças — tamanho (legado; primeiro item da grade). */
   size: string | null;
+  /** Grade de peças — múltiplos pares cor/tamanho. */
+  grade: GradeItem[];
   imageUrl: string | null;
   active: boolean;
   createdAt: ISODateString;

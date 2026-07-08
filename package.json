@@ -10,6 +10,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@fontsource/dancing-script": "^5.2.8",
     "@fontsource/inter": "^5.2.8",
     "@hookform/resolvers": "^3.9.0",
     "@serwist/next": "^9.0.9",

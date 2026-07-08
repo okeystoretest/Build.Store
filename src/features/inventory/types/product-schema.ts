@@ -2,16 +2,19 @@ import { z } from "zod";
 
 /**
  * Product form validation. Category and unit were removed per spec (unit
- * defaults to "unidade"). SKU is surfaced as "Referência" in the UI. Prices are
- * entered in reais and converted to centavos on submit.
+ * defaults to "unidade"). SKU is surfaced as "Referência". O preço de custo foi
+ * removido do formulário. A grade de peças é uma lista dinâmica de pares
+ * cor/tamanho (pelo menos um item; campos individuais são opcionais).
  */
+export const gradeItemSchema = z.object({
+  color: z.string().optional(),
+  size: z.string().optional(),
+});
+
 export const productFormSchema = z.object({
   name: z.string().min(2, "Informe o nome do produto"),
   sku: z.string().min(1, "Informe a referência"),
   barcode: z.string().optional(),
-  costReais: z
-    .number({ invalid_type_error: "Informe o preço de custo" })
-    .min(0, "Não pode ser negativo"),
   priceReais: z
     .number({ invalid_type_error: "Informe o preço de venda" })
     .min(0, "Não pode ser negativo"),
@@ -23,8 +26,7 @@ export const productFormSchema = z.object({
     .number({ invalid_type_error: "Informe o limite" })
     .int("Use um número inteiro")
     .min(0, "Não pode ser negativo"),
-  color: z.string().optional(),
-  size: z.string().optional(),
+  grade: z.array(gradeItemSchema).default([{ color: "", size: "" }]),
   imageUrl: z.string().optional(),
 });
 

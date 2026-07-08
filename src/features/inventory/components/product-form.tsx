@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Upload, ImageIcon } from "lucide-react";
-import type { Product } from "@/types/domain";
+import { Upload, ImageIcon, Plus, X } from "lucide-react";
+import type { Product, GradeItem } from "@/types/domain";
 import {
   productFormSchema,
   type ProductFormValues,
@@ -20,10 +20,23 @@ interface ProductFormProps {
   onCancel: () => void;
 }
 
+/** Normaliza a grade vinda de um produto existente para o formulário. */
+function initialGrade(product?: Product | null): { color: string; size: string }[] {
+  if (product?.grade && product.grade.length > 0) {
+    return product.grade.map((g) => ({ color: g.color ?? "", size: g.size ?? "" }));
+  }
+  // Compatibilidade com produtos antigos (color/size únicos).
+  if (product?.color || product?.size) {
+    return [{ color: product.color ?? "", size: product.size ?? "" }];
+  }
+  return [{ color: "", size: "" }];
+}
+
 /**
- * Create/edit product form. Category and unit removed (unit is always
- * "unidade"). SKU shown as "Referência". Includes an image upload that stores
- * the picture as a data URL locally (Supabase Storage takes over in production).
+ * Create/edit product form. O preço de custo foi removido. A grade de peças é
+ * dinâmica: o botão "+" adiciona novos pares Cor/Tamanho, e cada par pode ser
+ * removido. SKU é exibido como "Referência". A imagem é salva como data URL
+ * localmente (Supabase Storage assume em produção).
  */
 export function ProductForm({ product, onSubmit, onCancel }: ProductFormProps) {
   const [imageUrl, setImageUrl] = useState<string | null>(
@@ -33,6 +46,7 @@ export function ProductForm({ product, onSubmit, onCancel }: ProductFormProps) {
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors, isSubmitting },
   } = useForm<ProductFormValues>({
     resolver: zodResolver(productFormSchema),
@@ -41,20 +55,20 @@ export function ProductForm({ product, onSubmit, onCancel }: ProductFormProps) {
           name: product.name,
           sku: product.sku,
           barcode: product.barcode ?? "",
-          costReais: product.costCents / 100,
           priceReais: product.priceCents / 100,
           stock: product.stock,
           lowStockThreshold: product.lowStockThreshold,
-          color: product.color ?? "",
-          size: product.size ?? "",
+          grade: initialGrade(product),
         }
       : {
           stock: 0,
           lowStockThreshold: 5,
-          costReais: 0,
           priceReais: 0,
+          grade: [{ color: "", size: "" }],
         },
   });
+
+  const { fields, append, remove } = useFieldArray({ control, name: "grade" });
 
   const handleImage = (file: File | undefined) => {
     if (!file) return;
@@ -64,18 +78,29 @@ export function ProductForm({ product, onSubmit, onCancel }: ProductFormProps) {
   };
 
   const submit = (values: ProductFormValues) => {
+    // Limpa itens de grade totalmente vazios e normaliza para GradeItem[].
+    const grade: GradeItem[] = (values.grade ?? [])
+      .map((g) => ({
+        color: g.color?.trim() ? g.color.trim() : null,
+        size: g.size?.trim() ? g.size.trim() : null,
+      }))
+      .filter((g) => g.color !== null || g.size !== null);
+
     onSubmit({
       name: values.name,
       sku: values.sku,
       barcode: values.barcode || null,
       category: product?.category ?? "outros",
-      costCents: reaisToCents(values.costReais),
+      // Preço de custo removido do formulário — preserva o existente ou zera.
+      costCents: product?.costCents ?? 0,
       priceCents: reaisToCents(values.priceReais),
       unit: "unidade",
       stock: values.stock,
       lowStockThreshold: values.lowStockThreshold,
-      color: values.color?.trim() ? values.color.trim() : null,
-      size: values.size?.trim() ? values.size.trim() : null,
+      grade,
+      // Legado: mantém color/size do primeiro item para compatibilidade.
+      color: grade[0]?.color ?? null,
+      size: grade[0]?.size ?? null,
       imageUrl,
     });
   };
@@ -120,31 +145,55 @@ export function ProductForm({ product, onSubmit, onCancel }: ProductFormProps) {
       </div>
 
       <div className="grid grid-cols-2 gap-md">
-        <Field label="Preço de custo (R$)" error={errors.costReais?.message}>
-          <Input type="number" step="0.01" {...register("costReais", { valueAsNumber: true })} />
-        </Field>
         <Field label="Preço de venda (R$)" error={errors.priceReais?.message}>
           <Input type="number" step="0.01" {...register("priceReais", { valueAsNumber: true })} />
         </Field>
-      </div>
-
-      <div className="grid grid-cols-2 gap-md">
         <Field label="Estoque" error={errors.stock?.message}>
           <Input type="number" {...register("stock", { valueAsNumber: true })} />
         </Field>
-        <Field label="Alerta em" error={errors.lowStockThreshold?.message}>
-          <Input type="number" {...register("lowStockThreshold", { valueAsNumber: true })} />
-        </Field>
       </div>
 
-      {/* Grade de peças */}
-      <div className="grid grid-cols-2 gap-md">
-        <Field label="Cor" error={errors.color?.message}>
-          <Input {...register("color")} placeholder="Ex.: Rosa" />
-        </Field>
-        <Field label="Tamanho" error={errors.size?.message}>
-          <Input {...register("size")} placeholder="Ex.: M" />
-        </Field>
+      <Field label="Alerta em" error={errors.lowStockThreshold?.message}>
+        <Input type="number" {...register("lowStockThreshold", { valueAsNumber: true })} />
+      </Field>
+
+      {/* Grade de peças — dinâmica */}
+      <div className="space-y-sm">
+        <div className="flex items-center justify-between">
+          <Label>Grade de peças</Label>
+          <button
+            type="button"
+            onClick={() => append({ color: "", size: "" })}
+            className="flex items-center gap-1.5 rounded-full border border-primary-container px-3 py-1.5 text-label-md text-primary transition-colors hover:bg-primary-fixed/40"
+          >
+            <Plus className="h-4 w-4" strokeWidth={2} />
+            Adicionar
+          </button>
+        </div>
+
+        <div className="space-y-sm">
+          {fields.map((field, index) => (
+            <div key={field.id} className="flex items-end gap-sm">
+              <div className="flex-1 space-y-1.5">
+                <Label>Cor</Label>
+                <Input {...register(`grade.${index}.color`)} placeholder="Ex.: Rosa" />
+              </div>
+              <div className="flex-1 space-y-1.5">
+                <Label>Tamanho</Label>
+                <Input {...register(`grade.${index}.size`)} placeholder="Ex.: M" />
+              </div>
+              <button
+                type="button"
+                onClick={() => remove(index)}
+                disabled={fields.length === 1}
+                aria-label="Remover item da grade"
+                className="mb-1.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-error-container hover:text-on-error-container disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                <X className="h-4 w-4" strokeWidth={1.75} />
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="flex justify-end gap-sm pt-sm">
