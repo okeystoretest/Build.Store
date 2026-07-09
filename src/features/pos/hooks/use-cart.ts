@@ -24,7 +24,7 @@ export interface Variation {
 }
 
 type CartAction =
-  | { type: "ADD"; product: Product; variation: Variation }
+  | { type: "ADD"; product: Product; variation: Variation; quantity: number }
   | { type: "SET_QTY"; key: string; quantity: number }
   | { type: "INCREMENT"; key: string }
   | { type: "DECREMENT"; key: string }
@@ -45,14 +45,18 @@ function keyOf(item: CartItem): string {
   return lineKey(item.productId, item.color, item.size);
 }
 
-function toCartItem(product: Product, variation: Variation): CartItem {
+function toCartItem(
+  product: Product,
+  variation: Variation,
+  quantity: number,
+): CartItem {
   return {
     productId: product.id,
     sku: product.sku,
     name: product.name,
     imageUrl: product.imageUrl,
     unitPriceCents: product.priceCents,
-    quantity: 1,
+    quantity: Math.min(Math.max(1, quantity), variation.available),
     lineDiscountCents: 0,
     color: variation.color,
     size: variation.size,
@@ -72,9 +76,10 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       );
       const existing = state.items.find((i) => keyOf(i) === key);
       const available = action.variation.available;
+      const addQty = Math.max(1, action.quantity);
       if (existing) {
-        // Não ultrapassa o estoque disponível da variação.
-        const quantity = Math.min(existing.quantity + 1, available);
+        // Soma à linha existente, sem ultrapassar o estoque da variação.
+        const quantity = Math.min(existing.quantity + addQty, available);
         return {
           ...state,
           items: state.items.map((i) =>
@@ -84,7 +89,10 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       }
       return {
         ...state,
-        items: [...state.items, toCartItem(action.product, action.variation)],
+        items: [
+          ...state.items,
+          toCartItem(action.product, action.variation, addQty),
+        ],
       };
     }
     case "SET_QTY": {
@@ -151,10 +159,13 @@ export function useCart() {
     totals,
     count,
     lineKey,
-    add: useCallback((product: Product, variation: Variation) => {
-      if (variation.available <= 0) return; // esgotada
-      dispatch({ type: "ADD", product, variation });
-    }, []),
+    add: useCallback(
+      (product: Product, variation: Variation, quantity = 1) => {
+        if (variation.available <= 0) return; // esgotada
+        dispatch({ type: "ADD", product, variation, quantity });
+      },
+      [],
+    ),
     increment: useCallback(
       (key: string) => dispatch({ type: "INCREMENT", key }),
       [],

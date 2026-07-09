@@ -112,7 +112,9 @@ export function POSScreen() {
             query={query}
             onSelect={setPendingProduct}
           />
-          <CartPanel cart={cart} />
+          <div className="min-h-0 overflow-hidden">
+            <CartPanel cart={cart} />
+          </div>
         </div>
 
         <CheckoutPanel
@@ -127,6 +129,7 @@ export function POSScreen() {
           }}
           onFinalize={finalize}
           canFinalize={canFinalize}
+          saving={saving}
           meta={
             <SaleMeta
               customerName={customerName}
@@ -147,8 +150,8 @@ export function POSScreen() {
       <VariationPicker
         product={pendingProduct}
         onClose={() => setPendingProduct(null)}
-        onConfirm={(variation) => {
-          if (pendingProduct) cart.add(pendingProduct, variation);
+        onConfirm={(variation, quantity) => {
+          if (pendingProduct) cart.add(pendingProduct, variation, quantity);
         }}
       />
     </div>

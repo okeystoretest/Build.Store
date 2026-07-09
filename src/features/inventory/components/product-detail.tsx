@@ -59,7 +59,7 @@ function GradeTable({ product }: { product: Product }) {
 
   return (
     <div className="space-y-sm">
-      <div className="overflow-x-auto rounded-lg border border-outline-variant/50">
+      <div className="overflow-x-auto border border-outline-variant/50">
         <table className="w-full border-collapse text-body-md">
           <thead>
             <tr className="bg-surface-container text-label-sm uppercase tracking-wide text-on-surface-variant">

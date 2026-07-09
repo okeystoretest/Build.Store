@@ -13,6 +13,13 @@ export const metadata: Metadata = {
   title: "Build.Store",
   description: "PDV premium para lojas boutique",
   manifest: "/manifest.json",
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: "/icons/icon-192.png",
+  },
   appleWebApp: { capable: true, title: "Build.Store", statusBarStyle: "default" },
 };
 

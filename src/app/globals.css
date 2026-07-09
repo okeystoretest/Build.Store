@@ -54,18 +54,18 @@
 
   
   .dark {
-    --surface: #191113;
-    --surface-dim: #191113;
-    --surface-bright: #423739;
-    --surface-container-lowest: #130c0d;
-    --surface-container-low: #22191a;
-    --surface-container: #261d1e;
-    --surface-container-high: #312829;
-    --surface-container-highest: #3d3233;
-    --surface-variant: #524345;
+    --surface: #241d1f;
+    --surface-dim: #1f1819;
+    --surface-bright: #4a3e40;
+    --surface-container-lowest: #1b1516;
+    --surface-container-low: #2b2224;
+    --surface-container: #302629;
+    --surface-container-high: #3b3033;
+    --surface-container-highest: #473a3d;
+    --surface-variant: #574749;
 
-    --on-surface: #f0dedf;
-    --on-surface-variant: #d7c1c2;
+    --on-surface: #f2e3e3;
+    --on-surface-variant: #d9c6c7;
 
     --primary: #f8b6b6;
     --primary-container: #7a4b4c;
@@ -89,15 +89,15 @@
     --on-error: #690005;
     --on-error-container: #ffdad6;
 
-    --outline: #a08c8d;
-    --outline-variant: #524345;
+    --outline: #a89496;
+    --outline-variant: #574749;
 
-    --inverse-surface: #f0dedf;
+    --inverse-surface: #f2e3e3;
     --inverse-on-surface: #382e2f;
     --inverse-primary: #904a4b;
 
-    --background: #191113;
-    --on-background: #f0dedf;
+    --background: #201a1b;
+    --on-background: #f2e3e3;
   }
 
   * {
@@ -173,4 +173,27 @@
 .font-heading {
   font-weight: 700;
   letter-spacing: -0.02em;
+}
+
+/*
+ * Scrollbar minimalista e discreta, harmônica com o tema (usa as cores de
+ * outline). Aplicada em áreas roláveis como a "Venda Atual" do PDV.
+ */
+.scrollbar-slim {
+  scrollbar-width: thin;
+  scrollbar-color: var(--outline-variant) transparent;
+}
+.scrollbar-slim::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-slim::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-slim::-webkit-scrollbar-thumb {
+  background-color: var(--outline-variant);
+  border-radius: 9999px;
+}
+.scrollbar-slim::-webkit-scrollbar-thumb:hover {
+  background-color: var(--outline);
 }

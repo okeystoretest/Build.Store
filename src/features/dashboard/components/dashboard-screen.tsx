@@ -75,7 +75,7 @@ export function DashboardScreen() {
       className="h-full overflow-y-auto bg-background px-margin py-md"
     >
       <div className="flex flex-wrap items-end justify-between gap-md">
-        <h1 className="font-heading text-display-sm text-primary">Dashboard</h1>
+        <h1 className="text-display-sm text-primary">Dashboard</h1>
         <div className="flex flex-wrap items-end gap-md">
           <ToggleGroup
             aria-label="Período"
@@ -117,7 +117,7 @@ export function DashboardScreen() {
 
         {/* Desempenho individual por vendedora (ranking) */}
         <div>
-          <h2 className="font-heading mb-sm text-headline-md text-on-surface">
+          <h2 className="mb-sm text-headline-md text-on-surface">
             Desempenho por vendedora
           </h2>
           {ranked.length === 0 ? (
@@ -257,7 +257,7 @@ function ProgressBlock({
       style={{ borderColor: color }}
     >
       <div className="flex items-center justify-between">
-        <h2 className="font-heading text-headline-md text-on-surface">{title}</h2>
+        <h2 className="text-headline-md text-on-surface">{title}</h2>
         <span className="text-display-sm font-semibold tabular-nums" style={{ color }}>
           {pct}%
         </span>

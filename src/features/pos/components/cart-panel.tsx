@@ -31,7 +31,7 @@ export function CartPanel({ cart }: CartPanelProps) {
         )}
       </div>
 
-      <div className="flex-1 space-y-sm overflow-y-auto px-margin py-md">
+      <div className="scrollbar-slim flex-1 space-y-sm overflow-y-auto px-margin py-md">
         {items.length === 0 ? (
           <EmptyCart />
         ) : (

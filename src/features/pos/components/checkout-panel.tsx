@@ -1,6 +1,7 @@
 "use client";
 
 import { Banknote, CreditCard, QrCode, Check } from "lucide-react";
+import { Spinner } from "@/components/ui/spinner";
 import type { PaymentMethod } from "@/types/domain";
 import { PAYMENT_OPTIONS } from "@/features/pos/types";
 import { formatBRL } from "@/lib/utils/money";
@@ -19,6 +20,7 @@ interface CheckoutPanelProps {
   onTenderInput: (value: string) => void;
   onFinalize: () => void;
   canFinalize: boolean;
+  saving?: boolean;
   /** Seller + campaign selectors, rendered above the finalize button. */
   meta?: React.ReactNode;
 }
@@ -41,6 +43,7 @@ export function CheckoutPanel({
   onTenderInput,
   onFinalize,
   canFinalize,
+  saving = false,
   meta,
 }: CheckoutPanelProps) {
   const isCash = method === "cash";
@@ -118,16 +121,25 @@ export function CheckoutPanel({
 
       <button
         onClick={onFinalize}
-        disabled={!canFinalize}
+        disabled={!canFinalize || saving}
         className={cn(
           "mt-auto flex h-14 items-center justify-center gap-2 rounded-full text-body-lg font-semibold transition-colors",
-          canFinalize
+          canFinalize && !saving
             ? "bg-primary-container text-on-primary-container hover:bg-primary-fixed-dim"
             : "cursor-not-allowed bg-surface-container text-on-surface-variant/50",
         )}
       >
-        <Check className="h-5 w-5" strokeWidth={2} />
-        Finalizar Venda
+        {saving ? (
+          <>
+            <Spinner className="h-5 w-5" />
+            Processando...
+          </>
+        ) : (
+          <>
+            <Check className="h-5 w-5" strokeWidth={2} />
+            Finalizar Venda
+          </>
+        )}
       </button>
     </aside>
   );

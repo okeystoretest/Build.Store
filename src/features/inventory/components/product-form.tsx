@@ -194,7 +194,7 @@ export function ProductForm({ product, onSubmit, onCancel }: ProductFormProps) {
             </button>
           </div>
 
-          <div className="overflow-hidden rounded-lg border border-outline-variant/60">
+          <div className="overflow-hidden border border-outline-variant/60">
             <table className="w-full border-collapse text-body-md">
               <thead>
                 <tr className="bg-surface-container text-label-sm uppercase tracking-wide text-on-surface-variant">
@@ -225,7 +225,7 @@ export function ProductForm({ product, onSubmit, onCancel }: ProductFormProps) {
                       <Input
                         {...register(`grade.${index}.color`)}
                         placeholder="Cor"
-                        className="h-9 border-0 bg-transparent px-1 focus:bg-surface"
+                        className="h-9 rounded-none border-0 bg-transparent px-1 focus:bg-surface"
                       />
                     </td>
                     {GRADE_SIZES.map((s) => (
@@ -238,7 +238,7 @@ export function ProductForm({ product, onSubmit, onCancel }: ProductFormProps) {
                           min={0}
                           placeholder="0"
                           aria-label={`Linha ${index + 1}, tamanho ${s}`}
-                          className="h-9 border-0 bg-transparent px-1 text-center focus:bg-surface"
+                          className="h-9 rounded-none border-0 bg-transparent px-1 text-center focus:bg-surface"
                           {...register(`grade.${index}.sizes.${s}`, {
                             valueAsNumber: true,
                           })}

@@ -1,6 +1,6 @@
 "use client";
 
-import { DollarSign, Receipt, ShoppingBag, RotateCcw, AlertTriangle, TrendingDown } from "lucide-react";
+import { DollarSign, Receipt, ShoppingBag, RotateCcw, AlertTriangle, TrendingDown, Download } from "lucide-react";
 import { useAnalytics } from "@/features/analytics/hooks/use-analytics";
 import { useStockAlerts } from "@/features/analytics/hooks/use-stock-alerts";
 import { StatCard } from "./stat-card";
@@ -9,6 +9,9 @@ import { RevenueChart } from "./revenue-chart";
 import { TopProducts } from "./top-products";
 import { PaymentBreakdown } from "./payment-breakdown";
 import { formatBRL } from "@/lib/utils/money";
+import { generateReportPdf } from "@/features/analytics/report-pdf";
+import { useStoreName } from "@/hooks/use-store-name";
+import { Button } from "@/components/ui/button";
 
 /**
  * Analytics dashboard. Every figure derives from the live order list, so a sale
@@ -18,10 +21,21 @@ import { formatBRL } from "@/lib/utils/money";
 export function AnalyticsScreen() {
   const { summary, top, payments, daily } = useAnalytics();
   const stock = useStockAlerts();
+  const storeName = useStoreName();
+
+  const handleDownload = () => {
+    generateReportPdf({ summary, top, payments }, storeName);
+  };
 
   return (
     <div className="h-full overflow-y-auto px-margin py-md">
-      <h1 className="mb-md text-headline-lg text-primary">Relatórios</h1>
+      <div className="mb-md flex items-center justify-between">
+        <h1 className="font-logo text-headline-lg text-primary">Relatórios</h1>
+        <Button onClick={handleDownload} variant="secondary">
+          <Download className="h-4 w-4" strokeWidth={1.75} />
+          Baixar PDF
+        </Button>
+      </div>
 
       <div className="grid grid-cols-2 gap-sm lg:grid-cols-4">
         <StatCard
