@@ -9,6 +9,11 @@ import { z } from "zod";
 export const gradeItemSchema = z.object({
   color: z.string().optional(),
   size: z.string().optional(),
+  quantity: z
+    .number({ invalid_type_error: "Informe a quantidade" })
+    .int("Use um número inteiro")
+    .min(0, "Não pode ser negativo")
+    .default(0),
 });
 
 export const productFormSchema = z.object({
@@ -18,15 +23,19 @@ export const productFormSchema = z.object({
   priceReais: z
     .number({ invalid_type_error: "Informe o preço de venda" })
     .min(0, "Não pode ser negativo"),
+  // O estoque é derivado da soma das quantidades da grade (não é digitado).
   stock: z
-    .number({ invalid_type_error: "Informe a quantidade" })
+    .number()
     .int("Use um número inteiro")
-    .min(0, "Não pode ser negativo"),
+    .min(0, "Não pode ser negativo")
+    .optional(),
   lowStockThreshold: z
     .number({ invalid_type_error: "Informe o limite" })
     .int("Use um número inteiro")
     .min(0, "Não pode ser negativo"),
-  grade: z.array(gradeItemSchema).default([{ color: "", size: "" }]),
+  grade: z
+    .array(gradeItemSchema)
+    .default([{ color: "", size: "", quantity: 0 }]),
   imageUrl: z.string().optional(),
 });
 

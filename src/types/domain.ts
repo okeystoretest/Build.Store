@@ -34,12 +34,15 @@ export type ProductCategory =
   | "outros";
 
 /**
- * Item da grade de peças: um par cor/tamanho. Um produto pode ter vários
- * (ex.: Rosa/P, Rosa/M, Azul/G).
+ * Item da grade de peças: uma variação cor/tamanho com sua quantidade em
+ * estoque. Um produto pode ter várias (ex.: Rosa/P, Rosa/M, Azul/G). A soma das
+ * quantidades da grade é o estoque total do produto (Product.stock).
  */
 export interface GradeItem {
   color: string | null;
   size: string | null;
+  /** Quantidade em estoque desta variação. */
+  quantity: number;
 }
 
 export interface Product {

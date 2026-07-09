@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Upload, ImageIcon, Plus, X } from "lucide-react";
 import type { Product, GradeItem } from "@/types/domain";
@@ -21,15 +21,25 @@ interface ProductFormProps {
 }
 
 /** Normaliza a grade vinda de um produto existente para o formulário. */
-function initialGrade(product?: Product | null): { color: string; size: string }[] {
+function initialGrade(
+  product?: Product | null,
+): { color: string; size: string; quantity: number }[] {
   if (product?.grade && product.grade.length > 0) {
-    return product.grade.map((g) => ({ color: g.color ?? "", size: g.size ?? "" }));
+    return product.grade.map((g) => ({
+      color: g.color ?? "",
+      size: g.size ?? "",
+      // Produtos antigos podem não ter quantity na grade: cai para 0.
+      quantity: g.quantity ?? 0,
+    }));
   }
-  // Compatibilidade com produtos antigos (color/size únicos).
+  // Compatibilidade com produtos antigos (color/size únicos): joga todo o
+  // estoque atual na primeira (e única) variação.
   if (product?.color || product?.size) {
-    return [{ color: product.color ?? "", size: product.size ?? "" }];
+    return [
+      { color: product.color ?? "", size: product.size ?? "", quantity: product.stock ?? 0 },
+    ];
   }
-  return [{ color: "", size: "" }];
+  return [{ color: "", size: "", quantity: 0 }];
 }
 
 /**
@@ -61,14 +71,20 @@ export function ProductForm({ product, onSubmit, onCancel }: ProductFormProps) {
           grade: initialGrade(product),
         }
       : {
-          stock: 0,
           lowStockThreshold: 5,
           priceReais: 0,
-          grade: [{ color: "", size: "" }],
+          grade: [{ color: "", size: "", quantity: 0 }],
         },
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: "grade" });
+
+  // Estoque total = soma das quantidades da grade, recalculado ao vivo.
+  const watchedGrade = useWatch({ control, name: "grade" });
+  const totalStock = (watchedGrade ?? []).reduce(
+    (sum, g) => sum + (Number(g?.quantity) || 0),
+    0,
+  );
 
   const handleImage = (file: File | undefined) => {
     if (!file) return;
@@ -78,13 +94,19 @@ export function ProductForm({ product, onSubmit, onCancel }: ProductFormProps) {
   };
 
   const submit = (values: ProductFormValues) => {
-    // Limpa itens de grade totalmente vazios e normaliza para GradeItem[].
+    // Normaliza para GradeItem[], preservando a quantidade de cada variação.
+    // Mantém itens com cor, tamanho OU quantidade informada (descarta só os
+    // totalmente vazios).
     const grade: GradeItem[] = (values.grade ?? [])
       .map((g) => ({
         color: g.color?.trim() ? g.color.trim() : null,
         size: g.size?.trim() ? g.size.trim() : null,
+        quantity: Number(g.quantity) || 0,
       }))
-      .filter((g) => g.color !== null || g.size !== null);
+      .filter((g) => g.color !== null || g.size !== null || g.quantity > 0);
+
+    // Estoque total = soma das quantidades da grade (fonte única de verdade).
+    const stock = grade.reduce((sum, g) => sum + g.quantity, 0);
 
     onSubmit({
       name: values.name,
@@ -95,7 +117,7 @@ export function ProductForm({ product, onSubmit, onCancel }: ProductFormProps) {
       costCents: product?.costCents ?? 0,
       priceCents: reaisToCents(values.priceReais),
       unit: "unidade",
-      stock: values.stock,
+      stock,
       lowStockThreshold: values.lowStockThreshold,
       grade,
       // Legado: mantém color/size do primeiro item para compatibilidade.
@@ -148,8 +170,19 @@ export function ProductForm({ product, onSubmit, onCancel }: ProductFormProps) {
         <Field label="Preço de venda (R$)" error={errors.priceReais?.message}>
           <Input type="number" step="0.01" {...register("priceReais", { valueAsNumber: true })} />
         </Field>
-        <Field label="Estoque" error={errors.stock?.message}>
-          <Input type="number" {...register("stock", { valueAsNumber: true })} />
+        <Field label="Estoque total">
+          {/* Somatório automático das quantidades da grade (somente leitura). */}
+          <Input
+            type="number"
+            value={totalStock}
+            readOnly
+            tabIndex={-1}
+            aria-describedby="estoque-total-hint"
+            className="cursor-default bg-surface-container text-on-surface-variant"
+          />
+          <p id="estoque-total-hint" className="px-2 text-label-sm text-on-surface-variant">
+            Soma das quantidades da grade
+          </p>
         </Field>
       </div>
 
@@ -163,7 +196,7 @@ export function ProductForm({ product, onSubmit, onCancel }: ProductFormProps) {
           <Label>Grade de peças</Label>
           <button
             type="button"
-            onClick={() => append({ color: "", size: "" })}
+            onClick={() => append({ color: "", size: "", quantity: 0 })}
             className="flex items-center gap-1.5 rounded-full border border-primary-container px-3 py-1.5 text-label-md text-primary transition-colors hover:bg-primary-fixed/40"
           >
             <Plus className="h-4 w-4" strokeWidth={2} />
@@ -181,6 +214,15 @@ export function ProductForm({ product, onSubmit, onCancel }: ProductFormProps) {
               <div className="flex-1 space-y-1.5">
                 <Label>Tamanho</Label>
                 <Input {...register(`grade.${index}.size`)} placeholder="Ex.: M" />
+              </div>
+              <div className="w-24 space-y-1.5">
+                <Label>Quantidade</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="0"
+                  {...register(`grade.${index}.quantity`, { valueAsNumber: true })}
+                />
               </div>
               <button
                 type="button"

@@ -45,23 +45,28 @@ export function ProductDetail({ product }: { product: Product }) {
   );
 }
 
-/** Lista a grade (pares cor/tamanho); cai no legado color/size se necessário. */
+/**
+ * Lista a grade (variações cor/tamanho/quantidade); cai no legado color/size se
+ * necessário. Exibe também o total de peças (soma das quantidades).
+ */
 function GradeList({ product }: { product: Product }) {
   const grade =
     product.grade && product.grade.length > 0
       ? product.grade
       : product.color || product.size
-        ? [{ color: product.color, size: product.size }]
+        ? [{ color: product.color, size: product.size, quantity: product.stock }]
         : [];
 
   if (grade.length === 0) {
     return <p className="text-body-md text-on-surface-variant">—</p>;
   }
 
+  const total = grade.reduce((sum, g) => sum + (Number(g.quantity) || 0), 0);
+
   return (
     <div className="space-y-sm">
       {grade.map((g, i) => (
-        <div key={i} className="grid grid-cols-2 gap-sm">
+        <div key={i} className="grid grid-cols-3 gap-sm">
           <div className="rounded-md bg-surface-container-low px-md py-sm">
             <p className="text-label-sm text-on-surface-variant">Cor</p>
             <p className="text-body-md text-on-surface">{g.color ?? "—"}</p>
@@ -70,8 +75,15 @@ function GradeList({ product }: { product: Product }) {
             <p className="text-label-sm text-on-surface-variant">Tamanho</p>
             <p className="text-body-md text-on-surface">{g.size ?? "—"}</p>
           </div>
+          <div className="rounded-md bg-surface-container-low px-md py-sm">
+            <p className="text-label-sm text-on-surface-variant">Qtd.</p>
+            <p className="text-body-md text-on-surface">{g.quantity ?? 0}</p>
+          </div>
         </div>
       ))}
+      <p className="px-1 pt-1 text-label-md text-on-surface-variant">
+        Estoque total: <span className="font-semibold text-on-surface">{total}</span> un
+      </p>
     </div>
   );
 }
