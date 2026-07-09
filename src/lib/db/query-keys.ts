@@ -12,4 +12,5 @@ export const queryKeys = {
   campaigns: ["campaigns"] as const,
   goals: ["goals"] as const,
   notifications: ["notifications"] as const,
+  settings: ["settings"] as const,
 };

@@ -3,10 +3,14 @@
 import { Search, Cloud, ChevronLeft, ChevronRight } from "lucide-react";
 import { useOrders, type StatusFilter } from "@/features/orders/hooks/use-orders";
 import { useQueryClient } from "@tanstack/react-query";
-import { refundOrder } from "@/lib/db/order-repository";
+import { useState } from "react";
+import { deleteOrder } from "@/lib/db/order-repository";
 import { queryKeys } from "@/lib/db/query-keys";
 import { useAuth } from "@/hooks/use-auth";
 import { OrdersTable } from "./orders-table";
+import { OrderDetailsModal } from "./order-details-modal";
+import { generateReceiptPdf } from "@/features/orders/receipt-pdf";
+import { useStoreName } from "@/hooks/use-store-name";
 import { STATUS_LABELS } from "@/features/analytics/aggregations";
 import { formatBRL } from "@/lib/utils/money";
 import { Input } from "@/components/ui/input";
@@ -30,16 +34,26 @@ export function OrdersScreen() {
   const o = useOrders();
   const { canRefund } = useAuth();
   const queryClient = useQueryClient();
+  const storeName = useStoreName();
+  const [details, setDetails] = useState<Order | null>(null);
 
   const handleRefund = async (order: Order) => {
-    // Refund is access-controlled: only manager/owner may reverse a sale.
+    // Controle de acesso: apenas lojista/admin podem estornar.
     if (!canRefund) return;
-    // Repõe o estoque + marca como estornado; invalida para refletir na hora.
-    await refundOrder(order.id);
+    const ok = window.confirm(
+      `Estornar o pedido ${order.reference}? As peças voltam ao estoque e o registro da venda será APAGADO.`,
+    );
+    if (!ok) return;
+    // Repõe o estoque e apaga o pedido; invalida para refletir na hora.
+    await deleteOrder(order.id);
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.orders }),
       queryClient.invalidateQueries({ queryKey: queryKeys.products }),
     ]);
+  };
+
+  const handleReprint = (order: Order) => {
+    generateReceiptPdf(order, storeName);
   };
 
   return (
@@ -116,7 +130,15 @@ export function OrdersScreen() {
           </div>
         </div>
 
-        <OrdersTable orders={o.orders} onRefund={handleRefund} canRefund={canRefund} />
+        <OrdersTable
+          orders={o.orders}
+          onViewDetails={setDetails}
+          onReprint={handleReprint}
+          onRefund={handleRefund}
+          canRefund={canRefund}
+        />
+
+        <OrderDetailsModal order={details} onClose={() => setDetails(null)} />
 
         <div className="flex flex-wrap items-center justify-between gap-md px-1">
           <p className="text-label-sm text-on-surface-variant">

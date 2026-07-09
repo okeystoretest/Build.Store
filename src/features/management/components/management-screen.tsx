@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { UserPlus, Megaphone, Target, Pencil, Trash2 } from "lucide-react";
 import { useManagement } from "@/features/management/hooks/use-management";
@@ -14,6 +14,9 @@ import {
 } from "@/lib/db/management-repository";
 import { parseToCents } from "@/lib/utils/money";
 import { queryKeys } from "@/lib/db/query-keys";
+import { setStoreName } from "@/lib/db/settings-repository";
+import { useStoreName } from "@/hooks/use-store-name";
+import { Store } from "lucide-react";
 import type { User, Campaign, Goal, Role } from "@/types/domain";
 import { UserForm, ROLE_LABELS } from "./user-form";
 import { CampaignForm } from "./campaign-form";
@@ -27,7 +30,7 @@ import { ToggleGroup } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
 import { formatBRL } from "@/lib/utils/money";
 
-type Tool = "users" | "campaigns" | "goals";
+type Tool = "users" | "campaigns" | "goals" | "store";
 
 /**
  * Gestão screen — three management tools: user registration, campaign creation
@@ -60,13 +63,17 @@ export function ManagementScreen() {
               { value: "users", label: "Usuários", icon: <UserPlus className="h-4 w-4" strokeWidth={1.75} /> },
               { value: "campaigns", label: "Campanhas", icon: <Megaphone className="h-4 w-4" strokeWidth={1.75} /> },
               { value: "goals", label: "Metas", icon: <Target className="h-4 w-4" strokeWidth={1.75} /> },
+              { value: "store", label: "Loja", icon: <Store className="h-4 w-4" strokeWidth={1.75} /> },
             ]}
           />
         </div>
       </header>
 
       <div className="flex-1 overflow-y-auto px-margin py-md">
-        <div className="grid grid-cols-1 gap-md lg:grid-cols-[minmax(360px,440px)_1fr]">
+        {tool === "store" ? (
+          <StoreSettings />
+        ) : (
+          <div className="grid grid-cols-1 gap-md lg:grid-cols-[minmax(360px,440px)_1fr]">
           {/* Form column */}
           <div className="rounded-lg bg-surface-container-lowest p-md shadow-level-1">
             {tool === "users" && (
@@ -111,7 +118,8 @@ export function ManagementScreen() {
               />
             )}
           </div>
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -552,4 +560,63 @@ function ConfirmDelete({
 
 function Empty({ text }: { text: string }) {
   return <p className="text-body-md text-on-surface-variant">{text}</p>;
+}
+
+/**
+ * Configurações da loja. Por ora, apenas o "Nome da Loja", que substitui o
+ * título abaixo da logo na sidebar (global, via tabela settings). Salvar
+ * invalida o cache; o Realtime propaga para os demais dispositivos.
+ */
+function StoreSettings() {
+  const currentName = useStoreName();
+  const queryClient = useQueryClient();
+  const [name, setName] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  // Sincroniza o campo com o valor atual quando ele chega/muda.
+  useEffect(() => {
+    setName(currentName);
+  }, [currentName]);
+
+  const save = async () => {
+    if (!name.trim()) return;
+    setSaving(true);
+    setSaved(false);
+    try {
+      await setStoreName(name.trim());
+      await queryClient.invalidateQueries({ queryKey: queryKeys.settings });
+      setSaved(true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="max-w-xl rounded-lg bg-surface-container-lowest p-md shadow-level-1">
+      <h2 className="mb-md text-headline-md text-on-surface">Dados da loja</h2>
+      <div className="space-y-1.5">
+        <Label>Nome da Loja</Label>
+        <Input
+          value={name}
+          onChange={(e) => {
+            setName(e.target.value);
+            setSaved(false);
+          }}
+          placeholder="Ex.: Okey Store"
+        />
+        <p className="px-2 text-label-sm text-on-surface-variant">
+          Exibido abaixo da logo, na barra lateral.
+        </p>
+      </div>
+      <div className="mt-md flex items-center gap-md">
+        <Button onClick={save} disabled={saving || !name.trim()}>
+          {saving ? "Salvando..." : "Salvar"}
+        </Button>
+        {saved && (
+          <span className="text-label-md text-primary">Nome atualizado.</span>
+        )}
+      </div>
+    </div>
+  );
 }

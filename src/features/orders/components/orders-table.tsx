@@ -18,6 +18,8 @@ import { cn } from "@/lib/utils/cn";
 
 interface OrdersTableProps {
   orders: Order[];
+  onViewDetails: (order: Order) => void;
+  onReprint: (order: Order) => void;
   onRefund: (order: Order) => void;
   canRefund: boolean;
 }
@@ -46,7 +48,13 @@ const PAYMENT_ICON: Record<PaymentMethod, typeof CreditCard> = {
 };
 
 /** Order history table. Avoids heavy grid lines per the design system. */
-export function OrdersTable({ orders, onRefund, canRefund }: OrdersTableProps) {
+export function OrdersTable({
+  orders,
+  onViewDetails,
+  onReprint,
+  onRefund,
+  canRefund,
+}: OrdersTableProps) {
   if (orders.length === 0) {
     return (
       <div className="rounded-lg bg-surface-container-lowest px-md py-xl text-center shadow-level-1">
@@ -117,13 +125,16 @@ export function OrdersTable({ orders, onRefund, canRefund }: OrdersTableProps) {
                 </Td>
                 <Td className="text-right">
                   <span className="flex items-center justify-end gap-1">
-                    <IconBtn label="Ver detalhes">
+                    <IconBtn label="Ver detalhes" onClick={() => onViewDetails(o)}>
                       <Eye className="h-4 w-4" strokeWidth={1.75} />
                     </IconBtn>
-                    <IconBtn label="Reimprimir comprovante">
+                    <IconBtn
+                      label="Reimprimir comprovante"
+                      onClick={() => onReprint(o)}
+                    >
                       <Printer className="h-4 w-4" strokeWidth={1.75} />
                     </IconBtn>
-                    {o.status === "completed" && canRefund && (
+                    {canRefund && (
                       <IconBtn
                         label="Estornar pedido"
                         onClick={() => onRefund(o)}

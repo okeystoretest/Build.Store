@@ -213,3 +213,59 @@ export async function refundOrder(orderId: string): Promise<void> {
     .eq("id", orderId);
   if (updErr) throw updErr;
 }
+
+/**
+ * Estorna APAGANDO o pedido: repõe o estoque das variações vendidas e remove o
+ * registro da venda por completo (order_items caem por cascata; os movimentos
+ * de estorno são inseridos ANTES do delete para o gatilho repor o estoque).
+ *
+ * Atenção: como o pedido é apagado, ele deixa de aparecer em relatórios e no
+ * histórico. Esta é a semântica escolhida para "Estornar Pedido".
+ */
+export async function deleteOrder(orderId: string): Promise<void> {
+  const supabase = createClient();
+
+  const { data: header, error: headErr } = await supabase
+    .from("orders")
+    .select("id, status")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (headErr) throw headErr;
+  if (!header) return;
+
+  // Só repõe estoque se a venda não estava já estornada.
+  if (header.status !== "refunded") {
+    const { data: itemRows, error: itemsErr } = await supabase
+      .from("order_items")
+      .select("product_id, quantity, color, size")
+      .eq("order_id", orderId);
+    if (itemsErr) throw itemsErr;
+
+    const moves = (itemRows ?? [])
+      .filter((i) => i.product_id)
+      .map((i) => ({
+        product_id: i.product_id as string,
+        delta: i.quantity as number, // positivo: repõe estoque
+        reason: "return" as const,
+        note: "Estorno (pedido apagado)",
+        color: (i.color as string | null) ?? null,
+        size: (i.size as string | null) ?? null,
+        // order_id omitido: o pedido será apagado em seguida.
+      }));
+
+    if (moves.length > 0) {
+      const { error: moveErr } = await supabase
+        .from("stock_movements")
+        .insert(moves);
+      if (moveErr) throw moveErr;
+    }
+  }
+
+  // Apaga o pedido. order_items são removidos por ON DELETE CASCADE; os
+  // stock_movements de estorno têm order_id nulo, então sobrevivem ao delete.
+  const { error: delErr } = await supabase
+    .from("orders")
+    .delete()
+    .eq("id", orderId);
+  if (delErr) throw delErr;
+}

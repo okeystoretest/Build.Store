@@ -11,7 +11,7 @@ import {
   type ProductFormValues,
 } from "@/features/inventory/types/product-schema";
 import { reaisToCents } from "@/lib/utils/money";
-import { emptyGradeRow, gradeTotal, normalizeGrade } from "@/lib/db/grade";
+import { gradeTotal, normalizeGrade } from "@/lib/db/grade";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -44,10 +44,10 @@ function initialGrade(
 }
 
 /**
- * Formulário de criar/editar produto. A grade de peças é uma TABELA: colunas
- * Nome, Cor, 36, 38, 40. Cada linha é uma cor; nas colunas de número entra a
- * quantidade em estoque daquele tamanho. O estoque total é a soma automática de
- * todas as células.
+ * Formulário de criar/editar produto — layout HORIZONTAL (wide) para caber sem
+ * rolagem: coluna da esquerda com imagem + dados básicos, coluna da direita com
+ * a grade em tabela quadrada (Nome / Cor / 36 / 38 / 40). O estoque total é a
+ * soma automática das células.
  */
 export function ProductForm({ product, onSubmit, onCancel }: ProductFormProps) {
   const [imageUrl, setImageUrl] = useState<string | null>(
@@ -79,11 +79,8 @@ export function ProductForm({ product, onSubmit, onCancel }: ProductFormProps) {
   });
 
   const { fields, append, remove } = useFieldArray({ control, name: "grade" });
-
-  // Nome exibido em cada linha da tabela (coluna "Nome"), ao vivo.
   const productName = watch("name");
 
-  // Estoque total = soma de todas as células da grade, recalculado ao vivo.
   const watchedGrade = useWatch({ control, name: "grade" });
   const totalStock = gradeTotal(
     (watchedGrade ?? []).map((r) => ({
@@ -119,7 +116,6 @@ export function ProductForm({ product, onSubmit, onCancel }: ProductFormProps) {
       stock,
       lowStockThreshold: values.lowStockThreshold,
       grade,
-      // Legado: primeira cor / primeiro tamanho para compatibilidade.
       color: grade[0]?.color ?? null,
       size: GRADE_SIZES[0],
       imageUrl,
@@ -128,142 +124,153 @@ export function ProductForm({ product, onSubmit, onCancel }: ProductFormProps) {
 
   return (
     <form onSubmit={handleSubmit(submit)} className="space-y-md">
-      <div className="space-y-1.5">
-        <Label>Imagem do produto</Label>
-        <div className="flex items-center gap-md">
-          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-md bg-surface-container">
-            {imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={imageUrl} alt="Prévia" className="h-full w-full object-cover" />
-            ) : (
-              <ImageIcon className="h-7 w-7 text-on-surface-variant/40" strokeWidth={1.5} />
-            )}
+      <div className="grid grid-cols-1 gap-lg md:grid-cols-2">
+        {/* Coluna esquerda: imagem + dados básicos */}
+        <div className="space-y-md">
+          <div className="flex items-center gap-md">
+            <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-md bg-surface-container">
+              {imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={imageUrl} alt="Prévia" className="h-full w-full object-cover" />
+              ) : (
+                <ImageIcon className="h-8 w-8 text-on-surface-variant/40" strokeWidth={1.5} />
+              )}
+            </div>
+            <label className="flex cursor-pointer items-center gap-2 rounded-full border border-primary-container px-4 py-2.5 text-label-md text-primary transition-colors hover:bg-primary-fixed/40">
+              <Upload className="h-4 w-4" strokeWidth={1.75} />
+              Enviar imagem
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleImage(e.target.files?.[0])}
+              />
+            </label>
           </div>
-          <label className="flex cursor-pointer items-center gap-2 rounded-full border border-primary-container px-5 py-3 text-label-md text-primary transition-colors hover:bg-primary-fixed/40">
-            <Upload className="h-4 w-4" strokeWidth={1.75} />
-            Enviar imagem
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => handleImage(e.target.files?.[0])}
-            />
-          </label>
-        </div>
-      </div>
 
-      <Field label="Nome do produto" error={errors.name?.message}>
-        <Input {...register("name")} placeholder="Ex.: Sandália Rasteira" />
-      </Field>
+          <Field label="Nome do produto" error={errors.name?.message}>
+            <Input {...register("name")} placeholder="Ex.: Sandália Rasteira" />
+          </Field>
 
-      <div className="grid grid-cols-2 gap-md">
-        <Field label="Referência" error={errors.sku?.message}>
-          <Input {...register("sku")} placeholder="SAN-0012" />
-        </Field>
-        <Field label="Código de barras" error={errors.barcode?.message}>
-          <Input {...register("barcode")} placeholder="789..." />
-        </Field>
-      </div>
+          <div className="grid grid-cols-2 gap-md">
+            <Field label="Referência" error={errors.sku?.message}>
+              <Input {...register("sku")} placeholder="SAN-0012" />
+            </Field>
+            <Field label="Código de barras" error={errors.barcode?.message}>
+              <Input {...register("barcode")} placeholder="789..." />
+            </Field>
+          </div>
 
-      <div className="grid grid-cols-2 gap-md">
-        <Field label="Preço de venda (R$)" error={errors.priceReais?.message}>
-          <Input type="number" step="0.01" {...register("priceReais", { valueAsNumber: true })} />
-        </Field>
-        <Field label="Estoque total">
-          <Input
-            type="number"
-            value={totalStock}
-            readOnly
-            tabIndex={-1}
-            className="cursor-default bg-surface-container text-on-surface-variant"
-          />
-          <p className="px-2 text-label-sm text-on-surface-variant">
-            Soma das quantidades da grade
-          </p>
-        </Field>
-      </div>
-
-      <Field label="Alerta em" error={errors.lowStockThreshold?.message}>
-        <Input type="number" {...register("lowStockThreshold", { valueAsNumber: true })} />
-      </Field>
-
-      {/* Grade de peças — tabela Nome / Cor / 36 / 38 / 40 */}
-      <div className="space-y-sm">
-        <div className="flex items-center justify-between">
-          <Label>Grade de peças</Label>
-          <button
-            type="button"
-            onClick={() => append(emptyRow())}
-            className="flex items-center gap-1.5 rounded-full border border-primary-container px-3 py-1.5 text-label-md text-primary transition-colors hover:bg-primary-fixed/40"
-          >
-            <Plus className="h-4 w-4" strokeWidth={2} />
-            Adicionar cor
-          </button>
+          <div className="grid grid-cols-3 gap-md">
+            <Field label="Preço (R$)" error={errors.priceReais?.message}>
+              <Input type="number" step="0.01" {...register("priceReais", { valueAsNumber: true })} />
+            </Field>
+            <Field label="Alerta em" error={errors.lowStockThreshold?.message}>
+              <Input type="number" {...register("lowStockThreshold", { valueAsNumber: true })} />
+            </Field>
+            <Field label="Estoque">
+              <Input
+                type="number"
+                value={totalStock}
+                readOnly
+                tabIndex={-1}
+                className="cursor-default bg-surface-container text-center text-on-surface-variant"
+              />
+            </Field>
+          </div>
         </div>
 
-        <div className="overflow-x-auto rounded-lg border border-outline-variant/50">
-          <table className="w-full border-collapse text-body-md">
-            <thead>
-              <tr className="bg-surface-container text-label-sm uppercase tracking-wide text-on-surface-variant">
-                <th className="px-3 py-2 text-left font-medium">Nome</th>
-                <th className="px-3 py-2 text-left font-medium">Cor</th>
-                {GRADE_SIZES.map((s) => (
-                  <th key={s} className="w-16 px-2 py-2 text-center font-medium">
-                    {s}
+        {/* Coluna direita: grade em tabela quadrada */}
+        <div className="space-y-sm">
+          <div className="flex items-center justify-between">
+            <Label>Grade de peças</Label>
+            <button
+              type="button"
+              onClick={() => append(emptyRow())}
+              className="flex items-center gap-1.5 rounded-full border border-primary-container px-3 py-1.5 text-label-md text-primary transition-colors hover:bg-primary-fixed/40"
+            >
+              <Plus className="h-4 w-4" strokeWidth={2} />
+              Cor
+            </button>
+          </div>
+
+          <div className="overflow-hidden rounded-lg border border-outline-variant/60">
+            <table className="w-full border-collapse text-body-md">
+              <thead>
+                <tr className="bg-surface-container text-label-sm uppercase tracking-wide text-on-surface-variant">
+                  <th className="border-r border-outline-variant/40 px-2 py-2 text-left font-medium">
+                    Nome
                   </th>
-                ))}
-                <th className="w-10 px-2 py-2" aria-label="Ações" />
-              </tr>
-            </thead>
-            <tbody>
-              {fields.map((field, index) => (
-                <tr key={field.id} className="border-t border-outline-variant/40">
-                  <td className="px-3 py-2 text-on-surface-variant">
-                    {productName?.trim() ? productName : "—"}
-                  </td>
-                  <td className="px-2 py-2">
-                    <Input
-                      {...register(`grade.${index}.color`)}
-                      placeholder="Ex.: Rosa"
-                      className="h-9"
-                    />
-                  </td>
+                  <th className="border-r border-outline-variant/40 px-2 py-2 text-left font-medium">
+                    Cor
+                  </th>
                   {GRADE_SIZES.map((s) => (
-                    <td key={s} className="px-1 py-2">
+                    <th
+                      key={s}
+                      className="w-14 border-r border-outline-variant/40 px-1 py-2 text-center font-medium last:border-r-0"
+                    >
+                      {s}
+                    </th>
+                  ))}
+                  <th className="w-9 px-1 py-2" aria-label="Ações" />
+                </tr>
+              </thead>
+              <tbody>
+                {fields.map((field, index) => (
+                  <tr key={field.id} className="border-t border-outline-variant/40">
+                    <td className="max-w-[7rem] truncate border-r border-outline-variant/30 px-2 py-1.5 text-label-sm text-on-surface-variant">
+                      {productName?.trim() ? productName : "—"}
+                    </td>
+                    <td className="border-r border-outline-variant/30 px-1 py-1.5">
                       <Input
-                        type="number"
-                        min={0}
-                        placeholder="0"
-                        aria-label={`Cor linha ${index + 1}, tamanho ${s}`}
-                        className="h-9 px-1 text-center"
-                        {...register(`grade.${index}.sizes.${s}`, {
-                          valueAsNumber: true,
-                        })}
+                        {...register(`grade.${index}.color`)}
+                        placeholder="Cor"
+                        className="h-9 border-0 bg-transparent px-1 focus:bg-surface"
                       />
                     </td>
-                  ))}
-                  <td className="px-1 py-2 text-center">
-                    <button
-                      type="button"
-                      onClick={() => remove(index)}
-                      disabled={fields.length === 1}
-                      aria-label="Remover cor"
-                      className="mx-auto flex h-8 w-8 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-error-container hover:text-on-error-container disabled:cursor-not-allowed disabled:opacity-30"
-                    >
-                      <X className="h-4 w-4" strokeWidth={1.75} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    {GRADE_SIZES.map((s) => (
+                      <td
+                        key={s}
+                        className="border-r border-outline-variant/30 px-0.5 py-1.5 last:border-r-0"
+                      >
+                        <Input
+                          type="number"
+                          min={0}
+                          placeholder="0"
+                          aria-label={`Linha ${index + 1}, tamanho ${s}`}
+                          className="h-9 border-0 bg-transparent px-1 text-center focus:bg-surface"
+                          {...register(`grade.${index}.sizes.${s}`, {
+                            valueAsNumber: true,
+                          })}
+                        />
+                      </td>
+                    ))}
+                    <td className="px-0.5 py-1.5 text-center">
+                      <button
+                        type="button"
+                        onClick={() => remove(index)}
+                        disabled={fields.length === 1}
+                        aria-label="Remover cor"
+                        className="mx-auto flex h-7 w-7 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-error-container hover:text-on-error-container disabled:cursor-not-allowed disabled:opacity-30"
+                      >
+                        <X className="h-4 w-4" strokeWidth={1.75} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {errors.grade?.message && (
+            <p className="px-2 text-label-sm text-error">{errors.grade.message}</p>
+          )}
+          <p className="px-1 text-label-sm text-on-surface-variant">
+            Estoque total: <span className="font-semibold text-on-surface">{totalStock}</span> un
+          </p>
         </div>
-        {errors.grade?.message && (
-          <p className="px-2 text-label-sm text-error">{errors.grade.message}</p>
-        )}
       </div>
 
-      <div className="flex justify-end gap-sm pt-sm">
+      <div className="flex justify-end gap-sm border-t border-outline-variant/40 pt-md">
         <Button type="button" variant="ghost" onClick={onCancel}>
           Cancelar
         </Button>

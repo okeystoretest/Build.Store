@@ -164,3 +164,13 @@
   font-weight: 700;
   letter-spacing: 0.01em;
 }
+
+/*
+ * Títulos de seção (ex.: Dashboard) — destaque sóbrio, sem ornamento excessivo.
+ * Peso alto, leve aperto de tracking e caixa levemente estilizada para
+ * diferenciar do texto padrão sem trocar a família tipográfica.
+ */
+.font-heading {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}

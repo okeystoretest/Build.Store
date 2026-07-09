@@ -56,6 +56,9 @@ function toCartItem(product: Product, variation: Variation): CartItem {
     lineDiscountCents: 0,
     color: variation.color,
     size: variation.size,
+    // Cap transitório: estoque disponível daquela variação. Não é persistido no
+    // pedido — serve só para impedir vender mais do que há em estoque.
+    maxQuantity: variation.available,
   };
 }
 
@@ -85,8 +88,8 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       };
     }
     case "SET_QTY": {
-      const quantity = Math.max(0, action.quantity);
-      if (quantity === 0) {
+      const desired = Math.max(0, action.quantity);
+      if (desired === 0) {
         return {
           ...state,
           items: state.items.filter((i) => keyOf(i) !== action.key),
@@ -94,9 +97,12 @@ function cartReducer(state: CartState, action: CartAction): CartState {
       }
       return {
         ...state,
-        items: state.items.map((i) =>
-          keyOf(i) === action.key ? { ...i, quantity } : i,
-        ),
+        items: state.items.map((i) => {
+          if (keyOf(i) !== action.key) return i;
+          // Nunca ultrapassa o estoque disponível da variação.
+          const cap = i.maxQuantity ?? desired;
+          return { ...i, quantity: Math.min(desired, cap) };
+        }),
       };
     }
     case "INCREMENT":

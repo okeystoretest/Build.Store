@@ -101,6 +101,11 @@ export interface CartItem {
   /** Variação vendida: cor e tamanho escolhidos no PDV. */
   color: string | null;
   size: string | null;
+  /**
+   * Estoque disponível da variação (transitório, só no carrinho). Limita a
+   * quantidade vendável; NÃO é persistido no pedido.
+   */
+  maxQuantity?: number;
 }
 
 export interface OrderItem extends CartItem {

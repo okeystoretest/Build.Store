@@ -162,6 +162,7 @@ export function InventoryScreen() {
         open={creating || editing !== null}
         onClose={closeModal}
         title={editing ? "Editar produto" : "Adicionar novo produto"}
+        className="max-w-3xl"
       >
         <ProductForm product={editing} onSubmit={handleSubmit} onCancel={closeModal} />
         {editing && canManage && (

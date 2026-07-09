@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
+import { useStoreName } from "@/hooks/use-store-name";
 
 /** WhatsApp support number for wa.me (digits only): +55 85 9217-8804. */
 const SUPPORT_WHATSAPP = "558592178804";
@@ -50,6 +51,7 @@ export function Sidebar() {
   const { canSeeReports, canSeeManagement, fullName, photoUrl, signOut } =
     useAuth();
   const { theme, toggle } = useTheme();
+  const storeName = useStoreName();
 
   const visible = NAV.filter((item) => {
     if (item.gate === "reports") return canSeeReports;
@@ -87,7 +89,7 @@ export function Sidebar() {
           </p>
         )}
         <h1 className="font-logo mt-1 text-[2rem] leading-none text-primary">
-          Build.Store
+          {storeName}
         </h1>
         <p className="mt-1 text-label-sm uppercase tracking-wide text-on-surface-variant">
           OKEY STORE - PDV

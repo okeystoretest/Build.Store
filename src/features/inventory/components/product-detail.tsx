@@ -63,10 +63,13 @@ function GradeTable({ product }: { product: Product }) {
         <table className="w-full border-collapse text-body-md">
           <thead>
             <tr className="bg-surface-container text-label-sm uppercase tracking-wide text-on-surface-variant">
-              <th className="px-3 py-2 text-left font-medium">Nome</th>
-              <th className="px-3 py-2 text-left font-medium">Cor</th>
+              <th className="border-r border-outline-variant/40 px-3 py-2 text-left font-medium">Nome</th>
+              <th className="border-r border-outline-variant/40 px-3 py-2 text-left font-medium">Cor</th>
               {GRADE_SIZES.map((s) => (
-                <th key={s} className="w-14 px-2 py-2 text-center font-medium">
+                <th
+                  key={s}
+                  className="w-14 border-r border-outline-variant/40 px-2 py-2 text-center font-medium last:border-r-0"
+                >
                   {s}
                 </th>
               ))}
@@ -75,15 +78,15 @@ function GradeTable({ product }: { product: Product }) {
           <tbody>
             {grade.map((row, i) => (
               <tr key={i} className="border-t border-outline-variant/40">
-                <td className="px-3 py-2 text-on-surface-variant">{product.name}</td>
-                <td className="px-3 py-2 text-on-surface">{row.color ?? "—"}</td>
+                <td className="border-r border-outline-variant/30 px-3 py-2 text-on-surface-variant">{product.name}</td>
+                <td className="border-r border-outline-variant/30 px-3 py-2 text-on-surface">{row.color ?? "—"}</td>
                 {GRADE_SIZES.map((s) => {
                   const qty = variationQty(row, s);
                   return (
                     <td
                       key={s}
                       className={
-                        "px-2 py-2 text-center " +
+                        "border-r border-outline-variant/30 px-2 py-2 text-center last:border-r-0 " +
                         (qty === 0 ? "text-on-surface-variant/40" : "text-on-surface")
                       }
                     >
