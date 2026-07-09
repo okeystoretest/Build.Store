@@ -5,12 +5,12 @@ import { usernameToEmail } from "@/lib/auth/username";
 import type { Role } from "@/types/domain";
 
 /**
- * Provision a real user: creates the Supabase Auth user (email derived from the
- * username) and its profile row, scoped to the caller's store. Runs only on the
- * server with the service-role key — the client never sees it.
+ * Provisiona um usuário real: cria o usuário no Supabase Auth (e-mail derivado
+ * do username) e sua linha em `profiles`. Arquitetura de loja única — NÃO há
+ * `store_id`; todos os usuários compartilham a mesma base global.
  *
- * Returns the new auth id so the local Dexie mirror can reuse it, keeping the
- * offline copy and the remote profile in sync (same primary key).
+ * Roda só no servidor com a service-role key — o cliente nunca a vê. Retorna o
+ * id do auth para que o espelho local (Dexie) reutilize a mesma primary key.
  */
 export async function createUserAction(input: {
   username: string;
@@ -26,7 +26,7 @@ export async function createUserAction(input: {
     return { ok: false, error: "Supabase não configurado no servidor." };
   }
 
-  // Resolve the caller's store from their own profile (RLS-safe SSR client).
+  // Verifica a permissão do chamador pelo próprio profile (SSR client, RLS-safe).
   const ssr = createSsrClient();
   const {
     data: { user: caller },
@@ -35,7 +35,7 @@ export async function createUserAction(input: {
 
   const { data: callerProfile } = await ssr
     .from("profiles")
-    .select("store_id, role")
+    .select("role")
     .eq("id", caller.id)
     .single();
 
@@ -43,9 +43,8 @@ export async function createUserAction(input: {
   if (callerProfile.role !== "lojista" && callerProfile.role !== "admin") {
     return { ok: false, error: "Sem permissão para cadastrar usuários." };
   }
-  const storeId = callerProfile.store_id as string;
 
-  // Admin client (service role) — bypasses RLS to create the auth user + profile.
+  // Admin client (service role) — bypassa RLS para criar auth user + profile.
   const { createClient } = await import("@supabase/supabase-js");
   const admin = createClient(url, serviceKey, {
     auth: { autoRefreshToken: false, persistSession: false },
@@ -57,7 +56,11 @@ export async function createUserAction(input: {
     email,
     password: input.password,
     email_confirm: true,
-    user_metadata: { username: input.username, full_name: input.fullName },
+    user_metadata: {
+      username: input.username,
+      full_name: input.fullName,
+      role: input.role,
+    },
   });
   if (authErr || !created.user) {
     return { ok: false, error: authErr?.message ?? "Falha ao criar credenciais." };
@@ -65,18 +68,20 @@ export async function createUserAction(input: {
 
   const authId = created.user.id;
 
-  const { error: profileErr } = await admin.from("profiles").insert({
+  // O trigger handle_new_user() já cria a linha em profiles. Fazemos um upsert
+  // para preencher os campos completos (birth_date, photo, role definitivo).
+  const { error: profileErr } = await admin.from("profiles").upsert({
     id: authId,
-    store_id: storeId,
     username: input.username,
     full_name: input.fullName,
     birth_date: input.birthDate,
     role: input.role,
     photo_url: input.photoUrl ?? null,
+    active: true,
   });
 
   if (profileErr) {
-    // Roll back the orphan auth user so username stays reusable.
+    // Desfaz o auth user órfão para o username continuar reutilizável.
     await admin.auth.admin.deleteUser(authId);
     return { ok: false, error: profileErr.message };
   }

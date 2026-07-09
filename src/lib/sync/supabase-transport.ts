@@ -3,55 +3,31 @@ import type { SyncTransport } from "@/lib/sync/transport";
 import type { Order, Product, User, Campaign, Goal } from "@/types/domain";
 
 /**
- * Supabase implementation of SyncTransport. Plugs into the exact interface the
- * Fase 3 sync engine already calls — no feature or repository changes needed to
- * go from local-only (NullTransport) to backed-by-Supabase. Flip the binding in
- * lib/sync/transport.ts to activate.
+ * Supabase implementation of SyncTransport.
  *
- * Wire format maps the camelCase domain model to the snake_case SQL schema
- * (see supabase/schema.sql). The stock trigger on the server keeps product
- * stock authoritative, so we push stock_movements rather than raw stock.
+ * Arquitetura de loja única: NÃO há `store_id`. Os dados são globais — qualquer
+ * usuário autenticado lê e escreve a mesma base (o RLS libera tudo para
+ * `authenticated`). Removidas todas as resoluções de store via profile e a
+ * numeração de pedido passou a usar next_order_reference() sem argumento.
+ *
+ * O wire format mapeia o modelo de domínio (camelCase) para o schema SQL
+ * (snake_case) — ver supabase/schema.sql. O gatilho de estoque no servidor
+ * mantém products.stock autoritativo, então empurramos stock_movements em vez
+ * de estoque bruto.
  */
 export class SupabaseTransport implements SyncTransport {
   private supabase = createClient();
 
-  /** Resolve the caller's store id from their profile (RLS-safe). */
-  private async storeId(): Promise<string> {
-    const {
-      data: { user },
-    } = await this.supabase.auth.getUser();
-    if (!user) throw new Error("Sem sessão para sincronizar");
-    const { data: profile, error } = await this.supabase
-      .from("profiles")
-      .select("store_id")
-      .eq("id", user.id)
-      .single();
-    if (error || !profile) throw error ?? new Error("Perfil ausente");
-    return profile.store_id as string;
-  }
-
   async pushOrder(order: Order): Promise<void> {
-    // Resolve the caller's store from their profile (RLS also enforces it).
     const {
       data: { user },
     } = await this.supabase.auth.getUser();
     if (!user) throw new Error("Sem sessão para sincronizar");
 
-    const { data: profile, error: profileErr } = await this.supabase
-      .from("profiles")
-      .select("store_id")
-      .eq("id", user.id)
-      .single();
-    if (profileErr || !profile) throw profileErr ?? new Error("Perfil ausente");
-
-    const storeId = profile.store_id as string;
-
-    // Numeração autoritativa do servidor. Cada loja tem seu contador; a função
-    // next_order_reference() incrementa atomicamente e devolve "#PDD-XXX". Isso
-    // evita colisão de referência entre dispositivos (a referência local gerada
-    // offline é apenas provisória). Só geramos uma nova quando o pedido ainda
-    // não tem uma referência confirmada pelo servidor — assim reenvios (retry)
-    // do mesmo pedido não consomem números novos.
+    // Numeração autoritativa do servidor. next_order_reference() incrementa um
+    // contador global atômico e devolve "#PDD-XXX". Só geramos uma nova quando
+    // o pedido ainda não tem referência confirmada pelo servidor — assim
+    // reenvios (retry) do mesmo pedido não consomem números novos.
     let reference = order.reference;
     const alreadyServerNumbered = await this.supabase
       .from("orders")
@@ -60,12 +36,10 @@ export class SupabaseTransport implements SyncTransport {
       .maybeSingle();
 
     if (alreadyServerNumbered.data?.reference) {
-      // Reenvio de um pedido já numerado: reaproveita a referência do servidor.
       reference = alreadyServerNumbered.data.reference;
     } else {
       const { data: newRef, error: refErr } = await this.supabase.rpc(
         "next_order_reference",
-        { p_store_id: storeId },
       );
       if (refErr) throw refErr;
       if (typeof newRef === "string") reference = newRef;
@@ -79,10 +53,9 @@ export class SupabaseTransport implements SyncTransport {
       order.reference = reference;
     }
 
-    // Upsert the order header (idempotent on the client-generated id).
+    // Upsert do cabeçalho (idempotente no id gerado no cliente).
     const { error: orderErr } = await this.supabase.from("orders").upsert({
       id: order.id,
-      store_id: storeId,
       reference,
       customer_id: order.customerId,
       customer_name: order.customerName,
@@ -101,7 +74,7 @@ export class SupabaseTransport implements SyncTransport {
     });
     if (orderErr) throw orderErr;
 
-    // Replace line items for this order (safe on retry).
+    // Substitui os itens deste pedido (seguro em retry).
     await this.supabase.from("order_items").delete().eq("order_id", order.id);
     if (order.items.length > 0) {
       const { error: itemsErr } = await this.supabase.from("order_items").insert(
@@ -121,11 +94,9 @@ export class SupabaseTransport implements SyncTransport {
     }
 
     // Movimentos de estoque: o gatilho do banco ajusta o estoque a cada
-    // inserção, então precisam ser idempotentes. Uma venda gera movimentos de
-    // "sale"; um estorno gera movimentos de "return". Só inserimos se ainda não
-    // houver movimentos daquele tipo para este pedido — assim reenvios (retry
-    // de sincronização ou re-push de estorno) não decrementam/incrementam o
-    // estoque em duplicidade.
+    // inserção, então precisam ser idempotentes. Venda gera "sale"; estorno
+    // gera "return". Só inserimos se ainda não houver movimentos daquele tipo
+    // para este pedido — assim reenvios não duplicam a baixa/reposição.
     const reason = order.status === "refunded" ? "return" : "sale";
     const delta = order.status === "refunded" ? 1 : -1;
 
@@ -141,7 +112,6 @@ export class SupabaseTransport implements SyncTransport {
         .from("stock_movements")
         .insert(
           order.items.map((i) => ({
-            store_id: storeId,
             product_id: i.productId,
             delta: delta * i.quantity,
             reason,
@@ -158,16 +128,8 @@ export class SupabaseTransport implements SyncTransport {
     } = await this.supabase.auth.getUser();
     if (!user) throw new Error("Sem sessão para sincronizar");
 
-    const { data: profile } = await this.supabase
-      .from("profiles")
-      .select("store_id")
-      .eq("id", user.id)
-      .single();
-    if (!profile) throw new Error("Perfil ausente");
-
     const { error } = await this.supabase.from("products").upsert({
       id: product.id,
-      store_id: profile.store_id,
       sku: product.sku,
       barcode: product.barcode,
       name: product.name,
@@ -194,10 +156,8 @@ export class SupabaseTransport implements SyncTransport {
   }
 
   async pushCampaign(campaign: Campaign): Promise<void> {
-    const storeId = await this.storeId();
     const { error } = await this.supabase.from("campaigns").upsert({
       id: campaign.id,
-      store_id: storeId,
       name: campaign.name,
       active: campaign.active,
       created_at: campaign.createdAt,
@@ -211,10 +171,8 @@ export class SupabaseTransport implements SyncTransport {
   }
 
   async pushGoal(goal: Goal): Promise<void> {
-    const storeId = await this.storeId();
     const { error } = await this.supabase.from("goals").upsert({
       id: goal.id,
-      store_id: storeId,
       seller_id: goal.sellerId,
       type: goal.type,
       campaign_id: goal.campaignId,
@@ -281,17 +239,8 @@ export class SupabaseTransport implements SyncTransport {
   }
 
   async pullOrders(): Promise<Order[]> {
-    // Traz os pedidos mais recentes com um teto explícito. O join aninhado
-    // orders(*, order_items(*)) sob RLS ficava caro e estourava o statement
-    // timeout do Postgres (erro 57014) conforme o histórico crescia. Aqui:
-    //   1) buscamos só os cabeçalhos recentes (LIMIT), ordenados por data;
-    //   2) buscamos os itens desses pedidos em UMA query por id (in-list).
-    // Duas queries simples são muito mais baratas que um join aninhado com
-    // subselect de RLS reavaliado por linha. RLS já limita à loja do usuário.
-    // Teto de pedidos por sincronização. Cobre dashboard e relatórios recentes
-    // sem estourar o statement timeout. O histórico completo pode ser paginado
-    // sob demanda no futuro (por data). Ordenação casa com o índice
-    // orders(store_id, created_at desc).
+    // Traz os pedidos mais recentes com teto explícito. Duas queries simples
+    // (cabeçalhos + itens em lotes) são muito mais baratas que um join aninhado.
     const MAX_ORDERS = 300;
 
     const { data: headers, error: headErr } = await this.supabase
@@ -308,8 +257,6 @@ export class SupabaseTransport implements SyncTransport {
 
     const orderIds = orderRows.map((o) => o.id as string);
 
-    // Busca os itens em lotes de ids. Um in() muito grande pode ficar caro; os
-    // lotes mantêm cada request leve e paralelizável.
     const CHUNK = 100;
     const itemRows: Record<string, unknown>[] = [];
     for (let i = 0; i < orderIds.length; i += CHUNK) {
@@ -322,7 +269,6 @@ export class SupabaseTransport implements SyncTransport {
       if (data) itemRows.push(...data);
     }
 
-    // Agrupa itens por pedido para montagem O(n).
     const itemsByOrder = new Map<string, Order["items"]>();
     for (const it of itemRows) {
       const oid = it.order_id as string;
@@ -355,7 +301,6 @@ export class SupabaseTransport implements SyncTransport {
         tenderedCents: r.tendered_cents ?? null,
         changeCents: r.change_cents ?? null,
         status: r.status,
-        // Vindo do servidor, já está sincronizado.
         syncStatus: "synced",
         sellerId: r.seller_id ?? null,
         sellerName: r.seller_name ?? null,
@@ -367,7 +312,7 @@ export class SupabaseTransport implements SyncTransport {
   }
 
   async pullUsers(): Promise<User[]> {
-    // Os usuários do app são os profiles da loja (RLS: mesma loja).
+    // Todos os profiles são globais (RLS libera para qualquer autenticado).
     const { data, error } = await this.supabase
       .from("profiles")
       .select("id, username, full_name, birth_date, role, photo_url, active, created_at");

@@ -50,7 +50,7 @@ export async function listSellers(): Promise<User[]> {
  *
  * - Local/demo mode (no Supabase): stored in Dexie only, with a generated id.
  *   The password is ignored — there is no auth backend to hold it.
- * - Real mode (Supabase configured): a `storeId` is required and the caller is
+ * - Real mode (Supabase configured): the caller is
  *   expected to have created the auth user first (see createAuthUser), passing
  *   the resulting auth id in `authId`. The Dexie row mirrors the profile.
  *

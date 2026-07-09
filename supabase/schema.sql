@@ -1,263 +1,231 @@
--- Build.Store — Supabase schema (atualizado)
--- Money stored as integer centavos. Timestamps in UTC.
--- Run in the Supabase SQL editor or via the CLI.
--- Idempotent: safe to re-run over an existing database without data loss.
+-- =============================================================================
+-- Build.Store — Reset completo do banco (SQL Editor do Supabase)
+-- =============================================================================
+-- Este script:
+--   1. Remove TODA a estrutura anterior (tabelas, funções, triggers, policies).
+--   2. Recria o schema SEM o conceito de `store_id` (arquitetura de loja única).
+--   3. Torna todos os dados GLOBAIS: qualquer usuário autenticado enxerga o
+--      mesmo catálogo, estoque, pedidos, campanhas, metas e usuários.
 --
--- Este arquivo é a fonte de verdade do backend e espelha o modelo de domínio
--- em src/types/domain.ts. Além das tabelas originais, esta versão adiciona:
---   • products.color / products.size      (grade de peças)
---   • profiles.photo_url / profiles.active (foto e status do usuário)
---   • notifications                        (sino de notificações)
---   • order_counters + next_order_reference (numeração #PDD-XXX por loja)
--- Todas as adições usam "add column if not exists" / "create table if not
--- exists" para migração segura sobre bases já existentes.
+-- Modelo de acesso:
+--   - Autenticação: usuário + senha via Supabase Auth (e-mail interno derivado
+--     do username — ver usernameToEmail no app: "ana silva" -> ana.silva@build.store).
+--   - RLS habilitado, mas as políticas liberam leitura/escrita para QUALQUER
+--     usuário autenticado (auth.role() = 'authenticated'). Não há isolamento por
+--     loja: é uma base única compartilhada.
+--
+-- COMO USAR: cole tudo no SQL Editor do Supabase e execute uma vez.
+-- Rode novamente sempre que quiser zerar a base (ele dropa antes de recriar).
+-- =============================================================================
 
-create extension if not exists "pgcrypto";
+-- -----------------------------------------------------------------------------
+-- 0. DROP — elimina qualquer resquício das configurações anteriores.
+-- -----------------------------------------------------------------------------
+-- Ordem: primeiro triggers/funções que dependem de tabelas, depois as tabelas.
+-- CASCADE remove policies, índices e constraints dependentes.
 
--- ---------------------------------------------------------------------------
--- Enums (guarded — create type has no "if not exists")
--- ---------------------------------------------------------------------------
-do $$ begin
-  create type payment_method as enum ('cash', 'credit', 'debit', 'pix', 'wallet');
-exception when duplicate_object then null; end $$;
+drop trigger if exists trg_apply_stock_movement on public.stock_movements;
+drop trigger if exists on_auth_user_created on auth.users;
 
-do $$ begin
-  create type order_status as enum ('completed', 'refunded', 'cancelled', 'pending');
-exception when duplicate_object then null; end $$;
+drop function if exists public.apply_stock_movement() cascade;
+drop function if exists public.current_store_id() cascade;
+drop function if exists public.next_order_reference(uuid) cascade;
+drop function if exists public.next_order_reference() cascade;
+drop function if exists public.handle_new_user() cascade;
 
-do $$ begin
-  create type product_category as enum ('cosmeticos', 'acessorios', 'aromaterapia', 'outros');
-exception when duplicate_object then null; end $$;
+drop table if exists public.notifications    cascade;
+drop table if exists public.goals            cascade;
+drop table if exists public.campaigns        cascade;
+drop table if exists public.stock_movements  cascade;
+drop table if exists public.order_items      cascade;
+drop table if exists public.orders           cascade;
+drop table if exists public.customers        cascade;
+drop table if exists public.products         cascade;
+drop table if exists public.profiles         cascade;
+drop table if exists public.stores           cascade;  -- tabela legada multi-loja
+drop table if exists public.counters         cascade;
 
-do $$ begin
-  create type stock_reason as enum ('sale', 'restock', 'adjustment', 'loss', 'return');
-exception when duplicate_object then null; end $$;
+-- -----------------------------------------------------------------------------
+-- 1. Extensões
+-- -----------------------------------------------------------------------------
+create extension if not exists "pgcrypto";  -- gen_random_uuid()
 
-do $$ begin
-  create type goal_type as enum ('general', 'campaign');
-exception when duplicate_object then null; end $$;
-
-do $$ begin
-  create type notification_kind as enum ('product_added', 'info');
-exception when duplicate_object then null; end $$;
-
--- ---------------------------------------------------------------------------
--- Stores (multi-tenant: each lojista partner is a store)
--- ---------------------------------------------------------------------------
-create table if not exists stores (
-  id uuid primary key default gen_random_uuid(),
-  name text not null,
-  created_at timestamptz not null default now()
-);
-
--- Profiles link auth.users to a store with a role.
-create table if not exists profiles (
-  id uuid primary key references auth.users (id) on delete cascade,
-  store_id uuid not null references stores (id) on delete cascade,
-  username text not null unique,
-  full_name text,
+-- -----------------------------------------------------------------------------
+-- 2. PROFILES — 1:1 com auth.users. Sem store_id.
+-- -----------------------------------------------------------------------------
+create table public.profiles (
+  id         uuid primary key references auth.users(id) on delete cascade,
+  username   text unique,
+  full_name  text not null default '',
   birth_date date,
-  role text not null default 'vendedora' check (role in ('vendedora', 'lojista', 'admin')),
-  photo_url text,
-  active boolean not null default true,
+  role       text not null default 'vendedora'
+             check (role in ('vendedora','lojista','admin')),
+  photo_url  text,
+  active     boolean not null default true,
   created_at timestamptz not null default now()
 );
 
--- Migrations para bases criadas em versões anteriores.
-alter table profiles add column if not exists username text;
-alter table profiles add column if not exists photo_url text;
-alter table profiles add column if not exists active boolean not null default true;
--- Só adiciona a UNIQUE em (username) se ainda não existir. Quando a tabela é
--- criada por este mesmo script, "username text unique" já cria a constraint
--- automática profiles_username_key — recriá-la lança 42P07 (duplicate_table).
-do $$ begin
-  if not exists (
-    select 1
-      from pg_constraint
-     where conrelid = 'profiles'::regclass
-       and contype = 'u'
-       and conkey = array[
-         (select attnum from pg_attribute
-           where attrelid = 'profiles'::regclass and attname = 'username')
-       ]
-  ) then
-    alter table profiles add constraint profiles_username_key unique (username);
-  end if;
-exception when duplicate_table or duplicate_object then null; end $$;
-
--- ---------------------------------------------------------------------------
--- Products
--- ---------------------------------------------------------------------------
-create table if not exists products (
-  id uuid primary key default gen_random_uuid(),
-  store_id uuid not null references stores (id) on delete cascade,
-  sku text not null,
-  barcode text,
-  name text not null,
-  description text,
-  category product_category not null default 'outros',
-  cost_cents integer not null default 0 check (cost_cents >= 0),
-  price_cents integer not null check (price_cents >= 0),
-  unit text not null default 'un',
-  stock integer not null default 0,
-  low_stock_threshold integer not null default 5,
-  color text,
-  size text,
-  grade jsonb not null default '[]'::jsonb,
-  image_url text,
-  active boolean not null default true,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  unique (store_id, sku)
+-- -----------------------------------------------------------------------------
+-- 3. PRODUCTS — catálogo/estoque global.
+-- -----------------------------------------------------------------------------
+create table public.products (
+  id                  uuid primary key default gen_random_uuid(),
+  sku                 text not null,
+  barcode             text,
+  name                text not null,
+  description         text,
+  category            text not null default 'outros',
+  cost_cents          integer not null default 0,
+  price_cents         integer not null default 0,
+  unit                text not null default 'un',
+  stock               integer not null default 0,
+  low_stock_threshold integer not null default 0,
+  color               text,
+  size                text,
+  grade               jsonb not null default '[]'::jsonb,
+  image_url           text,
+  active              boolean not null default true,
+  created_at          timestamptz not null default now(),
+  updated_at          timestamptz not null default now()
 );
+create index products_updated_at_idx on public.products (updated_at desc);
+create index products_barcode_idx    on public.products (barcode);
 
--- Migrations: grade de peças (cor/tamanho) para bases já existentes.
-alter table products add column if not exists color text;
-alter table products add column if not exists size text;
-alter table products add column if not exists grade jsonb not null default '[]'::jsonb;
-
-create index if not exists products_store_category_idx on products (store_id, category);
-create index if not exists products_barcode_idx on products (barcode);
-
--- ---------------------------------------------------------------------------
--- Customers
--- ---------------------------------------------------------------------------
-create table if not exists customers (
-  id uuid primary key default gen_random_uuid(),
-  store_id uuid not null references stores (id) on delete cascade,
-  name text not null,
-  phone text,
-  document text,
+-- -----------------------------------------------------------------------------
+-- 4. CUSTOMERS
+-- -----------------------------------------------------------------------------
+create table public.customers (
+  id         uuid primary key default gen_random_uuid(),
+  name       text not null,
+  phone      text,
+  document   text,
   created_at timestamptz not null default now()
 );
 
--- ---------------------------------------------------------------------------
--- Campaigns + goals (Fase A)
--- ---------------------------------------------------------------------------
-create table if not exists campaigns (
-  id uuid primary key default gen_random_uuid(),
-  store_id uuid not null references stores (id) on delete cascade,
-  name text not null,
-  active boolean not null default true,
-  created_at timestamptz not null default now()
+-- -----------------------------------------------------------------------------
+-- 5. ORDERS + ORDER_ITEMS
+-- -----------------------------------------------------------------------------
+create table public.orders (
+  id              uuid primary key default gen_random_uuid(),
+  reference       text not null,
+  customer_id     uuid references public.customers(id) on delete set null,
+  customer_name   text,
+  subtotal_cents  integer not null default 0,
+  discount_cents  integer not null default 0,
+  total_cents     integer not null default 0,
+  payment_method  text not null
+                  check (payment_method in ('cash','credit','debit','pix','wallet')),
+  tendered_cents  integer,
+  change_cents    integer,
+  status          text not null default 'completed'
+                  check (status in ('completed','refunded','cancelled','pending')),
+  seller_id       uuid references public.profiles(id) on delete set null,
+  seller_name     text,
+  campaign_id     uuid,
+  created_by      uuid references public.profiles(id) on delete set null,
+  created_at      timestamptz not null default now()
 );
+create index orders_created_at_idx on public.orders (created_at desc);
 
-create table if not exists goals (
-  id uuid primary key default gen_random_uuid(),
-  store_id uuid not null references stores (id) on delete cascade,
-  seller_id uuid not null references profiles (id) on delete cascade,
-  type goal_type not null,
-  campaign_id uuid references campaigns (id) on delete cascade,
-  target_cents integer,
-  target_quantity integer,
-  created_at timestamptz not null default now()
-);
-
-create index if not exists goals_seller_idx on goals (seller_id);
-
--- ---------------------------------------------------------------------------
--- Orders + items
--- ---------------------------------------------------------------------------
-create table if not exists orders (
-  id uuid primary key default gen_random_uuid(),
-  store_id uuid not null references stores (id) on delete cascade,
-  reference text not null,
-  customer_id uuid references customers (id) on delete set null,
-  customer_name text,
-  subtotal_cents integer not null,
-  discount_cents integer not null default 0,
-  total_cents integer not null,
-  payment_method payment_method not null,
-  tendered_cents integer,
-  change_cents integer,
-  status order_status not null default 'completed',
-  seller_id uuid references profiles (id) on delete set null,
-  seller_name text,
-  campaign_id uuid references campaigns (id) on delete set null,
-  created_by uuid references auth.users (id) on delete set null,
-  created_at timestamptz not null default now(),
-  unique (store_id, reference)
-);
-
-create index if not exists orders_store_created_idx on orders (store_id, created_at desc);
-create index if not exists orders_status_idx on orders (store_id, status);
-
-create table if not exists order_items (
-  id uuid primary key default gen_random_uuid(),
-  order_id uuid not null references orders (id) on delete cascade,
-  product_id uuid references products (id) on delete set null,
-  sku text not null,
-  name text not null,
-  image_url text,
-  unit_price_cents integer not null,
-  quantity integer not null check (quantity > 0),
+create table public.order_items (
+  id                 uuid primary key default gen_random_uuid(),
+  order_id           uuid not null references public.orders(id) on delete cascade,
+  product_id         uuid references public.products(id) on delete set null,
+  sku                text not null,
+  name               text not null,
+  image_url          text,
+  unit_price_cents   integer not null default 0,
+  quantity           integer not null default 1,
   line_discount_cents integer not null default 0
 );
+create index order_items_order_id_idx on public.order_items (order_id);
 
-create index if not exists order_items_order_idx on order_items (order_id);
+-- -----------------------------------------------------------------------------
+-- 6. STOCK_MOVEMENTS — dá baixa/reposição automática via trigger.
+-- -----------------------------------------------------------------------------
+create table public.stock_movements (
+  id         uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.products(id) on delete cascade,
+  delta      integer not null,
+  reason     text not null
+             check (reason in ('sale','restock','adjustment','loss','return')),
+  order_id   uuid references public.orders(id) on delete set null,
+  note       text,
+  created_at timestamptz not null default now()
+);
+create index stock_movements_product_idx on public.stock_movements (product_id);
+create index stock_movements_order_idx   on public.stock_movements (order_id);
 
--- ---------------------------------------------------------------------------
--- Order counters (numeração sequencial #PDD-XXX por loja)
--- Localmente a numeração vive no Dexie (tabela counters). No servidor, cada
--- loja tem seu próprio contador para gerar referências sem colisão entre
--- dispositivos. next_order_reference() incrementa de forma atômica.
--- ---------------------------------------------------------------------------
-create table if not exists order_counters (
-  store_id uuid primary key references stores (id) on delete cascade,
+-- -----------------------------------------------------------------------------
+-- 7. CAMPAIGNS + GOALS
+-- -----------------------------------------------------------------------------
+create table public.campaigns (
+  id         uuid primary key default gen_random_uuid(),
+  name       text not null,
+  active     boolean not null default true,
+  created_at timestamptz not null default now()
+);
+
+create table public.goals (
+  id              uuid primary key default gen_random_uuid(),
+  seller_id       uuid not null references public.profiles(id) on delete cascade,
+  type            text not null check (type in ('general','campaign')),
+  campaign_id     uuid references public.campaigns(id) on delete cascade,
+  target_cents    integer,
+  target_quantity integer,
+  created_at      timestamptz not null default now()
+);
+
+-- -----------------------------------------------------------------------------
+-- 8. NOTIFICATIONS
+-- -----------------------------------------------------------------------------
+create table public.notifications (
+  id         uuid primary key default gen_random_uuid(),
+  kind       text not null default 'info',
+  title      text not null,
+  body       text not null default '',
+  read       boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+-- -----------------------------------------------------------------------------
+-- 9. COUNTERS — numeração sequencial global de pedidos (#PDD-XXX).
+-- -----------------------------------------------------------------------------
+create table public.counters (
+  id    text primary key,
   value integer not null default 0
 );
 
-create or replace function next_order_reference(p_store_id uuid)
-returns text language plpgsql as $$
+-- Referência atômica de pedido, agora SEM store_id (contador global único).
+create or replace function public.next_order_reference()
+returns text
+language plpgsql
+security definer
+set search_path = public
+as $$
 declare
-  next_val integer;
+  v_next integer;
 begin
-  insert into order_counters (store_id, value)
-       values (p_store_id, 1)
-  on conflict (store_id)
-    do update set value = order_counters.value + 1
-  returning value into next_val;
+  insert into public.counters (id, value)
+  values ('orders', 1)
+  on conflict (id) do update set value = public.counters.value + 1
+  returning value into v_next;
 
-  return '#PDD-' || lpad(next_val::text, 3, '0');
+  return '#PDD-' || lpad(v_next::text, 3, '0');
 end;
 $$;
 
--- ---------------------------------------------------------------------------
--- Notifications (sino de notificações; product_added, info)
--- ---------------------------------------------------------------------------
-create table if not exists notifications (
-  id uuid primary key default gen_random_uuid(),
-  store_id uuid not null references stores (id) on delete cascade,
-  kind notification_kind not null default 'info',
-  title text not null,
-  body text not null,
-  read boolean not null default false,
-  created_at timestamptz not null default now()
-);
-
-create index if not exists notifications_store_created_idx on notifications (store_id, created_at desc);
-
--- ---------------------------------------------------------------------------
--- Stock movements (audit trail; drives real-time stock)
--- ---------------------------------------------------------------------------
-create table if not exists stock_movements (
-  id uuid primary key default gen_random_uuid(),
-  store_id uuid not null references stores (id) on delete cascade,
-  product_id uuid not null references products (id) on delete cascade,
-  delta integer not null,
-  reason stock_reason not null,
-  order_id uuid references orders (id) on delete set null,
-  note text,
-  created_at timestamptz not null default now()
-);
-
-create index if not exists stock_movements_product_idx on stock_movements (product_id, created_at desc);
-
--- Applying a movement adjusts product stock atomically.
-create or replace function apply_stock_movement()
-returns trigger language plpgsql as $$
+-- -----------------------------------------------------------------------------
+-- 10. Trigger de estoque — cada movimento ajusta products.stock.
+-- -----------------------------------------------------------------------------
+create or replace function public.apply_stock_movement()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
 begin
-  update products
+  update public.products
      set stock = stock + new.delta,
          updated_at = now()
    where id = new.product_id;
@@ -265,93 +233,71 @@ begin
 end;
 $$;
 
-drop trigger if exists trg_apply_stock_movement on stock_movements;
 create trigger trg_apply_stock_movement
-after insert on stock_movements
-for each row execute function apply_stock_movement();
+  after insert on public.stock_movements
+  for each row execute function public.apply_stock_movement();
 
--- ---------------------------------------------------------------------------
--- Row Level Security — every row scoped to the caller's store
--- ---------------------------------------------------------------------------
-alter table stores enable row level security;
-alter table profiles enable row level security;
-alter table products enable row level security;
-alter table customers enable row level security;
-alter table orders enable row level security;
-alter table order_items enable row level security;
-alter table stock_movements enable row level security;
-alter table campaigns enable row level security;
-alter table goals enable row level security;
-alter table notifications enable row level security;
-alter table order_counters enable row level security;
-
--- Helper: the store the current user belongs to.
--- SECURITY DEFINER + search_path fixo: roda com privilégios do dono e NÃO
--- re-dispara a RLS de profiles. Isso é essencial — sem isso, políticas que
--- chamam current_store_id() ao ler profiles entrariam em recursão infinita
--- ("infinite recursion detected in policy for relation profiles").
-create or replace function current_store_id()
-returns uuid
-language sql
-stable
+-- -----------------------------------------------------------------------------
+-- 11. Bootstrap de profile — cria a linha em profiles quando um auth.user nasce.
+--     Usa o username do metadata (ou o local-part do e-mail) como handle.
+-- -----------------------------------------------------------------------------
+create or replace function public.handle_new_user()
+returns trigger
+language plpgsql
 security definer
 set search_path = public
 as $$
-  select store_id from profiles where id = auth.uid();
+begin
+  insert into public.profiles (id, username, full_name, role)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)),
+    coalesce(new.raw_user_meta_data->>'full_name', ''),
+    coalesce(new.raw_user_meta_data->>'role', 'vendedora')
+  )
+  on conflict (id) do nothing;
+  return new;
+end;
 $$;
 
-drop policy if exists "own profile" on profiles;
-create policy "own profile" on profiles
-  for select using (id = auth.uid());
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute function public.handle_new_user();
 
--- Perfis da mesma loja podem ser lidos (atribuição de vendedora, etc.).
--- Seguro agora que current_store_id() é SECURITY DEFINER (não recursa).
-drop policy if exists "store profiles read" on profiles;
-create policy "store profiles read" on profiles
-  for select using (store_id = current_store_id());
+-- -----------------------------------------------------------------------------
+-- 12. RLS — habilitado em todas as tabelas, liberado para qualquer autenticado.
+--     Sem isolamento por loja: base única e global.
+-- -----------------------------------------------------------------------------
+alter table public.profiles        enable row level security;
+alter table public.products        enable row level security;
+alter table public.customers       enable row level security;
+alter table public.orders          enable row level security;
+alter table public.order_items     enable row level security;
+alter table public.stock_movements enable row level security;
+alter table public.campaigns       enable row level security;
+alter table public.goals           enable row level security;
+alter table public.notifications   enable row level security;
+alter table public.counters        enable row level security;
 
-drop policy if exists "store scoped products" on products;
-create policy "store scoped products" on products
-  for all using (store_id = current_store_id())
-  with check (store_id = current_store_id());
+do $$
+declare
+  t text;
+begin
+  foreach t in array array[
+    'profiles','products','customers','orders','order_items',
+    'stock_movements','campaigns','goals','notifications','counters'
+  ]
+  loop
+    execute format(
+      'create policy %I on public.%I for all to authenticated using (true) with check (true);',
+      t || '_authenticated_all', t
+    );
+  end loop;
+end $$;
 
-drop policy if exists "store scoped customers" on customers;
-create policy "store scoped customers" on customers
-  for all using (store_id = current_store_id())
-  with check (store_id = current_store_id());
-
-drop policy if exists "store scoped orders" on orders;
-create policy "store scoped orders" on orders
-  for all using (store_id = current_store_id())
-  with check (store_id = current_store_id());
-
-drop policy if exists "store scoped order_items" on order_items;
-create policy "store scoped order_items" on order_items
-  for all using (
-    order_id in (select id from orders where store_id = current_store_id())
-  );
-
-drop policy if exists "store scoped stock_movements" on stock_movements;
-create policy "store scoped stock_movements" on stock_movements
-  for all using (store_id = current_store_id())
-  with check (store_id = current_store_id());
-
-drop policy if exists "store scoped campaigns" on campaigns;
-create policy "store scoped campaigns" on campaigns
-  for all using (store_id = current_store_id())
-  with check (store_id = current_store_id());
-
-drop policy if exists "store scoped goals" on goals;
-create policy "store scoped goals" on goals
-  for all using (store_id = current_store_id())
-  with check (store_id = current_store_id());
-
-drop policy if exists "store scoped notifications" on notifications;
-create policy "store scoped notifications" on notifications
-  for all using (store_id = current_store_id())
-  with check (store_id = current_store_id());
-
-drop policy if exists "store scoped order_counters" on order_counters;
-create policy "store scoped order_counters" on order_counters
-  for all using (store_id = current_store_id())
-  with check (store_id = current_store_id());
+-- =============================================================================
+-- Fim. Crie os usuários pelo painel Auth do Supabase (ou pela tela de Gestão do
+-- app). O trigger handle_new_user() gera o profile automaticamente. Para o
+-- primeiro admin, edite o profile:
+--   update public.profiles set role = 'admin' where username = 'seu_usuario';
+-- =============================================================================

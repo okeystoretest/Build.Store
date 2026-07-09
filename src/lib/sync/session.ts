@@ -6,20 +6,19 @@ import { isSupabaseConfigured } from "@/lib/sync/transport";
 /**
  * Prontidão de sessão para sincronização.
  *
- * O pull do servidor depende de RLS (current_store_id() → auth.uid()). Se ele
- * roda ANTES do cookie de sessão propagar — como acontecia logo após o
- * redirect do login — os selects voltam vazios SEM erro, e o engine acabava
- * limpando o Dexie com nada. Este helper garante que só sincronizamos quando
- * há uma sessão válida COM store_id resolvível.
+ * Arquitetura de loja única: NÃO há mais `store_id`. A sessão está "pronta"
+ * assim que existe um usuário autenticado. O pull depende de RLS que libera
+ * tudo para `authenticated`, então basta garantir que o cookie de sessão já
+ * propagou antes de sincronizar — caso contrário os selects voltariam vazios
+ * (sem erro) e um clear() cego poderia esvaziar o Dexie.
  */
 
 export interface SessionInfo {
   userId: string;
-  storeId: string;
 }
 
 /**
- * Retorna a sessão pronta (usuário + store_id) ou null se ainda não houver
+ * Retorna a sessão pronta (usuário autenticado) ou null se ainda não houver
  * sessão utilizável. Nunca lança: em qualquer falha devolve null para que o
  * chamador simplesmente adie o sync em vez de destruir dados locais.
  */
@@ -31,30 +30,7 @@ export async function getReadySession(): Promise<SessionInfo | null> {
       data: { session },
     } = await supabase.auth.getSession();
     if (!session?.user) return null;
-
-    // Resolve o store_id via RPC current_store_id() — que é SECURITY DEFINER e
-    // portanto imune à recursão de RLS em `profiles`. Se a RPC não existir por
-    // algum motivo, cai para a leitura direta do profile.
-    const rpc = await supabase.rpc("current_store_id");
-    if (!rpc.error && typeof rpc.data === "string" && rpc.data) {
-      return { userId: session.user.id, storeId: rpc.data };
-    }
-    if (rpc.error) {
-      console.warn("[sync] current_store_id() indisponível:", rpc.error.message);
-    }
-
-    const { data: profile, error } = await supabase
-      .from("profiles")
-      .select("store_id")
-      .eq("id", session.user.id)
-      .maybeSingle();
-
-    if (error) {
-      console.error("[sync] leitura de profile falhou:", error.message);
-      return null;
-    }
-    if (!profile?.store_id) return null;
-    return { userId: session.user.id, storeId: profile.store_id as string };
+    return { userId: session.user.id };
   } catch (e) {
     console.error("[sync] getReadySession exceção:", e);
     return null;

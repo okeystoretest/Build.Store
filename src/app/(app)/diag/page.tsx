@@ -9,8 +9,7 @@ import { isSupabaseConfigured } from "@/lib/sync/transport";
  *
  * Roda cada leitura do Supabase isoladamente e mostra, NA TELA, o resultado de
  * cada uma: quantidade de linhas ou o erro exato (código Postgres + mensagem +
- * hint). Serve para identificar rapidamente qual pull retorna 500/empty e por
- * quê, sem depender de decifrar o console. Não altera dados.
+ * hint). Arquitetura de loja única — sem store_id. Não altera dados.
  */
 
 interface ProbeResult {
@@ -27,9 +26,7 @@ export default function DiagPage() {
   const [session, setSession] = useState<{
     userId: string | null;
     email: string | null;
-    storeId: string | null;
-    storeIdError: string | null;
-  }>({ userId: null, email: null, storeId: null, storeIdError: null });
+  }>({ userId: null, email: null });
   const [results, setResults] = useState<ProbeResult[]>([]);
   const [running, setRunning] = useState(true);
 
@@ -46,17 +43,13 @@ export default function DiagPage() {
 
       const supabase = createClient();
 
-      // Sessão + store_id
       const {
         data: { session: sess },
       } = await supabase.auth.getSession();
 
-      const rpc = await supabase.rpc("current_store_id");
       setSession({
         userId: sess?.user?.id ?? null,
         email: sess?.user?.email ?? null,
-        storeId: (rpc.data as string) ?? null,
-        storeIdError: rpc.error?.message ?? null,
       });
 
       // Probes: um SELECT com count exato por tabela. head:true evita trazer
@@ -112,21 +105,11 @@ export default function DiagPage() {
             <dd className="break-all">{session.userId ?? "—"}</dd>
             <dt className="text-on-surface-variant">E-mail</dt>
             <dd className="break-all">{session.email ?? "—"}</dd>
-            <dt className="text-on-surface-variant">store_id</dt>
-            <dd className="break-all">
-              {session.storeId ?? (
-                <span className="text-error">
-                  NULL{session.storeIdError ? ` — ${session.storeIdError}` : ""}
-                </span>
-              )}
-            </dd>
           </dl>
-          {!session.storeId && (
+          {!session.userId && (
             <p className="mt-3 rounded bg-error-container px-3 py-2 text-sm text-on-error-container">
-              store_id nulo: o usuário logado não tem uma linha em `profiles`
-              com `store_id`, ou a RPC current_store_id() não resolveu. Sem
-              store_id, todas as políticas viram `store_id = NULL` e nenhum dado
-              aparece (sem necessariamente dar 500).
+              Sem sessão: nenhum usuário autenticado. Faça login para que os
+              probes rodem sob RLS de `authenticated`.
             </p>
           )}
         </section>
