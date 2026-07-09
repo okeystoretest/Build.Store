@@ -288,7 +288,11 @@ export class SupabaseTransport implements SyncTransport {
     //   2) buscamos os itens desses pedidos em UMA query por id (in-list).
     // Duas queries simples são muito mais baratas que um join aninhado com
     // subselect de RLS reavaliado por linha. RLS já limita à loja do usuário.
-    const MAX_ORDERS = 500;
+    // Teto de pedidos por sincronização. Cobre dashboard e relatórios recentes
+    // sem estourar o statement timeout. O histórico completo pode ser paginado
+    // sob demanda no futuro (por data). Ordenação casa com o índice
+    // orders(store_id, created_at desc).
+    const MAX_ORDERS = 300;
 
     const { data: headers, error: headErr } = await this.supabase
       .from("orders")
@@ -304,15 +308,23 @@ export class SupabaseTransport implements SyncTransport {
 
     const orderIds = orderRows.map((o) => o.id as string);
 
-    const { data: itemRows, error: itemsErr } = await this.supabase
-      .from("order_items")
-      .select("*")
-      .in("order_id", orderIds);
-    if (itemsErr) throw itemsErr;
+    // Busca os itens em lotes de ids. Um in() muito grande pode ficar caro; os
+    // lotes mantêm cada request leve e paralelizável.
+    const CHUNK = 100;
+    const itemRows: Record<string, unknown>[] = [];
+    for (let i = 0; i < orderIds.length; i += CHUNK) {
+      const slice = orderIds.slice(i, i + CHUNK);
+      const { data, error: itemsErr } = await this.supabase
+        .from("order_items")
+        .select("*")
+        .in("order_id", slice);
+      if (itemsErr) throw itemsErr;
+      if (data) itemRows.push(...data);
+    }
 
     // Agrupa itens por pedido para montagem O(n).
     const itemsByOrder = new Map<string, Order["items"]>();
-    for (const it of itemRows ?? []) {
+    for (const it of itemRows) {
       const oid = it.order_id as string;
       const list = itemsByOrder.get(oid) ?? [];
       list.push({

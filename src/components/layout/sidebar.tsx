@@ -108,22 +108,23 @@ export function Sidebar() {
         {visible.map(({ href, label, icon: Icon }) => {
           const active = pathname.startsWith(href);
           return (
-            <Link
-              key={href}
-              href={href}
-              className={cn(
-                "relative flex items-center gap-3 rounded-full px-4 py-3 text-label-md transition-colors",
-                active
-                  ? "bg-primary-fixed/60 text-primary"
-                  : "text-on-surface-variant hover:bg-surface-container",
-              )}
-            >
-              {active && (
-                <span className="absolute right-0 h-6 w-1 rounded-full bg-primary" />
-              )}
-              <Icon className="h-5 w-5" strokeWidth={1.75} />
-              {label}
-            </Link>
+            <div key={href}>
+              <Link
+                href={href}
+                className={cn(
+                  "relative flex items-center gap-3 rounded-full px-4 py-3 text-label-md transition-colors",
+                  active
+                    ? "bg-primary-fixed/60 text-primary"
+                    : "text-on-surface-variant hover:bg-surface-container",
+                )}
+              >
+                {active && (
+                  <span className="absolute right-0 h-6 w-1 rounded-full bg-primary" />
+                )}
+                <Icon className="h-5 w-5" strokeWidth={1.75} />
+                {label}
+              </Link>
+            </div>
           );
         })}
       </nav>
