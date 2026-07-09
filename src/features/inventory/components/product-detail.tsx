@@ -2,12 +2,14 @@
 
 import { ImageIcon } from "lucide-react";
 import type { Product } from "@/types/domain";
+import { GRADE_SIZES } from "@/types/domain";
 import { formatBRL } from "@/lib/utils/money";
+import { gradeTotal, variationQty } from "@/lib/db/grade";
 
 /**
  * Visualização de produto (somente leitura) para Lojista/Vendedora.
- * Exibe imagem, referência, nome, preço e a grade de peças (cor e tamanho).
- * Sem ações de edição/exclusão — essas são exclusivas do Admin.
+ * Exibe imagem, referência, nome, preço e a grade de peças como tabela
+ * (Nome / Cor / 36 / 38 / 40) com o estoque total.
  */
 export function ProductDetail({ product }: { product: Product }) {
   return (
@@ -39,49 +41,62 @@ export function ProductDetail({ product }: { product: Product }) {
         <p className="mb-sm text-label-md font-semibold uppercase tracking-wide text-on-surface-variant">
           Grade de peças
         </p>
-        <GradeList product={product} />
+        <GradeTable product={product} />
       </div>
     </div>
   );
 }
 
-/**
- * Lista a grade (variações cor/tamanho/quantidade); cai no legado color/size se
- * necessário. Exibe também o total de peças (soma das quantidades).
- */
-function GradeList({ product }: { product: Product }) {
-  const grade =
-    product.grade && product.grade.length > 0
-      ? product.grade
-      : product.color || product.size
-        ? [{ color: product.color, size: product.size, quantity: product.stock }]
-        : [];
+/** Tabela da grade (cor × tamanho) com totais. */
+function GradeTable({ product }: { product: Product }) {
+  const grade = product.grade ?? [];
 
   if (grade.length === 0) {
     return <p className="text-body-md text-on-surface-variant">—</p>;
   }
 
-  const total = grade.reduce((sum, g) => sum + (Number(g.quantity) || 0), 0);
+  const total = gradeTotal(grade);
 
   return (
     <div className="space-y-sm">
-      {grade.map((g, i) => (
-        <div key={i} className="grid grid-cols-3 gap-sm">
-          <div className="rounded-md bg-surface-container-low px-md py-sm">
-            <p className="text-label-sm text-on-surface-variant">Cor</p>
-            <p className="text-body-md text-on-surface">{g.color ?? "—"}</p>
-          </div>
-          <div className="rounded-md bg-surface-container-low px-md py-sm">
-            <p className="text-label-sm text-on-surface-variant">Tamanho</p>
-            <p className="text-body-md text-on-surface">{g.size ?? "—"}</p>
-          </div>
-          <div className="rounded-md bg-surface-container-low px-md py-sm">
-            <p className="text-label-sm text-on-surface-variant">Qtd.</p>
-            <p className="text-body-md text-on-surface">{g.quantity ?? 0}</p>
-          </div>
-        </div>
-      ))}
-      <p className="px-1 pt-1 text-label-md text-on-surface-variant">
+      <div className="overflow-x-auto rounded-lg border border-outline-variant/50">
+        <table className="w-full border-collapse text-body-md">
+          <thead>
+            <tr className="bg-surface-container text-label-sm uppercase tracking-wide text-on-surface-variant">
+              <th className="px-3 py-2 text-left font-medium">Nome</th>
+              <th className="px-3 py-2 text-left font-medium">Cor</th>
+              {GRADE_SIZES.map((s) => (
+                <th key={s} className="w-14 px-2 py-2 text-center font-medium">
+                  {s}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {grade.map((row, i) => (
+              <tr key={i} className="border-t border-outline-variant/40">
+                <td className="px-3 py-2 text-on-surface-variant">{product.name}</td>
+                <td className="px-3 py-2 text-on-surface">{row.color ?? "—"}</td>
+                {GRADE_SIZES.map((s) => {
+                  const qty = variationQty(row, s);
+                  return (
+                    <td
+                      key={s}
+                      className={
+                        "px-2 py-2 text-center " +
+                        (qty === 0 ? "text-on-surface-variant/40" : "text-on-surface")
+                      }
+                    >
+                      {qty}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="px-1 text-label-md text-on-surface-variant">
         Estoque total: <span className="font-semibold text-on-surface">{total}</span> un
       </p>
     </div>

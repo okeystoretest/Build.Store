@@ -35,15 +35,18 @@ export function CartPanel({ cart }: CartPanelProps) {
         {items.length === 0 ? (
           <EmptyCart />
         ) : (
-          items.map((item) => (
-            <CartLine
-              key={item.productId}
-              item={item}
-              onIncrement={() => cart.increment(item.productId)}
-              onDecrement={() => cart.decrement(item.productId)}
-              onRemove={() => cart.remove(item.productId)}
-            />
-          ))
+          items.map((item) => {
+            const key = cart.lineKey(item.productId, item.color, item.size);
+            return (
+              <CartLine
+                key={key}
+                item={item}
+                onIncrement={() => cart.increment(key)}
+                onDecrement={() => cart.decrement(key)}
+                onRemove={() => cart.remove(key)}
+              />
+            );
+          })
         )}
       </div>
 

@@ -110,6 +110,8 @@ export async function recordSale(input: RecordSaleInput): Promise<Order> {
         unit_price_cents: i.unitPriceCents,
         quantity: i.quantity,
         line_discount_cents: i.lineDiscountCents,
+        color: i.color,
+        size: i.size,
       })),
     );
     if (itemsErr) throw itemsErr;
@@ -123,6 +125,9 @@ export async function recordSale(input: RecordSaleInput): Promise<Order> {
         delta: -i.quantity,
         reason: "sale",
         order_id: orderId,
+        // color+size fazem o gatilho baixar a célula certa da grade (Rosa/38).
+        color: i.color,
+        size: i.size,
       })),
     );
     if (moveErr) throw moveErr;
@@ -178,7 +183,7 @@ export async function refundOrder(orderId: string): Promise<void> {
 
   const { data: itemRows, error: itemsErr } = await supabase
     .from("order_items")
-    .select("product_id, quantity")
+    .select("product_id, quantity, color, size")
     .eq("order_id", orderId);
   if (itemsErr) throw itemsErr;
 
@@ -190,6 +195,9 @@ export async function refundOrder(orderId: string): Promise<void> {
       reason: "return" as const,
       order_id: orderId,
       note: "Estorno",
+      // Repõe na mesma variação que saiu.
+      color: (i.color as string | null) ?? null,
+      size: (i.size as string | null) ?? null,
     }));
 
   if (moves.length > 0) {

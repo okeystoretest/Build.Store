@@ -24,7 +24,7 @@ export const ORDER_COLUMNS =
   "id, reference, customer_id, customer_name, subtotal_cents, discount_cents, total_cents, payment_method, tendered_cents, change_cents, status, seller_id, seller_name, campaign_id, created_by, created_at";
 
 export const ORDER_ITEM_COLUMNS =
-  "id, order_id, product_id, sku, name, image_url, unit_price_cents, quantity, line_discount_cents";
+  "id, order_id, product_id, sku, name, image_url, unit_price_cents, quantity, line_discount_cents, color, size";
 
 export const PROFILE_COLUMNS =
   "id, username, full_name, birth_date, role, photo_url, active, created_at";
@@ -95,6 +95,8 @@ export function toOrderItem(r: Row): OrderItem {
     unitPriceCents: r.unit_price_cents as number,
     quantity: r.quantity as number,
     lineDiscountCents: (r.line_discount_cents as number) ?? 0,
+    color: (r.color as string | null) ?? null,
+    size: (r.size as string | null) ?? null,
   };
 }
 

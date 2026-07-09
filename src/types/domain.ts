@@ -35,14 +35,22 @@ export type ProductCategory =
 
 /**
  * Item da grade de peças: uma variação cor/tamanho com sua quantidade em
- * estoque. Um produto pode ter várias (ex.: Rosa/P, Rosa/M, Azul/G). A soma das
- * quantidades da grade é o estoque total do produto (Product.stock).
+ * estoque. A soma de todas as quantidades da grade é o estoque total do
+ * produto (Product.stock).
+ */
+
+/** Tamanhos fixos usados na grade de todos os produtos. */
+export const GRADE_SIZES = ["36", "38", "40"] as const;
+export type GradeSize = (typeof GRADE_SIZES)[number];
+
+/**
+ * Uma linha da grade: uma cor com a quantidade em estoque de cada tamanho.
+ * Ex.: { color: "Rosa", sizes: { "36": 3, "38": 5, "40": 2 } }.
  */
 export interface GradeItem {
   color: string | null;
-  size: string | null;
-  /** Quantidade em estoque desta variação. */
-  quantity: number;
+  /** Quantidade por tamanho (chaves = GRADE_SIZES). */
+  sizes: Record<string, number>;
 }
 
 export interface Product {
@@ -60,11 +68,11 @@ export interface Product {
   stock: number;
   /** Reorder threshold; stock at/below this raises a low-stock alert. */
   lowStockThreshold: number;
-  /** Grade de peças — cor (legado; primeiro item da grade). */
+  /** Grade de peças — cor (legado; primeira cor da grade). */
   color: string | null;
-  /** Grade de peças — tamanho (legado; primeiro item da grade). */
+  /** Grade de peças — tamanho (legado; primeiro tamanho da grade). */
   size: string | null;
-  /** Grade de peças — múltiplos pares cor/tamanho. */
+  /** Grade de peças — cores com quantidade por tamanho. */
   grade: GradeItem[];
   imageUrl: string | null;
   active: boolean;
@@ -90,6 +98,9 @@ export interface CartItem {
   quantity: number;
   /** Per-line discount in centavos, applied before totals. */
   lineDiscountCents: number;
+  /** Variação vendida: cor e tamanho escolhidos no PDV. */
+  color: string | null;
+  size: string | null;
 }
 
 export interface OrderItem extends CartItem {

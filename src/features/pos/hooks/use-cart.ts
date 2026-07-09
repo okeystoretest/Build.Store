@@ -5,25 +5,47 @@ import type { CartItem, Product } from "@/types/domain";
 import { computeTotals, itemCount } from "@/lib/utils/cart";
 
 /**
- * Cart state machine. Kept as a reducer so every mutation is explicit,
- * serializable and easy to persist offline later (Fase 3). Totals are derived,
- * never stored, so they can't drift from the line items.
+ * Máquina de estado do carrinho. Cada item é uma VARIAÇÃO (produto + cor +
+ * tamanho), então a mesma peça em tamanhos diferentes ocupa linhas diferentes.
+ * A chave de linha é `${productId}|${color}|${size}`. Totais são derivados,
+ * nunca guardados, para não divergirem das linhas.
  */
 interface CartState {
   items: CartItem[];
   globalDiscountCents: number;
 }
 
+/** Uma variação escolhida no seletor do PDV. */
+export interface Variation {
+  color: string | null;
+  size: string | null;
+  /** Estoque disponível daquela variação (limita a quantidade no carrinho). */
+  available: number;
+}
+
 type CartAction =
-  | { type: "ADD"; product: Product }
-  | { type: "SET_QTY"; productId: string; quantity: number }
-  | { type: "INCREMENT"; productId: string }
-  | { type: "DECREMENT"; productId: string }
-  | { type: "REMOVE"; productId: string }
+  | { type: "ADD"; product: Product; variation: Variation }
+  | { type: "SET_QTY"; key: string; quantity: number }
+  | { type: "INCREMENT"; key: string }
+  | { type: "DECREMENT"; key: string }
+  | { type: "REMOVE"; key: string }
   | { type: "SET_DISCOUNT"; cents: number }
   | { type: "CLEAR" };
 
-function toCartItem(product: Product): CartItem {
+/** Chave única de uma linha (produto + variação). */
+export function lineKey(
+  productId: string,
+  color: string | null,
+  size: string | null,
+): string {
+  return `${productId}|${color ?? ""}|${size ?? ""}`;
+}
+
+function keyOf(item: CartItem): string {
+  return lineKey(item.productId, item.color, item.size);
+}
+
+function toCartItem(product: Product, variation: Variation): CartItem {
   return {
     productId: product.id,
     sku: product.sku,
@@ -32,62 +54,69 @@ function toCartItem(product: Product): CartItem {
     unitPriceCents: product.priceCents,
     quantity: 1,
     lineDiscountCents: 0,
+    color: variation.color,
+    size: variation.size,
   };
 }
 
 function cartReducer(state: CartState, action: CartAction): CartState {
   switch (action.type) {
     case "ADD": {
-      const existing = state.items.find(
-        (i) => i.productId === action.product.id,
+      const key = lineKey(
+        action.product.id,
+        action.variation.color,
+        action.variation.size,
       );
+      const existing = state.items.find((i) => keyOf(i) === key);
+      const available = action.variation.available;
       if (existing) {
+        // Não ultrapassa o estoque disponível da variação.
+        const quantity = Math.min(existing.quantity + 1, available);
         return {
           ...state,
           items: state.items.map((i) =>
-            i.productId === action.product.id
-              ? { ...i, quantity: i.quantity + 1 }
-              : i,
+            keyOf(i) === key ? { ...i, quantity } : i,
           ),
         };
       }
-      return { ...state, items: [...state.items, toCartItem(action.product)] };
+      return {
+        ...state,
+        items: [...state.items, toCartItem(action.product, action.variation)],
+      };
     }
     case "SET_QTY": {
       const quantity = Math.max(0, action.quantity);
       if (quantity === 0) {
         return {
           ...state,
-          items: state.items.filter((i) => i.productId !== action.productId),
+          items: state.items.filter((i) => keyOf(i) !== action.key),
         };
       }
       return {
         ...state,
         items: state.items.map((i) =>
-          i.productId === action.productId ? { ...i, quantity } : i,
+          keyOf(i) === action.key ? { ...i, quantity } : i,
         ),
       };
     }
     case "INCREMENT":
       return cartReducer(state, {
         type: "SET_QTY",
-        productId: action.productId,
+        key: action.key,
         quantity:
-          (state.items.find((i) => i.productId === action.productId)
-            ?.quantity ?? 0) + 1,
+          (state.items.find((i) => keyOf(i) === action.key)?.quantity ?? 0) + 1,
       });
     case "DECREMENT":
       return cartReducer(state, {
         type: "SET_QTY",
-        productId: action.productId,
+        key: action.key,
         quantity:
-          (state.items.find((i) => i.productId === action.productId)
-            ?.quantity ?? 0) - 1,
+          (state.items.find((i) => keyOf(i) === action.key)?.quantity ?? 0) - 1,
       });
     case "REMOVE":
       return {
         ...state,
-        items: state.items.filter((i) => i.productId !== action.productId),
+        items: state.items.filter((i) => keyOf(i) !== action.key),
       };
     case "SET_DISCOUNT":
       return { ...state, globalDiscountCents: Math.max(0, action.cents) };
@@ -115,28 +144,25 @@ export function useCart() {
     globalDiscountCents: state.globalDiscountCents,
     totals,
     count,
-    add: useCallback((product: Product) => {
-      // Produto sem estoque não pode ser vendido.
-      if (product.stock <= 0) return;
-      dispatch({ type: "ADD", product });
+    lineKey,
+    add: useCallback((product: Product, variation: Variation) => {
+      if (variation.available <= 0) return; // esgotada
+      dispatch({ type: "ADD", product, variation });
     }, []),
     increment: useCallback(
-      (productId: string) => dispatch({ type: "INCREMENT", productId }),
+      (key: string) => dispatch({ type: "INCREMENT", key }),
       [],
     ),
     decrement: useCallback(
-      (productId: string) => dispatch({ type: "DECREMENT", productId }),
+      (key: string) => dispatch({ type: "DECREMENT", key }),
       [],
     ),
     setQuantity: useCallback(
-      (productId: string, quantity: number) =>
-        dispatch({ type: "SET_QTY", productId, quantity }),
+      (key: string, quantity: number) =>
+        dispatch({ type: "SET_QTY", key, quantity }),
       [],
     ),
-    remove: useCallback(
-      (productId: string) => dispatch({ type: "REMOVE", productId }),
-      [],
-    ),
+    remove: useCallback((key: string) => dispatch({ type: "REMOVE", key }), []),
     setDiscount: useCallback(
       (cents: number) => dispatch({ type: "SET_DISCOUNT", cents }),
       [],

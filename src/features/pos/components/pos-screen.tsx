@@ -15,6 +15,8 @@ import { CartPanel } from "./cart-panel";
 import { CheckoutPanel } from "./checkout-panel";
 import { SaleMeta } from "./sale-meta";
 import { ProductResults } from "./product-results";
+import { VariationPicker } from "./variation-picker";
+import type { Product } from "@/types/domain";
 
 /**
  * Container da tela de PDV. Compõe carrinho + checkout + busca de produtos ao
@@ -39,6 +41,8 @@ export function POSScreen() {
   const [campaignId, setCampaignId] = useState<string | null>(null);
   // Cliente da venda (obrigatório para finalizar).
   const [customerName, setCustomerName] = useState("");
+  // Produto aguardando escolha de cor/tamanho no seletor de variação.
+  const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
 
   const { totalCents } = cart.totals;
   const isCash = method === "cash";
@@ -55,7 +59,7 @@ export function POSScreen() {
     setQuery(value);
     const match = findByCode(value);
     if (match) {
-      cart.add(match);
+      setPendingProduct(match);
       setQuery("");
     }
   };
@@ -106,7 +110,7 @@ export function POSScreen() {
           <ProductResults
             products={products}
             query={query}
-            onSelect={cart.add}
+            onSelect={setPendingProduct}
           />
           <CartPanel cart={cart} />
         </div>
@@ -139,6 +143,14 @@ export function POSScreen() {
           }
         />
       </div>
+
+      <VariationPicker
+        product={pendingProduct}
+        onClose={() => setPendingProduct(null)}
+        onConfirm={(variation) => {
+          if (pendingProduct) cart.add(pendingProduct, variation);
+        }}
+      />
     </div>
   );
 }

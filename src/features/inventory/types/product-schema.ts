@@ -1,19 +1,27 @@
 import { z } from "zod";
+import { GRADE_SIZES } from "@/types/domain";
 
 /**
- * Product form validation. Category and unit were removed per spec (unit
- * defaults to "unidade"). SKU is surfaced as "Referência". O preço de custo foi
- * removido do formulário. A grade de peças é uma lista dinâmica de pares
- * cor/tamanho (pelo menos um item; campos individuais são opcionais).
+ * Validação do formulário de produto. A grade de peças é uma tabela: cada linha
+ * é uma cor com a quantidade de cada tamanho fixo (36/38/40). O estoque total é
+ * derivado da soma dessas quantidades (não é digitado).
  */
-export const gradeItemSchema = z.object({
+
+// Objeto de quantidades por tamanho: { "36": n, "38": n, "40": n }.
+const sizesShape = Object.fromEntries(
+  GRADE_SIZES.map((s) => [
+    s,
+    z
+      .number({ invalid_type_error: "Informe um número" })
+      .int("Use um número inteiro")
+      .min(0, "Não pode ser negativo")
+      .default(0),
+  ]),
+);
+
+export const gradeRowSchema = z.object({
   color: z.string().optional(),
-  size: z.string().optional(),
-  quantity: z
-    .number({ invalid_type_error: "Informe a quantidade" })
-    .int("Use um número inteiro")
-    .min(0, "Não pode ser negativo")
-    .default(0),
+  sizes: z.object(sizesShape),
 });
 
 export const productFormSchema = z.object({
@@ -23,19 +31,11 @@ export const productFormSchema = z.object({
   priceReais: z
     .number({ invalid_type_error: "Informe o preço de venda" })
     .min(0, "Não pode ser negativo"),
-  // O estoque é derivado da soma das quantidades da grade (não é digitado).
-  stock: z
-    .number()
-    .int("Use um número inteiro")
-    .min(0, "Não pode ser negativo")
-    .optional(),
   lowStockThreshold: z
     .number({ invalid_type_error: "Informe o limite" })
     .int("Use um número inteiro")
     .min(0, "Não pode ser negativo"),
-  grade: z
-    .array(gradeItemSchema)
-    .default([{ color: "", size: "", quantity: 0 }]),
+  grade: z.array(gradeRowSchema).min(1, "Adicione ao menos uma cor"),
   imageUrl: z.string().optional(),
 });
 

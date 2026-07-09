@@ -42,6 +42,11 @@ export function CartLine({
         <p className="truncate text-body-md font-medium text-on-surface">
           {item.name}
         </p>
+        {(item.color || item.size) && (
+          <p className="text-label-sm text-primary">
+            {[item.color, item.size].filter(Boolean).join(" · ")}
+          </p>
+        )}
         <p className="text-label-sm text-on-surface-variant">SKU: {item.sku}</p>
       </div>
 
