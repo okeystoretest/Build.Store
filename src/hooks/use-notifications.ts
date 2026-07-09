@@ -1,19 +1,37 @@
 "use client";
 
-import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/lib/db/dexie";
-import { markAllRead, clearNotifications } from "@/lib/db/notification-repository";
-import type { AppNotification } from "@/types/domain";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
+import {
+  listNotifications,
+  markAllRead as markAllReadRepo,
+  clearNotifications as clearNotificationsRepo,
+} from "@/lib/db/notification-repository";
+import { queryKeys } from "@/lib/db/query-keys";
+import { useRealtimeInvalidation } from "@/lib/db/use-realtime-invalidation";
 
-/** Live notifications for the bell menu, newest first, with unread count. */
+/** Notificações ao vivo do sino, mais recentes primeiro, com contagem de não lidas. */
 export function useNotifications() {
-  const items = useLiveQuery<AppNotification[]>(
-    () => db.notifications.orderBy("createdAt").reverse().toArray(),
-    [],
-  );
+  useRealtimeInvalidation("notifications", queryKeys.notifications);
+  const queryClient = useQueryClient();
 
-  const list = items ?? [];
+  const { data } = useQuery({
+    queryKey: queryKeys.notifications,
+    queryFn: listNotifications,
+  });
+
+  const list = data ?? [];
   const unread = list.filter((n) => !n.read).length;
+
+  const markAllRead = useCallback(async () => {
+    await markAllReadRepo();
+    await queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
+  }, [queryClient]);
+
+  const clearNotifications = useCallback(async () => {
+    await clearNotificationsRepo();
+    await queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
+  }, [queryClient]);
 
   return { items: list, unread, markAllRead, clearNotifications };
 }

@@ -1,9 +1,8 @@
 /**
  * Build.Store — Domain model.
  * Single source of truth for entities shared across features.
- * These types mirror the Supabase schema (see supabase/schema.sql) and are
- * reused by the local Dexie mirror so offline and online stay structurally
- * identical.
+ * These types mirror the Supabase schema (see supabase/schema.sql). The app is
+ * online-only: every read and write goes straight to Supabase.
  */
 
 export type UUID = string;
@@ -14,9 +13,6 @@ export type PaymentMethod = "cash" | "credit" | "debit" | "pix" | "wallet";
 
 /** Lifecycle of a persisted order. */
 export type OrderStatus = "completed" | "refunded" | "cancelled" | "pending";
-
-/** Sync state for records that originate offline. */
-export type SyncStatus = "synced" | "pending" | "error";
 
 /**
  * Access roles (pt-BR domain terms).
@@ -113,7 +109,6 @@ export interface Order {
   tenderedCents: number | null;
   changeCents: number | null;
   status: OrderStatus;
-  syncStatus: SyncStatus;
   /** Seller responsible for the sale (chosen at checkout). */
   sellerId: UUID | null;
   sellerName: string | null;

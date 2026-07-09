@@ -1,20 +1,19 @@
 import { Sidebar } from "@/components/layout/sidebar";
-import { LocalAuthGuard } from "@/components/layout/local-auth-guard";
-import { SyncBootstrap } from "@/components/layout/sync-bootstrap";
 
-/** Shell for authenticated app screens: fixed sidebar + scrollable workspace. */
+/**
+ * Shell das telas autenticadas: sidebar fixa + área de trabalho rolável.
+ * A proteção de rota é feita pelo middleware (sessão via cookie do Supabase),
+ * então não há guarda de cliente aqui.
+ */
 export default function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   return (
-    <LocalAuthGuard>
-      <SyncBootstrap />
-      <div className="flex h-screen overflow-hidden bg-background">
-        <Sidebar />
-        <main className="flex-1 overflow-y-auto">{children}</main>
-      </div>
-    </LocalAuthGuard>
+    <div className="flex h-screen overflow-hidden bg-background">
+      <Sidebar />
+      <main className="flex-1 overflow-y-auto">{children}</main>
+    </div>
   );
 }

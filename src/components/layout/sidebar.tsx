@@ -15,12 +15,10 @@ import {
   Moon,
   LogOut,
 } from "lucide-react";
-import { useLiveQuery } from "dexie-react-hooks";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
-import { db } from "@/lib/db/dexie";
 
 /** WhatsApp support number for wa.me (digits only): +55 85 9217-8804. */
 const SUPPORT_WHATSAPP = "558592178804";
@@ -49,17 +47,9 @@ const NAV: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { canSeeReports, canSeeManagement, userId, signOut } = useAuth();
+  const { canSeeReports, canSeeManagement, fullName, photoUrl, signOut } =
+    useAuth();
   const { theme, toggle } = useTheme();
-
-  // Usuário atual: por id (Supabase) ou o admin (modo local) — para exibir a
-  // foto de perfil acima do título.
-  const users = useLiveQuery(() => db.users.toArray(), []);
-  const currentUser =
-    (userId && users?.find((u) => u.id === userId)) ||
-    users?.find((u) => u.role === "admin") ||
-    users?.[0] ||
-    null;
 
   const visible = NAV.filter((item) => {
     if (item.gate === "reports") return canSeeReports;
@@ -67,7 +57,7 @@ export function Sidebar() {
     return true;
   });
 
-  const initials = (currentUser?.fullName ?? "BS")
+  const initials = (fullName ?? "BS")
     .split(" ")
     .map((p) => p[0])
     .slice(0, 2)
@@ -78,11 +68,11 @@ export function Sidebar() {
     <aside className="flex w-64 shrink-0 flex-col border-r border-outline-variant/50 bg-surface px-md py-lg">
       <div className="flex flex-col items-center px-sm text-center">
         <div className="h-16 w-16 overflow-hidden rounded-full bg-primary-fixed/60 ring-2 ring-primary-container">
-          {currentUser?.photoUrl ? (
+          {photoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={currentUser.photoUrl}
-              alt={currentUser.fullName}
+              src={photoUrl}
+              alt={fullName ?? "Perfil"}
               className="h-full w-full object-cover"
             />
           ) : (
@@ -91,9 +81,9 @@ export function Sidebar() {
             </span>
           )}
         </div>
-        {currentUser && (
+        {fullName && (
           <p className="mt-2 text-label-md font-medium text-on-surface">
-            {currentUser.fullName}
+            {fullName}
           </p>
         )}
         <h1 className="font-logo mt-1 text-[2rem] leading-none text-primary">

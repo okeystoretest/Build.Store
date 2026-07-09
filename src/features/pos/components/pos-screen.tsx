@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import type { PaymentMethod } from "@/types/domain";
 import { useCart } from "@/features/pos/hooks/use-cart";
 import { useProducts } from "@/features/pos/hooks/use-products";
 import { useTender } from "@/features/pos/hooks/use-tender";
 import { useLiveProducts } from "@/features/inventory/hooks/use-live-products";
-import { useSync } from "@/hooks/use-sync";
 import { useSaleMeta } from "@/features/pos/hooks/use-sale-meta";
 import { recordSale } from "@/lib/db/order-repository";
+import { queryKeys } from "@/lib/db/query-keys";
 import { TopBar } from "./top-bar";
 import { CartPanel } from "./cart-panel";
 import { CheckoutPanel } from "./checkout-panel";
@@ -16,11 +17,13 @@ import { SaleMeta } from "./sale-meta";
 import { ProductResults } from "./product-results";
 
 /**
- * PDV screen container. Composes cart + checkout + live product search and owns
- * the finalize flow. Finalizing persists the sale to Dexie (order + stock
- * decrement + movements, atomically) and queues it for sync.
+ * Container da tela de PDV. Compõe carrinho + checkout + busca de produtos ao
+ * vivo e é dono do fluxo de finalizar. Finalizar persiste a venda no Supabase
+ * (pedido + itens + movimentos de estoque; o gatilho SQL dá baixa no estoque) e
+ * invalida os caches de produtos e pedidos para a tela refletir na hora.
  */
 export function POSScreen() {
+  const queryClient = useQueryClient();
   const cart = useCart();
   const liveProducts = useLiveProducts() ?? [];
   const { products, query, setQuery, findByCode } = useProducts(liveProducts);
@@ -28,10 +31,9 @@ export function POSScreen() {
   const [tenderInput, setTenderInput] = useState("");
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const [saving, setSaving] = useState(false);
-  const sync = useSync();
   const { sellers, campaigns } = useSaleMeta();
 
-  // Sale attribution (seller responsible + optional campaign).
+  // Atribuição da venda (vendedora responsável + campanha opcional).
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [isCampaign, setIsCampaign] = useState(false);
   const [campaignId, setCampaignId] = useState<string | null>(null);
@@ -40,7 +42,6 @@ export function POSScreen() {
 
   const { totalCents } = cart.totals;
   const isCash = method === "cash";
-  // Campaign attribution, when flagged, requires a chosen campaign to finalize.
   const campaignOk = !isCampaign || campaignId !== null;
   const customerOk = customerName.trim().length > 0;
   const canFinalize =
@@ -49,7 +50,7 @@ export function POSScreen() {
     campaignOk &&
     customerOk;
 
-  // Enter on the search field with an exact code match adds that product.
+  // Enter no campo de busca com correspondência exata adiciona o produto.
   const handleQueryChange = (value: string) => {
     setQuery(value);
     const match = findByCode(value);
@@ -64,8 +65,6 @@ export function POSScreen() {
     setSaving(true);
     try {
       const seller = sellers.find((s) => s.id === sellerId) ?? null;
-      // Persist to Dexie: writes the order, decrements stock and logs stock
-      // movements atomically, then queues the order for sync.
       await recordSale({
         items: cart.items,
         globalDiscountCents: cart.globalDiscountCents,
@@ -83,9 +82,11 @@ export function POSScreen() {
       setIsCampaign(false);
       setCampaignId(null);
       setCustomerName("");
-      // Keep the selected seller for the next sale (same operator, common case).
-      await sync.refreshPending();
-      void sync.flush();
+      // Reflete a venda na hora: estoque (baixa via gatilho) e histórico.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.products }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.orders }),
+      ]);
     } finally {
       setSaving(false);
     }
@@ -96,8 +97,6 @@ export function POSScreen() {
       <TopBar
         query={query}
         onQueryChange={handleQueryChange}
-        online={sync.online}
-        pending={sync.pending}
         onCheckout={finalize}
         checkoutDisabled={!canFinalize || saving}
       />

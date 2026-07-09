@@ -6,9 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Upload, ImageIcon } from "lucide-react";
 import type { Role } from "@/types/domain";
-import { createUser } from "@/lib/db/management-repository";
 import { createUserAction } from "@/features/management/actions/create-user";
-import { isSupabaseConfigured } from "@/lib/sync/transport";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -33,13 +31,9 @@ const ROLE_LABELS: Record<Role, string> = {
 };
 
 /**
- * User registration. Fields: username (login), full name, birth date, access
- * level and password — matching the `profiles` table.
- *
- * - Real mode (Supabase): a server action creates the auth user (email derived
- *   from the username) + profile row scoped to the caller's store, then the
- *   Dexie mirror reuses the same id.
- * - Local/demo mode: stored in Dexie only; the password has no auth backend.
+ * Cadastro de usuário (online-only). Uma server action cria o usuário de auth
+ * (e-mail derivado do username) + a linha em `profiles`. Ao concluir, chama
+ * onCreated para a tela recarregar a lista.
  */
 export function UserForm({ onCreated }: { onCreated: () => void }) {
   const [serverError, setServerError] = useState<string | null>(null);
@@ -66,42 +60,32 @@ export function UserForm({ onCreated }: { onCreated: () => void }) {
     try {
       const birthDate = values.birthDate || null;
 
-      if (isSupabaseConfigured()) {
-        const res = await createUserAction({
-          username: values.username,
-          password: values.password,
-          fullName: values.fullName,
-          birthDate,
-          role: values.role,
-          photoUrl,
-        });
-        if (!res.ok) {
-          setServerError(res.error);
-          return;
-        }
-        await createUser({
-          username: values.username,
-          fullName: values.fullName,
-          birthDate,
-          role: values.role,
-          photoUrl,
-          authId: res.authId,
-        });
-      } else {
-        await createUser({
-          username: values.username,
-          fullName: values.fullName,
-          birthDate,
-          role: values.role,
-          photoUrl,
-        });
+      const res = await createUserAction({
+        username: values.username,
+        password: values.password,
+        fullName: values.fullName,
+        birthDate,
+        role: values.role,
+        photoUrl,
+      });
+      if (!res.ok) {
+        setServerError(res.error);
+        return;
       }
 
-      reset({ role: "vendedora", username: "", fullName: "", birthDate: "", password: "" });
+      reset({
+        role: "vendedora",
+        username: "",
+        fullName: "",
+        birthDate: "",
+        password: "",
+      });
       setPhotoUrl(null);
       onCreated();
     } catch (e) {
-      setServerError(e instanceof Error ? e.message : "Falha ao cadastrar usuário.");
+      setServerError(
+        e instanceof Error ? e.message : "Falha ao cadastrar usuário.",
+      );
     }
   };
 

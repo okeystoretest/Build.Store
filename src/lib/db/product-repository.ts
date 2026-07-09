@@ -1,130 +1,72 @@
-import { db } from "@/lib/db/dexie";
-import { isSupabaseConfigured } from "@/lib/sync/transport";
-import { transport } from "@/lib/sync/transport";
+import { createClient } from "@/lib/supabase/client";
+import { PRODUCT_COLUMNS, toProduct, productToRow } from "@/lib/db/mappers";
 import type { Product, StockMovement } from "@/types/domain";
 
 /**
- * Product repository. Dexie is the local source of truth; the sync transport
- * (below) reconciles it with Supabase. Features talk to this module, never to
- * Dexie or the network directly — so swapping the backend is a one-file change.
- */
-
-/**
- * IDs dos pedidos de demonstração que existiam em versões anteriores. Mantidos
- * apenas para PURGAR do IndexedDB de quem já os tinha gravado — nunca mais são
- * inseridos.
- */
-const LEGACY_DEMO_ORDER_IDS = [
-  "demo-8842",
-  "demo-8841",
-  "demo-8840",
-  "demo-8839",
-  "demo-8838",
-  "demo-8837",
-];
-
-/**
- * Executa a inicialização local e remove QUALQUER dado de demonstração legado.
+ * Product repository — online-only.
  *
- * Os dados de demonstração foram removidos permanentemente do app. Esta função
- * não injeta mais nada — apenas limpa resíduos de demos que possam ter ficado
- * gravados no IndexedDB de sessões antigas (pedidos, movimentos de estoque e
- * o contador de sequência associado). Assim, ao logar, as abas de pedidos,
- * dashboard e relatórios ficam limpas sem precisar apagar o storage à mão.
+ * O Supabase é a única fonte de verdade. Toda leitura/escrita vai direto ao
+ * banco. O estoque é decrementado EXCLUSIVAMENTE pelo servidor: a função
+ * applyStockMovement insere uma linha em `stock_movements` e o gatilho SQL
+ * (apply_stock_movement) ajusta products.stock atomicamente. Nada de estoque é
+ * calculado no cliente.
  */
-export async function ensureSeeded(): Promise<void> {
-  await purgeLegacyDemoData();
-}
-
-/** Remove pedidos/movimentos de demonstração remanescentes de versões antigas. */
-async function purgeLegacyDemoData(): Promise<void> {
-  const demoOrders = await db.orders
-    .where("id")
-    .anyOf(LEGACY_DEMO_ORDER_IDS)
-    .toArray();
-
-  if (demoOrders.length > 0) {
-    await db.orders.bulkDelete(demoOrders.map((o) => o.id));
-    // Remove os movimentos de estoque atrelados a esses pedidos.
-    const moves = await db.stockMovements
-      .where("orderId")
-      .anyOf(LEGACY_DEMO_ORDER_IDS)
-      .toArray();
-    if (moves.length > 0) {
-      await db.stockMovements.bulkDelete(moves.map((m) => m.id));
-    }
-    // Zera o contador de referência de pedidos herdado do seed de demonstração.
-    await db.counters.delete("orderSeq");
-  }
-}
 
 export async function listProducts(): Promise<Product[]> {
-  return db.products.orderBy("name").toArray();
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select(PRODUCT_COLUMNS)
+    .order("name", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map(toProduct);
 }
 
 export async function getProduct(id: string): Promise<Product | undefined> {
-  return db.products.get(id);
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("products")
+    .select(PRODUCT_COLUMNS)
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? toProduct(data) : undefined;
 }
 
+/** Cria ou atualiza um produto (upsert idempotente pelo id). */
 export async function upsertProduct(product: Product): Promise<void> {
-  const saved = { ...product, updatedAt: new Date().toISOString() };
-  await db.products.put(saved);
-
-  // Best-effort: quando há backend e conexão, envia o produto ao Supabase.
-  // O Dexie continua sendo a fonte local; se o push falhar (offline/erro), o
-  // pull de produtos reconcilia depois — não bloqueia a operação do usuário.
-  if (isSupabaseConfigured() && (typeof navigator === "undefined" || navigator.onLine)) {
-    try {
-      await transport.pushProduct(saved);
-    } catch {
-      /* silencioso: reconciliação posterior via pullProducts */
-    }
-  }
+  const supabase = createClient();
+  const row = productToRow({ ...product, updatedAt: new Date().toISOString() });
+  const { error } = await supabase.from("products").upsert(row);
+  if (error) throw error;
 }
 
 /** Remove um produto do estoque (somente Admin, controlado na UI). */
 export async function deleteProduct(id: string): Promise<void> {
-  await db.products.delete(id);
-  if (isSupabaseConfigured() && (typeof navigator === "undefined" || navigator.onLine)) {
-    try {
-      await transport.deleteProduct(id);
-    } catch {
-      /* silencioso: reconciliação posterior via pull */
-    }
-  }
+  const supabase = createClient();
+  const { error } = await supabase.from("products").delete().eq("id", id);
+  if (error) throw error;
 }
 
 /**
- * Apply a stock delta atomically and record the movement. Used by the sale
- * flow (negative deltas) and manual inventory adjustments. Returns the new
- * stock level so callers can react (e.g. low-stock alerts).
+ * Registra um movimento de estoque. O gatilho do banco aplica o delta em
+ * products.stock — o cliente NÃO altera o estoque diretamente. Usado por
+ * ajustes manuais de inventário (entrada, perda, avaria). Vendas registram
+ * seus próprios movimentos dentro de recordSale.
  */
 export async function applyStockMovement(
   movement: Omit<StockMovement, "id" | "createdAt"> & {
     id?: string;
     createdAt?: string;
   },
-): Promise<number> {
-  return db.transaction("rw", db.products, db.stockMovements, async () => {
-    const product = await db.products.get(movement.productId);
-    if (!product) throw new Error(`Produto ${movement.productId} não encontrado`);
-
-    const nextStock = product.stock + movement.delta;
-    await db.products.update(movement.productId, {
-      stock: nextStock,
-      updatedAt: new Date().toISOString(),
-    });
-
-    await db.stockMovements.put({
-      id: movement.id ?? crypto.randomUUID(),
-      productId: movement.productId,
-      delta: movement.delta,
-      reason: movement.reason,
-      orderId: movement.orderId ?? null,
-      note: movement.note ?? null,
-      createdAt: movement.createdAt ?? new Date().toISOString(),
-    });
-
-    return nextStock;
+): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase.from("stock_movements").insert({
+    product_id: movement.productId,
+    delta: movement.delta,
+    reason: movement.reason,
+    order_id: movement.orderId ?? null,
+    note: movement.note ?? null,
   });
+  if (error) throw error;
 }

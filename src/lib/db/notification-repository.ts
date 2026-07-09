@@ -1,45 +1,64 @@
-import { db } from "@/lib/db/dexie";
+import { createClient } from "@/lib/supabase/client";
+import { NOTIFICATION_COLUMNS, toNotification } from "@/lib/db/mappers";
 import type { AppNotification, Product } from "@/types/domain";
 
 /**
- * Notification repository. Backs the bell menu. In production these would fan
- * out via Supabase Realtime; locally they live in Dexie so the flow is
- * exercised offline.
+ * Notification repository — online-only. Alimenta o menu do sino direto do
+ * Supabase (tabela `notifications`, global). Realtime nos hooks mantém o sino
+ * atualizado entre dispositivos.
  */
 
 export async function listNotifications(): Promise<AppNotification[]> {
-  return db.notifications.orderBy("createdAt").reverse().toArray();
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("notifications")
+    .select(NOTIFICATION_COLUMNS)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(toNotification);
 }
 
 export async function unreadCount(): Promise<number> {
-  const all = await db.notifications.toArray();
-  return all.filter((n) => !n.read).length;
+  const supabase = createClient();
+  const { count, error } = await supabase
+    .from("notifications")
+    .select("id", { count: "exact", head: true })
+    .eq("read", false);
+  if (error) throw error;
+  return count ?? 0;
 }
 
 export async function markAllRead(): Promise<void> {
-  const all = await db.notifications.toArray();
-  await Promise.all(
-    all.filter((n) => !n.read).map((n) => db.notifications.update(n.id, { read: true })),
-  );
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("notifications")
+    .update({ read: true })
+    .eq("read", false);
+  if (error) throw error;
 }
 
 /** Remove todas as notificações. */
 export async function clearNotifications(): Promise<void> {
-  await db.notifications.clear();
+  const supabase = createClient();
+  // Delete-all exige um filtro; created_at sempre existe.
+  const { error } = await supabase
+    .from("notifications")
+    .delete()
+    .not("created_at", "is", null);
+  if (error) throw error;
 }
 
 /**
- * Emit the "new product" notification. Per spec, fired when an Admin adds a
- * product; carries Referência (sku), Nome and Quantidade.
+ * Emite a notificação de "novo produto". Por spec, disparada quando um Admin
+ * adiciona um produto; carrega Referência (sku), Nome e Quantidade.
  */
 export async function notifyProductAdded(product: Product): Promise<void> {
-  const note: AppNotification = {
-    id: crypto.randomUUID(),
+  const supabase = createClient();
+  const { error } = await supabase.from("notifications").insert({
     kind: "product_added",
     title: "Novo produto no estoque",
     body: `Ref. ${product.sku} · ${product.name} · ${product.stock} un`,
     read: false,
-    createdAt: new Date().toISOString(),
-  };
-  await db.notifications.put(note);
+  });
+  if (error) throw error;
 }

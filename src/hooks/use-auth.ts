@@ -1,14 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { useLiveQuery } from "dexie-react-hooks";
 import { createClient } from "@/lib/supabase/client";
-import { isSupabaseConfigured } from "@/lib/sync/transport";
-import { db } from "@/lib/db/dexie";
-import {
-  getLocalUserId,
-  clearLocalUserId,
-} from "@/lib/auth/local-session";
 import type { Role } from "@/types/domain";
 
 export interface AuthState {
@@ -21,14 +14,14 @@ export interface AuthState {
 }
 
 /**
- * Current session + role. In local-only mode (no Supabase) it returns "admin"
- * so every feature is usable in development. With Supabase configured, it reads
- * the profile row for the real role.
+ * Sessão atual + papel, lidos do Supabase (online-only). O middleware já
+ * protege as rotas por cookie; aqui resolvemos o profile para papel, nome e
+ * foto.
  *
- * Access rules (per spec):
- * - vendedora: no Relatórios, no Gestão.
- * - lojista: everything except adding products to stock.
- * - admin: full access, including stock additions.
+ * Regras de acesso (por spec):
+ * - vendedora: sem Relatórios, sem Gestão.
+ * - lojista: tudo, exceto adicionar produtos ao estoque.
+ * - admin: acesso total, incluindo adicionar estoque.
  */
 export function useAuth() {
   const [state, setState] = useState<AuthState>({
@@ -37,17 +30,10 @@ export function useAuth() {
     email: null,
     fullName: null,
     photoUrl: null,
-    role: "admin",
+    role: "vendedora",
   });
 
   useEffect(() => {
-    if (!isSupabaseConfigured()) {
-      // Modo local: o usuário é resolvido a partir da sessão local + Dexie,
-      // no efeito abaixo. Aqui apenas encerramos o loading.
-      setState((s) => ({ ...s, loading: false }));
-      return;
-    }
-
     const supabase = createClient();
     let active = true;
 
@@ -67,9 +53,6 @@ export function useAuth() {
         .eq("id", user.id)
         .maybeSingle();
 
-      // Se a leitura do profile falhar (RLS, rede, etc.), o app cairia no
-      // fallback "vendedora" silenciosamente. Logamos para diagnóstico e
-      // mantemos o usuário informado via console em vez de mascarar o erro.
       if (error) {
         console.error("[useAuth] Falha ao ler profile:", error.message);
       }
@@ -77,7 +60,7 @@ export function useAuth() {
         console.warn(
           "[useAuth] Profile não encontrado para o usuário",
           user.id,
-          "— verifique se o bootstrap criou a linha em profiles.",
+          "— verifique se o trigger handle_new_user criou a linha em profiles.",
         );
       }
 
@@ -98,45 +81,17 @@ export function useAuth() {
     };
   }, []);
 
-  // Modo local: acompanha o usuário selecionado no login (sessão local) contra
-  // a lista viva de usuários no Dexie. Fora do modo local, isto é ignorado.
-  const localUsers = useLiveQuery(() => db.users.toArray(), []);
-
-  useEffect(() => {
-    if (isSupabaseConfigured() || localUsers === undefined) return;
-    const localId = getLocalUserId();
-    const current =
-      (localId && localUsers.find((u) => u.id === localId)) ||
-      localUsers.find((u) => u.role === "admin") ||
-      localUsers[0] ||
-      null;
-
-    setState({
-      loading: false,
-      userId: current?.id ?? null,
-      email: null,
-      fullName: current?.fullName ?? null,
-      photoUrl: current?.photoUrl ?? null,
-      role: current?.role ?? "admin",
-    });
-  }, [localUsers]);
-
   const { role } = state;
 
-  // Derived permissions.
+  // Permissões derivadas.
   const canSeeReports = role === "lojista" || role === "admin";
   const canSeeManagement = role === "lojista" || role === "admin";
-  const canAddProducts = role === "admin"; // only admin adds stock
+  const canAddProducts = role === "admin"; // só admin adiciona estoque
   const canEditProducts = role === "lojista" || role === "admin";
   const canRefund = role === "lojista" || role === "admin";
 
   const signOut = useCallback(async () => {
-    if (isSupabaseConfigured()) {
-      await createClient().auth.signOut();
-    } else {
-      // Modo local: encerra a sessão local (seletor de perfil).
-      clearLocalUserId();
-    }
+    await createClient().auth.signOut();
     window.location.href = "/login";
   }, []);
 

@@ -1,31 +1,33 @@
 "use client";
 
-import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/lib/db/dexie";
-import type { User, Campaign } from "@/types/domain";
+import { useQuery } from "@tanstack/react-query";
+import {
+  listSellers,
+  listActiveCampaigns,
+} from "@/lib/db/management-repository";
+import { queryKeys } from "@/lib/db/query-keys";
+import { useRealtimeInvalidation } from "@/lib/db/use-realtime-invalidation";
 
 /**
- * Live sellers + active campaigns for the checkout meta selectors. Reads Dexie
- * directly via live queries so newly created sellers/campaigns (Gestão, Fase D)
- * appear in the PDV without a refresh.
+ * Vendedoras + campanhas ativas para os seletores do checkout. Realtime em
+ * `profiles` e `campaigns` mantém as opções atualizadas — uma vendedora ou
+ * campanha criada na Gestão aparece no PDV sem refresh.
  */
 export function useSaleMeta() {
-  const sellers = useLiveQuery<User[]>(
-    () => db.users.where("role").equals("vendedora").toArray(),
-    [],
-  );
+  useRealtimeInvalidation("profiles", queryKeys.users);
+  useRealtimeInvalidation("campaigns", queryKeys.campaigns);
 
-  const campaigns = useLiveQuery<Campaign[]>(
-    () => db.campaigns.toArray(),
-    [],
-  );
+  const sellersQ = useQuery({
+    queryKey: [...queryKeys.users, "sellers"],
+    queryFn: listSellers,
+  });
+  const campaignsQ = useQuery({
+    queryKey: [...queryKeys.campaigns, "active"],
+    queryFn: listActiveCampaigns,
+  });
 
   return {
-    sellers: (sellers ?? [])
-      .filter((s) => s.active)
-      .sort((a, b) => a.fullName.localeCompare(b.fullName)),
-    campaigns: (campaigns ?? [])
-      .filter((c) => c.active)
-      .sort((a, b) => a.name.localeCompare(b.name)),
+    sellers: sellersQ.data ?? [],
+    campaigns: campaignsQ.data ?? [],
   };
 }

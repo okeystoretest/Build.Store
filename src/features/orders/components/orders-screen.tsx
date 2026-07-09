@@ -2,7 +2,9 @@
 
 import { Search, Cloud, ChevronLeft, ChevronRight } from "lucide-react";
 import { useOrders, type StatusFilter } from "@/features/orders/hooks/use-orders";
+import { useQueryClient } from "@tanstack/react-query";
 import { refundOrder } from "@/lib/db/order-repository";
+import { queryKeys } from "@/lib/db/query-keys";
 import { useAuth } from "@/hooks/use-auth";
 import { OrdersTable } from "./orders-table";
 import { STATUS_LABELS } from "@/features/analytics/aggregations";
@@ -27,12 +29,17 @@ const STATUS_OPTIONS: StatusFilter[] = [
 export function OrdersScreen() {
   const o = useOrders();
   const { canRefund } = useAuth();
+  const queryClient = useQueryClient();
 
   const handleRefund = async (order: Order) => {
     // Refund is access-controlled: only manager/owner may reverse a sale.
     if (!canRefund) return;
-    // Restocks items + flags refunded, atomically; live query refreshes.
+    // Repõe o estoque + marca como estornado; invalida para refletir na hora.
     await refundOrder(order.id);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.orders }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.products }),
+    ]);
   };
 
   return (

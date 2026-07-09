@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { UserPlus, Megaphone, Target, Pencil, Trash2 } from "lucide-react";
 import { useManagement } from "@/features/management/hooks/use-management";
 import {
@@ -12,6 +13,7 @@ import {
   deleteGoal,
 } from "@/lib/db/management-repository";
 import { parseToCents } from "@/lib/utils/money";
+import { queryKeys } from "@/lib/db/query-keys";
 import type { User, Campaign, Goal, Role } from "@/types/domain";
 import { UserForm, ROLE_LABELS } from "./user-form";
 import { CampaignForm } from "./campaign-form";
@@ -35,6 +37,15 @@ type Tool = "users" | "campaigns" | "goals";
 export function ManagementScreen() {
   const m = useManagement();
   const [tool, setTool] = useState<Tool>("users");
+
+  // Invalidação por área após escritas; o Realtime também converge entre
+  // dispositivos. Cada lista abaixo cuida da própria invalidação.
+  const queryClient = useQueryClient();
+  const refreshAll = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: queryKeys.users });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.campaigns });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.goals });
+  }, [queryClient]);
 
   return (
     <div className="flex h-full flex-col">
@@ -63,7 +74,7 @@ export function ManagementScreen() {
                 <h2 className="mb-md text-headline-md text-on-surface">
                   Cadastrar usuário
                 </h2>
-                <UserForm onCreated={() => {}} />
+                <UserForm onCreated={refreshAll} />
               </>
             )}
             {tool === "campaigns" && (
@@ -71,7 +82,7 @@ export function ManagementScreen() {
                 <h2 className="mb-md text-headline-md text-on-surface">
                   Criar campanha
                 </h2>
-                <CampaignForm onCreated={() => {}} />
+                <CampaignForm onCreated={refreshAll} />
               </>
             )}
             {tool === "goals" && (
@@ -82,7 +93,7 @@ export function ManagementScreen() {
                 <GoalForm
                   sellers={m.sellers}
                   campaigns={m.campaigns}
-                  onCreated={() => {}}
+                  onCreated={refreshAll}
                 />
               </>
             )}
@@ -138,6 +149,9 @@ function ActionButtons({
 function UsersList({ users }: { users: ReturnType<typeof useManagement>["users"] }) {
   const [editing, setEditing] = useState<User | null>(null);
   const [confirm, setConfirm] = useState<User | null>(null);
+  const queryClient = useQueryClient();
+  const invalidateUsers = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.users });
 
   return (
     <>
@@ -190,7 +204,7 @@ function UsersList({ users }: { users: ReturnType<typeof useManagement>["users"]
         label={confirm?.fullName ?? ""}
         onCancel={() => setConfirm(null)}
         onConfirm={async () => {
-          if (confirm) await deleteUser(confirm.id);
+          if (confirm) { await deleteUser(confirm.id); void invalidateUsers(); }
           setConfirm(null);
         }}
       />
@@ -199,6 +213,7 @@ function UsersList({ users }: { users: ReturnType<typeof useManagement>["users"]
 }
 
 function UserEditForm({ user, onDone }: { user: User; onDone: () => void }) {
+  const queryClient = useQueryClient();
   const [fullName, setFullName] = useState(user.fullName);
   const [birthDate, setBirthDate] = useState(user.birthDate ?? "");
   const [role, setRole] = useState<Role>(user.role);
@@ -218,6 +233,7 @@ function UserEditForm({ user, onDone }: { user: User; onDone: () => void }) {
       role,
       photoUrl,
     });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.users });
     onDone();
   };
 
@@ -286,6 +302,9 @@ function CampaignsList({
   const [editing, setEditing] = useState<Campaign | null>(null);
   const [name, setName] = useState("");
   const [confirm, setConfirm] = useState<Campaign | null>(null);
+  const queryClient = useQueryClient();
+  const invalidateCampaigns = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.campaigns });
 
   const openEdit = (c: Campaign) => {
     setEditing(c);
@@ -348,6 +367,7 @@ function CampaignsList({
                     name: name.trim(),
                     active: editing.active,
                   });
+                  void invalidateCampaigns();
                   setEditing(null);
                 }}
                 disabled={!name.trim()}
@@ -364,7 +384,7 @@ function CampaignsList({
         label={confirm?.name ?? ""}
         onCancel={() => setConfirm(null)}
         onConfirm={async () => {
-          if (confirm) await deleteCampaign(confirm.id);
+          if (confirm) { await deleteCampaign(confirm.id); void invalidateCampaigns(); }
           setConfirm(null);
         }}
       />
@@ -381,6 +401,9 @@ function GoalsList({
   sellers: ReturnType<typeof useManagement>["sellers"];
   campaigns: ReturnType<typeof useManagement>["campaigns"];
 }) {
+  const queryClient = useQueryClient();
+  const invalidateGoals = () =>
+    queryClient.invalidateQueries({ queryKey: queryKeys.goals });
   const [editing, setEditing] = useState<Goal | null>(null);
   const [amount, setAmount] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -469,6 +492,7 @@ function GoalsList({
                     targetQuantity:
                       editing.type === "campaign" ? Number(quantity) || 0 : null,
                   });
+                  void invalidateGoals();
                   setEditing(null);
                 }}
               >
@@ -484,7 +508,7 @@ function GoalsList({
         label={confirm ? `meta de ${sellerName(confirm.sellerId)}` : ""}
         onCancel={() => setConfirm(null)}
         onConfirm={async () => {
-          if (confirm) await deleteGoal(confirm.id);
+          if (confirm) { await deleteGoal(confirm.id); void invalidateGoals(); }
           setConfirm(null);
         }}
       />

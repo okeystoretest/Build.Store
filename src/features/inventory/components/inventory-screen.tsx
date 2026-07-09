@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Search, Plus, Package, AlertTriangle, Cloud, LayoutGrid, List, Trash2 } from "lucide-react";
 import type { Product } from "@/types/domain";
 import { useInventory } from "@/features/inventory/hooks/use-inventory";
 import { upsertProduct, deleteProduct } from "@/lib/db/product-repository";
 import { notifyProductAdded } from "@/lib/db/notification-repository";
+import { queryKeys } from "@/lib/db/query-keys";
 import { useAuth } from "@/hooks/use-auth";
 import { ProductCard, ProductRow } from "./product-card";
 import { ProductForm } from "./product-form";
@@ -22,6 +24,7 @@ import { ToggleGroup } from "@/components/ui/toggle-group";
  */
 export function InventoryScreen() {
   const inv = useInventory();
+  const queryClient = useQueryClient();
   // Apenas Admin gerencia o estoque (adicionar/editar/excluir).
   const { canAddProducts } = useAuth();
   const canManage = canAddProducts;
@@ -44,6 +47,7 @@ export function InventoryScreen() {
   const handleDelete = async (product: Product) => {
     if (!canManage) return;
     await deleteProduct(product.id);
+    await queryClient.invalidateQueries({ queryKey: queryKeys.products });
     closeModal();
   };
 
@@ -74,7 +78,9 @@ export function InventoryScreen() {
     // A new product added by an Admin notifies the other users.
     if (isNew && canAddProducts) {
       await notifyProductAdded(product);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
     }
+    await queryClient.invalidateQueries({ queryKey: queryKeys.products });
     closeModal();
   };
 

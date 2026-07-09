@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Search, CloudOff, Cloud } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/layout/notification-bell";
@@ -8,21 +9,37 @@ import { cn } from "@/lib/utils/cn";
 interface TopBarProps {
   query: string;
   onQueryChange: (value: string) => void;
-  online: boolean;
-  pending?: number;
   onCheckout: () => void;
   checkoutDisabled: boolean;
 }
 
-/** PDV header: product search / barcode scan, sync status, checkout shortcut. */
+/**
+ * Cabeçalho do PDV: busca/scanner, indicador de conexão e atalho de finalizar.
+ *
+ * App online-only: o indicador reflete apenas a conectividade do navegador
+ * (navigator.onLine). Como toda venda exige rede, ele avisa a operadora quando
+ * a conexão cai — não há mais fila de pendências offline.
+ */
 export function TopBar({
   query,
   onQueryChange,
-  online,
-  pending = 0,
   onCheckout,
   checkoutDisabled,
 }: TopBarProps) {
+  const [online, setOnline] = useState(true);
+
+  useEffect(() => {
+    const update = () =>
+      setOnline(typeof navigator === "undefined" ? true : navigator.onLine);
+    update();
+    window.addEventListener("online", update);
+    window.addEventListener("offline", update);
+    return () => {
+      window.removeEventListener("online", update);
+      window.removeEventListener("offline", update);
+    };
+  }, []);
+
   return (
     <header className="flex items-center gap-md border-b border-outline-variant/50 px-margin py-md">
       <div className="relative flex-1">
@@ -53,13 +70,7 @@ export function TopBar({
         ) : (
           <CloudOff className="h-4 w-4" strokeWidth={1.75} />
         )}
-        {online
-          ? pending > 0
-            ? `Sincronizando ${pending}`
-            : "Pronto"
-          : pending > 0
-            ? `Offline · ${pending} pendente${pending > 1 ? "s" : ""}`
-            : "Offline"}
+        {online ? "Conectado" : "Sem conexão"}
       </div>
 
       <NotificationBell />

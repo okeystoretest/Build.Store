@@ -1,20 +1,27 @@
 "use client";
 
-import { useEffect } from "react";
-import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/lib/db/dexie";
-import { ensureSeeded } from "@/lib/db/product-repository";
+import { useQuery } from "@tanstack/react-query";
+import { listProducts } from "@/lib/db/product-repository";
+import { queryKeys } from "@/lib/db/query-keys";
+import { useRealtimeInvalidation } from "@/lib/db/use-realtime-invalidation";
 import type { Product } from "@/types/domain";
 
 /**
- * Live product list from Dexie. useLiveQuery re-renders whenever the underlying
- * table changes, so a sale that decrements stock updates the inventory grid and
- * the POS results instantly — no manual refetch. Seeds on first mount.
+ * Lista de produtos do Supabase. TanStack Query cuida do cache e dos estados de
+ * carregamento; o Realtime invalida a query quando o catálogo/estoque muda em
+ * qualquer dispositivo, então a grade de estoque e o PDV convergem ao vivo —
+ * uma venda que baixa o estoque reflete aqui sem refetch manual.
+ *
+ * Retorna `undefined` enquanto carrega (mesma semântica do hook anterior, para
+ * as telas não precisarem mudar).
  */
 export function useLiveProducts(): Product[] | undefined {
-  useEffect(() => {
-    void ensureSeeded();
-  }, []);
+  useRealtimeInvalidation("products", queryKeys.products);
 
-  return useLiveQuery(() => db.products.orderBy("name").toArray(), []);
+  const { data } = useQuery({
+    queryKey: queryKeys.products,
+    queryFn: listProducts,
+  });
+
+  return data;
 }

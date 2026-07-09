@@ -1,23 +1,38 @@
 "use client";
 
-import { useLiveQuery } from "dexie-react-hooks";
-import { db } from "@/lib/db/dexie";
-import type { User, Campaign, Goal } from "@/types/domain";
+import { useQuery } from "@tanstack/react-query";
+import {
+  listUsers,
+  listCampaigns,
+  listGoals,
+} from "@/lib/db/management-repository";
+import { queryKeys } from "@/lib/db/query-keys";
+import { useRealtimeInvalidation } from "@/lib/db/use-realtime-invalidation";
 
-/** Live users, sellers, campaigns and goals for the Gestão screen. */
+/** Usuários, vendedoras, campanhas e metas ao vivo para a tela de Gestão. */
 export function useManagement() {
-  const users = useLiveQuery<User[]>(() => db.users.toArray(), []);
-  const campaigns = useLiveQuery<Campaign[]>(() => db.campaigns.toArray(), []);
-  const goals = useLiveQuery<Goal[]>(() => db.goals.toArray(), []);
+  useRealtimeInvalidation("profiles", queryKeys.users);
+  useRealtimeInvalidation("campaigns", queryKeys.campaigns);
+  useRealtimeInvalidation("goals", queryKeys.goals);
 
-  const list = users ?? [];
+  const usersQ = useQuery({ queryKey: queryKeys.users, queryFn: listUsers });
+  const campaignsQ = useQuery({
+    queryKey: queryKeys.campaigns,
+    queryFn: listCampaigns,
+  });
+  const goalsQ = useQuery({ queryKey: queryKeys.goals, queryFn: listGoals });
+
+  const users = usersQ.data ?? [];
+  const campaigns = campaignsQ.data ?? [];
+  const goals = goalsQ.data ?? [];
+
   return {
-    users: [...list].sort((a, b) => a.fullName.localeCompare(b.fullName)),
-    sellers: list
+    users: [...users].sort((a, b) => a.fullName.localeCompare(b.fullName)),
+    sellers: users
       .filter((u) => u.role === "vendedora" && u.active)
       .sort((a, b) => a.fullName.localeCompare(b.fullName)),
-    campaigns: (campaigns ?? []).sort((a, b) => a.name.localeCompare(b.name)),
-    goals: goals ?? [],
-    loading: users === undefined,
+    campaigns: [...campaigns].sort((a, b) => a.name.localeCompare(b.name)),
+    goals,
+    loading: usersQ.isLoading,
   };
 }
