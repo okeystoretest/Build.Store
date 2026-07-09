@@ -92,7 +92,7 @@ export function Sidebar() {
           {storeName}
         </h1>
         <p className="mt-1 text-label-sm uppercase tracking-wide text-on-surface-variant">
-          OKEY STORE - PDV
+          BUILD.STORE - PDV
         </p>
       </div>
 
