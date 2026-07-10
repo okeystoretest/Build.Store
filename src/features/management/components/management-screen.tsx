@@ -22,6 +22,7 @@ import { UserForm, ROLE_LABELS } from "./user-form";
 import { CampaignForm } from "./campaign-form";
 import { GoalForm } from "./goal-form";
 import { Modal } from "@/components/ui/modal";
+import { LoadingArea } from "@/components/ui/spinner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -49,6 +50,14 @@ export function ManagementScreen() {
     void queryClient.invalidateQueries({ queryKey: queryKeys.campaigns });
     void queryClient.invalidateQueries({ queryKey: queryKeys.goals });
   }, [queryClient]);
+
+  if (m.loading) {
+    return (
+      <div className="h-full px-margin py-md">
+        <LoadingArea label="Carregando gestão..." />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useLiveOrders } from "@/features/orders/hooks/use-live-orders";
+import { useLiveOrdersQuery } from "@/features/orders/hooks/use-live-orders";
 import type { Order, OrderStatus } from "@/types/domain";
 
 export type StatusFilter = OrderStatus | "all";
@@ -16,7 +16,8 @@ export const ORDERS_PER_PAGE = 5;
  * blocos de ORDERS_PER_PAGE (5) pedidos.
  */
 export function useOrders() {
-  const orders = useLiveOrders();
+  const ordersQ = useLiveOrdersQuery();
+  const orders = ordersQ.data;
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [from, setFrom] = useState<string>("");
@@ -70,7 +71,7 @@ export function useOrders() {
     filteredCount: filtered.length,
     total: orders?.length ?? 0,
     periodTotalCents,
-    loading: orders === undefined,
+    loading: ordersQ.isPending,
     query,
     setQuery,
     status,

@@ -15,6 +15,7 @@ import { ProductDetail } from "./product-detail";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup } from "@/components/ui/toggle-group";
+import { LoadingArea } from "@/components/ui/spinner";
 
 /**
  * Estoque screen. Search + Grid/List toggle + product list. Category removed.
@@ -83,6 +84,14 @@ export function InventoryScreen() {
     await queryClient.invalidateQueries({ queryKey: queryKeys.products });
     closeModal();
   };
+
+  if (inv.loading) {
+    return (
+      <div className="h-full px-margin py-md">
+        <LoadingArea label="Carregando estoque..." />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col">

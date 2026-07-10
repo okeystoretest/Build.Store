@@ -9,7 +9,14 @@ import {
 import { queryKeys } from "@/lib/db/query-keys";
 import { useRealtimeInvalidation } from "@/lib/db/use-realtime-invalidation";
 
-/** Usuários, vendedoras, campanhas e metas ao vivo para a tela de Gestão. */
+/**
+ * Usuários, vendedoras, campanhas e metas ao vivo para a Gestão e o Dashboard.
+ *
+ * `loading` é verdadeiro enquanto QUALQUER uma das três consultas ainda está na
+ * carga inicial (isPending). Isso evita que telas dependentes (ex.: Dashboard)
+ * rendereizem com metas/vendedoras ainda vazias enquanto os pedidos já
+ * chegaram — a race condition entre queries paralelas.
+ */
 export function useManagement() {
   useRealtimeInvalidation("profiles", queryKeys.users);
   useRealtimeInvalidation("campaigns", queryKeys.campaigns);
@@ -33,6 +40,8 @@ export function useManagement() {
       .sort((a, b) => a.fullName.localeCompare(b.fullName)),
     campaigns: [...campaigns].sort((a, b) => a.name.localeCompare(b.name)),
     goals,
-    loading: usersQ.isLoading,
+    // Carga inicial de qualquer uma das fontes ainda em andamento.
+    loading: usersQ.isPending || campaignsQ.isPending || goalsQ.isPending,
+    error: usersQ.error ?? campaignsQ.error ?? goalsQ.error ?? null,
   };
 }

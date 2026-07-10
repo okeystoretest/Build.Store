@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Product } from "@/types/domain";
-import { useLiveProducts } from "@/features/inventory/hooks/use-live-products";
+import { useLiveProductsQuery } from "@/features/inventory/hooks/use-live-products";
 import { stockLevel } from "@/features/inventory/types";
 
 export type ViewMode = "grid" | "list";
@@ -14,7 +14,8 @@ export type ViewMode = "grid" | "list";
 export function useInventory() {
   const [query, setQuery] = useState("");
   const [view, setView] = useState<ViewMode>("grid");
-  const all = useLiveProducts();
+  const allQ = useLiveProductsQuery();
+  const all = allQ.data;
 
   const products = useMemo<Product[]>(() => {
     if (!all) return [];
@@ -41,6 +42,6 @@ export function useInventory() {
     setQuery,
     view,
     setView,
-    loading: all === undefined,
+    loading: allQ.isPending,
   };
 }

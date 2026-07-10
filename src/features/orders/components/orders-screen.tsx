@@ -11,6 +11,7 @@ import { OrdersTable } from "./orders-table";
 import { OrderDetailsModal } from "./order-details-modal";
 import { generateReceiptPdf } from "@/features/orders/receipt-pdf";
 import { useStoreName } from "@/hooks/use-store-name";
+import { LoadingArea } from "@/components/ui/spinner";
 import { STATUS_LABELS } from "@/features/analytics/aggregations";
 import { formatBRL } from "@/lib/utils/money";
 import { Input } from "@/components/ui/input";
@@ -55,6 +56,14 @@ export function OrdersScreen() {
   const handleReprint = (order: Order) => {
     generateReceiptPdf(order, storeName);
   };
+
+  if (o.loading) {
+    return (
+      <div className="h-full px-margin py-md">
+        <LoadingArea label="Carregando pedidos..." />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col">

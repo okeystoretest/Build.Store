@@ -9,15 +9,19 @@ import type { Order } from "@/types/domain";
 /**
  * Lista de pedidos do Supabase, mais recentes primeiro. Realtime na tabela
  * `orders` invalida a query a cada venda/estorno, de qualquer dispositivo.
- * Retorna `undefined` enquanto carrega.
+ *
+ * Retorna também o estado de carregamento para as telas só renderizarem quando
+ * os dados estiverem completos. `data` é `undefined` enquanto carrega.
  */
-export function useLiveOrders(): Order[] | undefined {
+export function useLiveOrdersQuery() {
   useRealtimeInvalidation("orders", queryKeys.orders);
-
-  const { data } = useQuery({
+  return useQuery({
     queryKey: queryKeys.orders,
     queryFn: listOrders,
   });
+}
 
-  return data;
+/** Conveniência: só a lista (undefined enquanto carrega). */
+export function useLiveOrders(): Order[] | undefined {
+  return useLiveOrdersQuery().data;
 }

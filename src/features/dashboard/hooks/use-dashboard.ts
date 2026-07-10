@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { useLiveOrders } from "@/features/orders/hooks/use-live-orders";
+import { useLiveOrdersQuery } from "@/features/orders/hooks/use-live-orders";
 import { useManagement } from "@/features/management/hooks/use-management";
 import {
   ordersInPeriod,
@@ -33,8 +33,14 @@ export interface SellerBlock {
  * números usam o período completo.
  */
 export function useDashboard(period: DashboardPeriod) {
-  const orders = useLiveOrders();
-  const { sellers, campaigns, goals } = useManagement();
+  const ordersQ = useLiveOrdersQuery();
+  const orders = ordersQ.data;
+  const {
+    sellers,
+    campaigns,
+    goals,
+    loading: mgmtLoading,
+  } = useManagement();
 
   const data = useMemo(() => {
     const completed = (orders ?? []).filter((o) => o.status === "completed");
@@ -110,5 +116,9 @@ export function useDashboard(period: DashboardPeriod) {
     };
   }, [orders, sellers, campaigns, goals, period]);
 
-  return { data, loading: orders === undefined };
+  // Só está pronto quando os pedidos E as fontes de gestão (vendedoras,
+  // campanhas, metas) terminaram a carga inicial — evita KPIs/metas incompletos.
+  const loading = ordersQ.isPending || mgmtLoading;
+
+  return { data, loading, error: ordersQ.error ?? null };
 }

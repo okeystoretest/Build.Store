@@ -6,7 +6,7 @@ import type { PaymentMethod } from "@/types/domain";
 import { useCart } from "@/features/pos/hooks/use-cart";
 import { useProducts } from "@/features/pos/hooks/use-products";
 import { useTender } from "@/features/pos/hooks/use-tender";
-import { useLiveProducts } from "@/features/inventory/hooks/use-live-products";
+import { useLiveProductsQuery } from "@/features/inventory/hooks/use-live-products";
 import { useSaleMeta } from "@/features/pos/hooks/use-sale-meta";
 import { recordSale } from "@/lib/db/order-repository";
 import { queryKeys } from "@/lib/db/query-keys";
@@ -16,6 +16,7 @@ import { CheckoutPanel } from "./checkout-panel";
 import { SaleMeta } from "./sale-meta";
 import { ProductResults } from "./product-results";
 import { VariationPicker } from "./variation-picker";
+import { LoadingArea } from "@/components/ui/spinner";
 import type { Product } from "@/types/domain";
 
 /**
@@ -27,7 +28,8 @@ import type { Product } from "@/types/domain";
 export function POSScreen() {
   const queryClient = useQueryClient();
   const cart = useCart();
-  const liveProducts = useLiveProducts() ?? [];
+  const productsQ = useLiveProductsQuery();
+  const liveProducts = productsQ.data ?? [];
   const { products, query, setQuery, findByCode } = useProducts(liveProducts);
   const tender = useTender();
   const [tenderInput, setTenderInput] = useState("");
@@ -95,6 +97,14 @@ export function POSScreen() {
       setSaving(false);
     }
   };
+
+  if (productsQ.isPending) {
+    return (
+      <div className="h-full px-margin py-md">
+        <LoadingArea label="Carregando PDV..." />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col">

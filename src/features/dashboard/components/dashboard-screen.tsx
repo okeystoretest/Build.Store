@@ -14,6 +14,7 @@ import { useDashboard, type SellerBlock } from "@/features/dashboard/hooks/use-d
 import { progressColor, type DashboardPeriod } from "@/features/dashboard/performance";
 import { formatBRL } from "@/lib/utils/money";
 import { ToggleGroup } from "@/components/ui/toggle-group";
+import { LoadingArea } from "@/components/ui/spinner";
 
 const PERIOD_OPTIONS: { value: DashboardPeriod; label: string }[] = [
   { value: "daily", label: "Diário" },
@@ -47,7 +48,7 @@ function trophyColor(rank: number): string {
  */
 export function DashboardScreen() {
   const [period, setPeriod] = useState<DashboardPeriod>("daily");
-  const { data } = useDashboard(period);
+  const { data, loading } = useDashboard(period);
   const containerRef = useRef<HTMLDivElement>(null);
   const [fullscreen, setFullscreen] = useState(false);
 
@@ -68,6 +69,14 @@ export function DashboardScreen() {
     () => [...data.sellerBlocks].sort((a, b) => b.premiacaoCents - a.premiacaoCents),
     [data.sellerBlocks],
   );
+
+  if (loading) {
+    return (
+      <div className="h-full bg-background px-margin py-md">
+        <LoadingArea label="Carregando dashboard..." />
+      </div>
+    );
+  }
 
   return (
     <div

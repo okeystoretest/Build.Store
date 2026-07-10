@@ -11,6 +11,7 @@ import { PaymentBreakdown } from "./payment-breakdown";
 import { formatBRL } from "@/lib/utils/money";
 import { generateReportPdf } from "@/features/analytics/report-pdf";
 import { useStoreName } from "@/hooks/use-store-name";
+import { LoadingArea } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
 
 /**
@@ -19,13 +20,21 @@ import { Button } from "@/components/ui/button";
  * Inclui dois cards de alerta de estoque (mínimo atingido / próximo do mínimo).
  */
 export function AnalyticsScreen() {
-  const { summary, top, payments, daily } = useAnalytics();
+  const { summary, top, payments, daily, loading } = useAnalytics();
   const stock = useStockAlerts();
   const storeName = useStoreName();
 
   const handleDownload = () => {
     generateReportPdf({ summary, top, payments }, storeName);
   };
+
+  if (loading || stock.loading) {
+    return (
+      <div className="h-full px-margin py-md">
+        <LoadingArea label="Carregando relatórios..." />
+      </div>
+    );
+  }
 
   return (
     <div className="h-full overflow-y-auto px-margin py-md">

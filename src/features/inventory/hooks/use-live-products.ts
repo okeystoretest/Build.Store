@@ -7,21 +7,18 @@ import { useRealtimeInvalidation } from "@/lib/db/use-realtime-invalidation";
 import type { Product } from "@/types/domain";
 
 /**
- * Lista de produtos do Supabase. TanStack Query cuida do cache e dos estados de
- * carregamento; o Realtime invalida a query quando o catálogo/estoque muda em
- * qualquer dispositivo, então a grade de estoque e o PDV convergem ao vivo —
- * uma venda que baixa o estoque reflete aqui sem refetch manual.
- *
- * Retorna `undefined` enquanto carrega (mesma semântica do hook anterior, para
- * as telas não precisarem mudar).
+ * Produtos do Supabase com Realtime. Expõe também o estado de carregamento para
+ * as telas aguardarem os dados completos antes de renderizar.
  */
-export function useLiveProducts(): Product[] | undefined {
+export function useLiveProductsQuery() {
   useRealtimeInvalidation("products", queryKeys.products);
-
-  const { data } = useQuery({
+  return useQuery({
     queryKey: queryKeys.products,
     queryFn: listProducts,
   });
+}
 
-  return data;
+/** Conveniência: só a lista (undefined enquanto carrega). */
+export function useLiveProducts(): Product[] | undefined {
+  return useLiveProductsQuery().data;
 }

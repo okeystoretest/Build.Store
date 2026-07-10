@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Upload, ImageIcon } from "lucide-react";
+import { Upload, ImageIcon, Eye, EyeOff } from "lucide-react";
 import type { Role } from "@/types/domain";
 import { createUserAction } from "@/features/management/actions/create-user";
 import { Input } from "@/components/ui/input";
@@ -38,6 +38,7 @@ const ROLE_LABELS: Record<Role, string> = {
 export function UserForm({ onCreated }: { onCreated: () => void }) {
   const [serverError, setServerError] = useState<string | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const {
     register,
     handleSubmit,
@@ -148,7 +149,28 @@ export function UserForm({ onCreated }: { onCreated: () => void }) {
 
       <div className="space-y-1.5">
         <Label>Senha</Label>
-        <Input type="password" {...register("password")} placeholder="••••••••" autoComplete="new-password" />
+        <div className="relative">
+          <Input
+            type={showPassword ? "text" : "password"}
+            {...register("password")}
+            placeholder="••••••••"
+            autoComplete="new-password"
+            className="pr-14"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+            title={showPassword ? "Ocultar senha" : "Mostrar senha"}
+            className="absolute right-4 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface"
+          >
+            {showPassword ? (
+              <EyeOff className="h-5 w-5" strokeWidth={1.75} />
+            ) : (
+              <Eye className="h-5 w-5" strokeWidth={1.75} />
+            )}
+          </button>
+        </div>
         {errors.password && (
           <p className="px-2 text-label-sm text-error">{errors.password.message}</p>
         )}
