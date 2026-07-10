@@ -6,6 +6,7 @@ import type {
   Campaign,
   Goal,
   AppNotification,
+  Customer,
 } from "@/types/domain";
 
 /**
@@ -36,6 +37,9 @@ export const GOAL_COLUMNS =
 
 export const NOTIFICATION_COLUMNS =
   "id, kind, title, body, read, created_at";
+
+export const CUSTOMER_COLUMNS =
+  "id, code, name, phone, address, document, created_at";
 
 type Row = Record<string, unknown>;
 
@@ -163,6 +167,18 @@ export function toNotification(r: Row): AppNotification {
     title: r.title as string,
     body: (r.body as string) ?? "",
     read: (r.read as boolean) ?? false,
+    createdAt: r.created_at as string,
+  };
+}
+
+export function toCustomer(r: Row): Customer {
+  return {
+    id: r.id as string,
+    code: (r.code as string | null) ?? null,
+    name: r.name as string,
+    phone: (r.phone as string | null) ?? null,
+    address: (r.address as string | null) ?? null,
+    document: (r.document as string | null) ?? null,
     createdAt: r.created_at as string,
   };
 }

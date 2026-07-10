@@ -17,6 +17,7 @@ import { SaleMeta } from "./sale-meta";
 import { ProductResults } from "./product-results";
 import { VariationPicker } from "./variation-picker";
 import { LoadingArea } from "@/components/ui/spinner";
+import { useToast } from "@/components/ui/toast";
 import type { Product } from "@/types/domain";
 
 /**
@@ -27,6 +28,7 @@ import type { Product } from "@/types/domain";
  */
 export function POSScreen() {
   const queryClient = useQueryClient();
+  const toast = useToast();
   const cart = useCart();
   const productsQ = useLiveProductsQuery();
   const liveProducts = productsQ.data ?? [];
@@ -43,6 +45,8 @@ export function POSScreen() {
   const [campaignId, setCampaignId] = useState<string | null>(null);
   // Cliente da venda (obrigatório para finalizar).
   const [customerName, setCustomerName] = useState("");
+  // Cliente selecionado no autocomplete (para gravar customer_id na venda).
+  const [customerId, setCustomerId] = useState<string | null>(null);
   // Produto aguardando escolha de cor/tamanho no seletor de variação.
   const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
 
@@ -76,6 +80,7 @@ export function POSScreen() {
         globalDiscountCents: cart.globalDiscountCents,
         paymentMethod: method,
         tenderedCents: method === "cash" ? tender.cents : null,
+        customerId,
         customerName: customerName.trim(),
         sellerId,
         sellerName: seller?.fullName ?? null,
@@ -88,11 +93,13 @@ export function POSScreen() {
       setIsCampaign(false);
       setCampaignId(null);
       setCustomerName("");
+      setCustomerId(null);
       // Reflete a venda na hora: estoque (baixa via gatilho) e histórico.
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.products }),
         queryClient.invalidateQueries({ queryKey: queryKeys.orders }),
       ]);
+      toast.success("Venda finalizada com sucesso!");
     } finally {
       setSaving(false);
     }
@@ -143,7 +150,10 @@ export function POSScreen() {
           meta={
             <SaleMeta
               customerName={customerName}
-              onCustomerNameChange={setCustomerName}
+              onCustomerNameChange={(v) => {
+                setCustomerName(v);
+              }}
+              onCustomerSelect={(c) => setCustomerId(c?.id ?? null)}
               sellers={sellers}
               campaigns={campaigns}
               sellerId={sellerId}

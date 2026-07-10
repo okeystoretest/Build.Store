@@ -13,4 +13,5 @@ export const queryKeys = {
   goals: ["goals"] as const,
   notifications: ["notifications"] as const,
   settings: ["settings"] as const,
+  customers: ["customers"] as const,
 };

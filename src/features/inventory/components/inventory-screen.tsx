@@ -6,6 +6,7 @@ import { Search, Plus, Package, AlertTriangle, Cloud, LayoutGrid, List, Trash2 }
 import type { Product } from "@/types/domain";
 import { useInventory } from "@/features/inventory/hooks/use-inventory";
 import { upsertProduct, deleteProduct } from "@/lib/db/product-repository";
+import { useToast } from "@/components/ui/toast";
 import { notifyProductAdded } from "@/lib/db/notification-repository";
 import { queryKeys } from "@/lib/db/query-keys";
 import { useAuth } from "@/hooks/use-auth";
@@ -25,6 +26,7 @@ import { LoadingArea } from "@/components/ui/spinner";
  */
 export function InventoryScreen() {
   const inv = useInventory();
+  const toast = useToast();
   const queryClient = useQueryClient();
   // Apenas Admin gerencia o estoque (adicionar/editar/excluir).
   const { canAddProducts } = useAuth();
@@ -49,6 +51,7 @@ export function InventoryScreen() {
     if (!canManage) return;
     await deleteProduct(product.id);
     await queryClient.invalidateQueries({ queryKey: queryKeys.products });
+    toast.success("Produto removido do estoque.");
     closeModal();
   };
 
@@ -82,6 +85,7 @@ export function InventoryScreen() {
       await queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
     }
     await queryClient.invalidateQueries({ queryKey: queryKeys.products });
+    toast.success(isNew ? "Produto cadastrado." : "Produto atualizado.");
     closeModal();
   };
 

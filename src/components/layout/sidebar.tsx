@@ -11,6 +11,7 @@ import {
   Plus,
   LayoutDashboard,
   Users,
+  Contact,
   Sun,
   Moon,
   LogOut,
@@ -43,6 +44,7 @@ const NAV: NavItem[] = [
   { href: "/inventory", label: "Estoque", icon: Package },
   { href: "/reports", label: "Relatórios", icon: BarChart3, gate: "reports" },
   { href: "/orders", label: "Pedidos", icon: History },
+  { href: "/customers", label: "Clientes", icon: Contact },
   { href: "/management", label: "Gestão", icon: Users, gate: "management" },
 ];
 

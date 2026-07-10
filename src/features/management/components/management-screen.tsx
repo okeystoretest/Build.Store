@@ -15,6 +15,7 @@ import {
 import { parseToCents } from "@/lib/utils/money";
 import { queryKeys } from "@/lib/db/query-keys";
 import { setStoreName } from "@/lib/db/settings-repository";
+import { useToast } from "@/components/ui/toast";
 import { useStoreName } from "@/hooks/use-store-name";
 import { Store } from "lucide-react";
 import type { User, Campaign, Goal, Role } from "@/types/domain";
@@ -45,11 +46,24 @@ export function ManagementScreen() {
   // Invalidação por área após escritas; o Realtime também converge entre
   // dispositivos. Cada lista abaixo cuida da própria invalidação.
   const queryClient = useQueryClient();
+  const toast = useToast();
   const refreshAll = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.users });
     void queryClient.invalidateQueries({ queryKey: queryKeys.campaigns });
     void queryClient.invalidateQueries({ queryKey: queryKeys.goals });
   }, [queryClient]);
+  const onUserCreated = useCallback(() => {
+    refreshAll();
+    toast.success("Usuário cadastrado.");
+  }, [refreshAll, toast]);
+  const onCampaignCreated = useCallback(() => {
+    refreshAll();
+    toast.success("Campanha criada.");
+  }, [refreshAll, toast]);
+  const onGoalCreated = useCallback(() => {
+    refreshAll();
+    toast.success("Meta definida.");
+  }, [refreshAll, toast]);
 
   if (m.loading) {
     return (
@@ -90,7 +104,7 @@ export function ManagementScreen() {
                 <h2 className="mb-md text-headline-md text-on-surface">
                   Cadastrar usuário
                 </h2>
-                <UserForm onCreated={refreshAll} />
+                <UserForm onCreated={onUserCreated} />
               </>
             )}
             {tool === "campaigns" && (
@@ -98,7 +112,7 @@ export function ManagementScreen() {
                 <h2 className="mb-md text-headline-md text-on-surface">
                   Criar campanha
                 </h2>
-                <CampaignForm onCreated={refreshAll} />
+                <CampaignForm onCreated={onCampaignCreated} />
               </>
             )}
             {tool === "goals" && (
@@ -109,7 +123,7 @@ export function ManagementScreen() {
                 <GoalForm
                   sellers={m.sellers}
                   campaigns={m.campaigns}
-                  onCreated={refreshAll}
+                  onCreated={onGoalCreated}
                 />
               </>
             )}
@@ -164,6 +178,7 @@ function ActionButtons({
 }
 
 function UsersList({ users }: { users: ReturnType<typeof useManagement>["users"] }) {
+  const toast = useToast();
   const [editing, setEditing] = useState<User | null>(null);
   const [confirm, setConfirm] = useState<User | null>(null);
   const queryClient = useQueryClient();
@@ -221,7 +236,7 @@ function UsersList({ users }: { users: ReturnType<typeof useManagement>["users"]
         label={confirm?.fullName ?? ""}
         onCancel={() => setConfirm(null)}
         onConfirm={async () => {
-          if (confirm) { await deleteUser(confirm.id); void invalidateUsers(); }
+          if (confirm) { await deleteUser(confirm.id); void invalidateUsers(); toast.success("Usuário removido."); }
           setConfirm(null);
         }}
       />
@@ -322,6 +337,7 @@ function CampaignsList({
   const queryClient = useQueryClient();
   const invalidateCampaigns = () =>
     queryClient.invalidateQueries({ queryKey: queryKeys.campaigns });
+  const toast = useToast();
 
   const openEdit = (c: Campaign) => {
     setEditing(c);
@@ -401,7 +417,7 @@ function CampaignsList({
         label={confirm?.name ?? ""}
         onCancel={() => setConfirm(null)}
         onConfirm={async () => {
-          if (confirm) { await deleteCampaign(confirm.id); void invalidateCampaigns(); }
+          if (confirm) { await deleteCampaign(confirm.id); void invalidateCampaigns(); toast.success("Campanha removida."); }
           setConfirm(null);
         }}
       />
@@ -421,6 +437,7 @@ function GoalsList({
   const queryClient = useQueryClient();
   const invalidateGoals = () =>
     queryClient.invalidateQueries({ queryKey: queryKeys.goals });
+  const toast = useToast();
   const [editing, setEditing] = useState<Goal | null>(null);
   const [amount, setAmount] = useState("");
   const [quantity, setQuantity] = useState("");
@@ -525,7 +542,7 @@ function GoalsList({
         label={confirm ? `meta de ${sellerName(confirm.sellerId)}` : ""}
         onCancel={() => setConfirm(null)}
         onConfirm={async () => {
-          if (confirm) { await deleteGoal(confirm.id); void invalidateGoals(); }
+          if (confirm) { await deleteGoal(confirm.id); void invalidateGoals(); toast.success("Meta removida."); }
           setConfirm(null);
         }}
       />
@@ -577,6 +594,7 @@ function Empty({ text }: { text: string }) {
  * invalida o cache; o Realtime propaga para os demais dispositivos.
  */
 function StoreSettings() {
+  const toastStore = useToast();
   const currentName = useStoreName();
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
@@ -594,6 +612,7 @@ function StoreSettings() {
     setSaved(false);
     try {
       await setStoreName(name.trim());
+      toastStore.success("Nome da loja atualizado.");
       await queryClient.invalidateQueries({ queryKey: queryKeys.settings });
       setSaved(true);
     } finally {

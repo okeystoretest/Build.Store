@@ -82,9 +82,14 @@ export interface Product {
 
 export interface Customer {
   id: UUID;
+  /** Código único e legível do cliente (ex.: CLI-0001). Gerado no cadastro. */
+  code: string | null;
   name: string;
+  /** Contato (telefone), armazenado só com dígitos; formatado na UI. */
   phone: string | null;
-  document: string | null; // CPF
+  /** Endereço completo. */
+  address: string | null;
+  document: string | null; // CPF (legado; não usado no formulário atual)
   createdAt: ISODateString;
 }
 

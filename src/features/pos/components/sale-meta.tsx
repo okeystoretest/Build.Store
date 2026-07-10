@@ -1,14 +1,16 @@
 "use client";
 
-import type { User, Campaign } from "@/types/domain";
+import type { User, Campaign, Customer } from "@/types/domain";
 import { Select } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { CustomerAutocomplete } from "./customer-autocomplete";
+import { useCustomers } from "@/features/customers/hooks/use-customers";
 
 interface SaleMetaProps {
   customerName: string;
   onCustomerNameChange: (v: string) => void;
+  onCustomerSelect?: (customer: Customer | null) => void;
   sellers: User[];
   campaigns: Campaign[];
   sellerId: string | null;
@@ -27,6 +29,7 @@ interface SaleMetaProps {
 export function SaleMeta({
   customerName,
   onCustomerNameChange,
+  onCustomerSelect,
   sellers,
   campaigns,
   sellerId,
@@ -36,6 +39,7 @@ export function SaleMeta({
   campaignId,
   onCampaignChange,
 }: SaleMetaProps) {
+  const { customers } = useCustomers();
   const customerMissing = customerName.trim().length === 0;
   return (
     <div className="space-y-md rounded-lg bg-surface-container-low px-md py-md">
@@ -43,12 +47,15 @@ export function SaleMeta({
         <Label>
           Cliente <span className="text-error">*</span>
         </Label>
-        <Input
+        <CustomerAutocomplete
           value={customerName}
-          onChange={(e) => onCustomerNameChange(e.target.value)}
-          placeholder="Nome do cliente"
-          aria-label="Nome do cliente"
-          aria-required="true"
+          onChange={onCustomerNameChange}
+          customers={customers}
+          onSelect={(c) => {
+            onCustomerNameChange(c.name);
+            onCustomerSelect?.(c);
+          }}
+          onClearSelection={() => onCustomerSelect?.(null)}
         />
         {customerMissing && (
           <p className="px-2 text-label-sm text-error">
