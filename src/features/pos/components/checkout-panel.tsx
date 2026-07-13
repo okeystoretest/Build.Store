@@ -51,7 +51,7 @@ export function CheckoutPanel({
   const shortfall = isCash && tenderedCents < totalCents;
 
   return (
-    <aside className="flex h-full flex-col gap-sm border-l border-outline-variant/50 px-margin py-md">
+    <aside className="flex h-full flex-col gap-sm px-margin py-md lg:border-l lg:border-outline-variant/50">
       <h2 className="text-headline-md text-on-surface">Checkout</h2>
 
       <div className="grid grid-cols-3 gap-sm">
@@ -108,7 +108,7 @@ export function CheckoutPanel({
           <p className="text-body-md text-on-surface-variant">
             Total a cobrar
           </p>
-          <p className="text-display-md text-primary">
+          <p className="break-words text-display-sm leading-tight text-primary sm:text-display-md">
             {formatBRL(totalCents)}
           </p>
           <p className="text-label-sm text-on-surface-variant/70">

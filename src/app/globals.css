@@ -245,3 +245,16 @@ button {
     transform: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * Responsividade: reduz o respiro lateral/vertical grande (token "margin" =
+ * 32px) em telas pequenas, onde 32px consome espaço demais. Aplica-se às
+ * utilidades geradas a partir do token, sem precisar tocar cada tela.
+ * ------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  .px-margin { padding-left: 1rem !important; padding-right: 1rem !important; }
+  .py-margin { padding-top: 1rem !important; padding-bottom: 1rem !important; }
+  .p-margin  { padding: 1rem !important; }
+  .gap-margin { gap: 1rem !important; }
+  .mx-margin { margin-left: 1rem !important; margin-right: 1rem !important; }
+}

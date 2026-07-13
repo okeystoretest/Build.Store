@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { ShoppingBag, CreditCard } from "lucide-react";
 import type { PaymentMethod } from "@/types/domain";
 import { useCart } from "@/features/pos/hooks/use-cart";
 import { useProducts } from "@/features/pos/hooks/use-products";
@@ -10,6 +11,7 @@ import { useLiveProductsQuery } from "@/features/inventory/hooks/use-live-produc
 import { useSaleMeta } from "@/features/pos/hooks/use-sale-meta";
 import { recordSale } from "@/lib/db/order-repository";
 import { queryKeys } from "@/lib/db/query-keys";
+import { cn } from "@/lib/utils/cn";
 import { TopBar } from "./top-bar";
 import { CartPanel } from "./cart-panel";
 import { CheckoutPanel } from "./checkout-panel";
@@ -21,10 +23,10 @@ import { useToast } from "@/components/ui/toast";
 import type { Product } from "@/types/domain";
 
 /**
- * Container da tela de PDV. Compõe carrinho + checkout + busca de produtos ao
- * vivo e é dono do fluxo de finalizar. Finalizar persiste a venda no Supabase
- * (pedido + itens + movimentos de estoque; o gatilho SQL dá baixa no estoque) e
- * invalida os caches de produtos e pedidos para a tela refletir na hora.
+ * Container da tela de PDV. No desktop, duas colunas (produtos+carrinho |
+ * checkout). No mobile, alterna entre duas abas: "Produtos" (busca + resultados
+ * + carrinho) e "Pagamento" (checkout). Um resumo fixo no rodapé mostra o total
+ * e leva ao pagamento.
  */
 export function POSScreen() {
   const queryClient = useQueryClient();
@@ -39,16 +41,15 @@ export function POSScreen() {
   const [saving, setSaving] = useState(false);
   const { sellers, campaigns } = useSaleMeta();
 
-  // Atribuição da venda (vendedora responsável + campanha opcional).
   const [sellerId, setSellerId] = useState<string | null>(null);
   const [isCampaign, setIsCampaign] = useState(false);
   const [campaignId, setCampaignId] = useState<string | null>(null);
-  // Cliente da venda (obrigatório para finalizar).
   const [customerName, setCustomerName] = useState("");
-  // Cliente selecionado no autocomplete (para gravar customer_id na venda).
   const [customerId, setCustomerId] = useState<string | null>(null);
-  // Produto aguardando escolha de cor/tamanho no seletor de variação.
   const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
+
+  // Aba ativa no mobile.
+  const [mobileTab, setMobileTab] = useState<"products" | "payment">("products");
 
   const { totalCents } = cart.totals;
   const isCash = method === "cash";
@@ -60,7 +61,6 @@ export function POSScreen() {
     campaignOk &&
     customerOk;
 
-  // Enter no campo de busca com correspondência exata adiciona o produto.
   const handleQueryChange = (value: string) => {
     setQuery(value);
     const match = findByCode(value);
@@ -94,7 +94,7 @@ export function POSScreen() {
       setCampaignId(null);
       setCustomerName("");
       setCustomerId(null);
-      // Reflete a venda na hora: estoque (baixa via gatilho) e histórico.
+      setMobileTab("products");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.products }),
         queryClient.invalidateQueries({ queryKey: queryKeys.orders }),
@@ -113,8 +113,53 @@ export function POSScreen() {
     );
   }
 
+  const checkout = (
+    <CheckoutPanel
+      totalCents={totalCents}
+      method={method}
+      onMethodChange={setMethod}
+      tenderedCents={tender.cents}
+      tenderInput={tenderInput}
+      onTenderInput={(value) => {
+        setTenderInput(value);
+        tender.setFromReais(value);
+      }}
+      onFinalize={finalize}
+      canFinalize={canFinalize}
+      saving={saving}
+      meta={
+        <SaleMeta
+          customerName={customerName}
+          onCustomerNameChange={setCustomerName}
+          onCustomerSelect={(c) => setCustomerId(c?.id ?? null)}
+          sellers={sellers}
+          campaigns={campaigns}
+          sellerId={sellerId}
+          onSellerChange={setSellerId}
+          isCampaign={isCampaign}
+          onIsCampaignChange={setIsCampaign}
+          campaignId={campaignId}
+          onCampaignChange={setCampaignId}
+        />
+      }
+    />
+  );
+
+  const productsAndCart = (
+    <div className="grid h-full min-w-0 grid-rows-[auto_1fr] overflow-hidden">
+      <ProductResults
+        products={products}
+        query={query}
+        onSelect={setPendingProduct}
+      />
+      <div className="min-h-0 overflow-hidden">
+        <CartPanel cart={cart} />
+      </div>
+    </div>
+  );
+
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-w-0 flex-col">
       <TopBar
         query={query}
         onQueryChange={handleQueryChange}
@@ -122,49 +167,42 @@ export function POSScreen() {
         checkoutDisabled={!canFinalize || saving}
       />
 
-      <div className="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[1fr_minmax(360px,420px)]">
-        <div className="grid grid-rows-[auto_1fr] overflow-hidden">
-          <ProductResults
-            products={products}
-            query={query}
-            onSelect={setPendingProduct}
-          />
-          <div className="min-h-0 overflow-hidden">
-            <CartPanel cart={cart} />
-          </div>
-        </div>
-
-        <CheckoutPanel
-          totalCents={totalCents}
-          method={method}
-          onMethodChange={setMethod}
-          tenderedCents={tender.cents}
-          tenderInput={tenderInput}
-          onTenderInput={(value) => {
-            setTenderInput(value);
-            tender.setFromReais(value);
-          }}
-          onFinalize={finalize}
-          canFinalize={canFinalize}
-          saving={saving}
-          meta={
-            <SaleMeta
-              customerName={customerName}
-              onCustomerNameChange={(v) => {
-                setCustomerName(v);
-              }}
-              onCustomerSelect={(c) => setCustomerId(c?.id ?? null)}
-              sellers={sellers}
-              campaigns={campaigns}
-              sellerId={sellerId}
-              onSellerChange={setSellerId}
-              isCampaign={isCampaign}
-              onIsCampaignChange={setIsCampaign}
-              campaignId={campaignId}
-              onCampaignChange={setCampaignId}
-            />
-          }
+      {/* Abas (só mobile) */}
+      <div className="flex gap-1 border-b border-outline-variant/50 px-3 py-2 lg:hidden">
+        <TabButton
+          active={mobileTab === "products"}
+          onClick={() => setMobileTab("products")}
+          icon={<ShoppingBag className="h-4 w-4" strokeWidth={1.75} />}
+          label="Produtos"
+          badge={cart.items.length > 0 ? cart.items.length : undefined}
         />
+        <TabButton
+          active={mobileTab === "payment"}
+          onClick={() => setMobileTab("payment")}
+          icon={<CreditCard className="h-4 w-4" strokeWidth={1.75} />}
+          label="Pagamento"
+        />
+      </div>
+
+      {/* Desktop: duas colunas */}
+      <div className="hidden flex-1 grid-cols-[1fr_minmax(360px,420px)] overflow-hidden lg:grid">
+        {productsAndCart}
+        {checkout}
+      </div>
+
+      {/* Mobile: uma aba por vez */}
+      <div className="min-h-0 min-w-0 flex-1 overflow-hidden lg:hidden">
+        <div className={cn("h-full min-w-0", mobileTab === "products" ? "block" : "hidden")}>
+          {productsAndCart}
+        </div>
+        <div
+          className={cn(
+            "h-full min-w-0 overflow-y-auto",
+            mobileTab === "payment" ? "block" : "hidden",
+          )}
+        >
+          {checkout}
+        </div>
       </div>
 
       <VariationPicker
@@ -175,5 +213,40 @@ export function POSScreen() {
         }}
       />
     </div>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  icon,
+  label,
+  badge,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon: React.ReactNode;
+  label: string;
+  badge?: number;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex flex-1 items-center justify-center gap-2 rounded-full py-2.5 text-label-md font-medium transition-colors",
+        active
+          ? "bg-primary-fixed/60 text-primary"
+          : "text-on-surface-variant hover:bg-surface-container",
+      )}
+    >
+      {icon}
+      {label}
+      {badge !== undefined && (
+        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-label-sm text-on-primary">
+          {badge}
+        </span>
+      )}
+    </button>
   );
 }

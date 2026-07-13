@@ -21,6 +21,13 @@ export const metadata: Metadata = {
     apple: "/icons/icon-192.png",
   },
   appleWebApp: { capable: true, title: "Build.Store", statusBarStyle: "default" },
+  other: {
+    // `apple-mobile-web-app-capable` (emitida pelo appleWebApp acima) está
+    // depreciada; os navegadores pedem a versão padronizada. Mantemos as duas:
+    // a da Apple para iOS antigo, esta para o padrão atual. Isso silencia o
+    // aviso do console sem perder o comportamento de PWA instalável.
+    "mobile-web-app-capable": "yes",
+  },
 };
 
 export const viewport: Viewport = {

@@ -66,8 +66,8 @@ export function OrdersTable({
   }
 
   return (
-    <div className="overflow-hidden rounded-lg bg-surface-container-lowest shadow-level-1">
-      <table className="w-full">
+    <div className="overflow-x-auto rounded-lg bg-surface-container-lowest shadow-level-1 scrollbar-slim">
+      <table className="w-full min-w-[640px]">
         <thead>
           <tr className="border-b border-outline-variant/40 text-left">
             <Th>Pedido</Th>

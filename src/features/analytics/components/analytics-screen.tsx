@@ -39,7 +39,7 @@ export function AnalyticsScreen() {
   return (
     <div className="h-full overflow-y-auto px-margin py-md">
       <div className="mb-md flex items-center justify-between">
-        <h1 className="font-logo text-headline-lg text-primary">Relatórios</h1>
+        <h1 className="font-logo text-headline-lg-mobile text-primary sm:text-headline-lg">Relatórios</h1>
         <Button onClick={handleDownload} variant="secondary">
           <Download className="h-4 w-4" strokeWidth={1.75} />
           Baixar PDF

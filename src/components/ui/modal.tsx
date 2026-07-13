@@ -52,7 +52,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
             <X className="h-5 w-5" strokeWidth={1.75} />
           </button>
         </div>
-        <div className="max-h-[70vh] overflow-y-auto px-md py-md">{children}</div>
+        <div className="max-h-[78vh] overflow-y-auto px-md py-md scrollbar-slim sm:max-h-[70vh]">{children}</div>
       </div>
     </div>
   );

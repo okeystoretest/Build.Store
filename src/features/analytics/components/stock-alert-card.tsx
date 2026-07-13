@@ -39,7 +39,7 @@ export function StockAlertCard({ label, items, icon: Icon, tone }: StockAlertCar
         </span>
       </div>
 
-      <p className="mt-2 text-display-lg text-primary">{items.length}</p>
+      <p className="mt-2 text-display-sm leading-tight text-primary sm:text-display-md xl:text-display-lg">{items.length}</p>
 
       {items.length > 0 ? (
         <ul className="mt-sm space-y-1">

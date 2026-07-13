@@ -15,14 +15,21 @@ export function StatCard({ label, value, icon: Icon, delta }: StatCardProps) {
   return (
     <div className="rounded-lg bg-surface-container-lowest p-md shadow-level-1">
       <div className="flex items-start justify-between">
-        <p className="text-label-md uppercase tracking-wide text-on-surface-variant">
+        <p className="min-w-0 text-label-md uppercase tracking-wide text-on-surface-variant">
           {label}
         </p>
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-fixed/60 text-primary">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-fixed/60 text-primary">
           <Icon className="h-5 w-5" strokeWidth={1.75} />
         </span>
       </div>
-      <p className="mt-2 text-display-lg text-primary">{value}</p>
+      {/*
+        O valor escala com a tela: 48px estourava a largura do card no celular
+        (ex.: "R$ 20.850,00" saía cortado). break-words evita overflow em
+        valores muito longos.
+      */}
+      <p className="mt-2 break-words text-headline-lg leading-tight text-primary sm:text-display-sm xl:text-display-lg">
+        {value}
+      </p>
       {delta && (
         <p
           className={cn(

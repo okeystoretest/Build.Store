@@ -14,16 +14,16 @@ export function CartPanel({ cart }: CartPanelProps) {
   const { items, totals, count } = cart;
 
   return (
-    <section className="flex h-full flex-col">
+    <section className="flex h-full min-w-0 flex-col">
       <div className="flex items-center justify-between px-margin pt-md">
-        <h2 className="flex items-center gap-2 text-headline-md text-on-surface">
+        <h2 className="flex min-w-0 items-center gap-2 text-body-lg text-on-surface sm:text-headline-md">
           <ShoppingBasket className="h-6 w-6 text-primary" strokeWidth={1.75} />
           Venda Atual
         </h2>
         {items.length > 0 && (
           <button
             onClick={cart.clear}
-            className="flex items-center gap-2 text-label-md text-primary transition-colors hover:text-on-primary-container"
+            className="flex shrink-0 items-center gap-2 whitespace-nowrap text-label-md text-primary transition-colors hover:text-on-primary-container"
           >
             <Trash2 className="h-4 w-4" strokeWidth={1.75} />
             Limpar tudo
@@ -31,7 +31,7 @@ export function CartPanel({ cart }: CartPanelProps) {
         )}
       </div>
 
-      <div className="scrollbar-slim flex-1 space-y-sm overflow-y-auto px-margin py-md">
+      <div className="scrollbar-slim min-w-0 flex-1 space-y-sm overflow-y-auto px-margin py-md">
         {items.length === 0 ? (
           <EmptyCart />
         ) : (
@@ -65,7 +65,7 @@ export function CartPanel({ cart }: CartPanelProps) {
               Total
             </p>
             <div className="flex items-end justify-between">
-              <p className="text-display-lg text-primary">
+              <p className="min-w-0 break-words text-headline-lg leading-tight text-primary sm:text-display-md xl:text-display-lg">
                 {formatBRL(totals.totalCents)}
               </p>
               <p className="pb-2 text-label-sm text-on-surface-variant">

@@ -26,7 +26,12 @@ export function ToggleGroup<T extends string>({
 }: ToggleGroupProps<T>) {
   return (
     <div
-      className={cn("flex gap-1 rounded-full bg-surface-container-low p-1", className)}
+      className={cn(
+        // scrollbar-hide + overflow-x-auto: no mobile as abas rolam em vez de
+        // serem cortadas na borda da tela.
+        "flex max-w-full gap-1 overflow-x-auto rounded-full bg-surface-container-low p-1 scrollbar-slim",
+        className,
+      )}
       role="tablist"
       aria-label={props["aria-label"]}
     >
@@ -40,7 +45,7 @@ export function ToggleGroup<T extends string>({
             aria-selected={active}
             onClick={() => onChange(opt.value)}
             className={cn(
-              "flex items-center gap-2 rounded-full px-4 py-2 text-label-md transition-colors",
+              "flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-4 py-2 text-label-md transition-colors",
               active
                 ? "bg-surface-container-lowest text-primary shadow-level-1"
                 : "text-on-surface-variant hover:text-on-surface",

@@ -131,7 +131,7 @@ export function ProductRow({ product, onOpen, canManage = false }: ProductCardPr
         )}
       </div>
 
-      <p className="w-28 text-right text-body-md font-semibold text-primary">
+      <p className="shrink-0 text-right text-body-md font-semibold text-primary sm:w-28">
         {formatBRL(product.priceCents)}
       </p>
 

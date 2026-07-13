@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Search, Plus, Package, AlertTriangle, Cloud, LayoutGrid, List, Trash2 } from "lucide-react";
+import { X, Search, Plus, Package, AlertTriangle, Cloud, LayoutGrid, List, Trash2 } from "lucide-react";
 import type { Product } from "@/types/domain";
 import { useInventory } from "@/features/inventory/hooks/use-inventory";
 import { upsertProduct, deleteProduct } from "@/lib/db/product-repository";
@@ -99,27 +99,39 @@ export function InventoryScreen() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-md border-b border-outline-variant/50 px-margin py-md">
+      <header className="flex items-center gap-3 border-b border-outline-variant/50 px-margin py-md sm:gap-md">
         <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-on-surface-variant" strokeWidth={1.75} />
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-on-surface-variant sm:left-5" strokeWidth={1.75} />
           <input
             value={inv.query}
             onChange={(e) => inv.setQuery(e.target.value)}
             placeholder="Pesquisar produtos ou referência..."
             aria-label="Pesquisar produtos"
-            className="h-14 w-full rounded-full border border-outline-variant bg-surface pl-14 pr-6 text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus:border-primary-container focus:outline-none"
+            className="h-12 w-full rounded-full border border-outline-variant bg-surface pl-12 pr-12 text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus:border-primary-container focus:outline-none sm:h-14 sm:pl-14 sm:pr-14"
           />
+          {inv.query.length > 0 && (
+            <button
+              type="button"
+              onClick={() => inv.setQuery("")}
+              aria-label="Limpar busca"
+              title="Limpar busca"
+              className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface sm:right-4"
+            >
+              <X className="h-4 w-4" strokeWidth={2} />
+            </button>
+          )}
         </div>
 
-        <div className="flex items-center gap-2 rounded-full bg-surface-container px-4 py-2 text-label-sm font-semibold text-on-surface-variant">
+        <div className="hidden items-center gap-2 rounded-full bg-surface-container px-4 py-2 text-label-sm font-semibold text-on-surface-variant lg:flex">
           <Cloud className="h-4 w-4" strokeWidth={1.75} />
           Cloud Sync
         </div>
 
         {canManage && (
-          <Button size="lg" onClick={() => setCreating(true)}>
+          <Button size="lg" onClick={() => setCreating(true)} className="shrink-0">
             <Plus className="h-5 w-5" strokeWidth={2} />
-            Adicionar Novo Produto
+            <span className="hidden sm:inline">Adicionar Novo Produto</span>
+            <span className="sm:hidden">Novo</span>
           </Button>
         )}
       </header>
@@ -127,7 +139,7 @@ export function InventoryScreen() {
       <div className="flex-1 overflow-y-auto px-margin py-md">
         <div className="flex flex-wrap items-center justify-between gap-md">
           <div>
-            <h1 className="text-headline-lg text-primary">Gestão de Estoque</h1>
+            <h1 className="font-logo text-headline-lg-mobile text-primary sm:text-headline-lg">Gestão de Estoque</h1>
             <div className="mt-2 flex items-center gap-md">
               <span className="flex items-center gap-2 text-label-md text-on-surface-variant">
                 <Package className="h-4 w-4" strokeWidth={1.75} />

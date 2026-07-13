@@ -33,7 +33,7 @@ export function ProductResults({
 
   return (
     <div className="border-b border-outline-variant/50 px-margin py-md">
-      <div className="flex gap-sm overflow-x-auto pb-2">
+      <div className="scrollbar-slim flex gap-sm overflow-x-auto pb-2">
         {products.map((p) => {
           const outOfStock = p.stock <= 0;
           return (

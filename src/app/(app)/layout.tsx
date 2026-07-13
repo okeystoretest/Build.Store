@@ -1,19 +1,13 @@
-import { Sidebar } from "@/components/layout/sidebar";
+import { AppShell } from "@/components/layout/app-shell";
 
 /**
- * Shell das telas autenticadas: sidebar fixa + área de trabalho rolável.
- * A proteção de rota é feita pelo middleware (sessão via cookie do Supabase),
- * então não há guarda de cliente aqui.
+ * Shell das telas autenticadas: layout responsivo (sidebar retrátil no desktop,
+ * drawer no mobile). A proteção de rota é feita pelo middleware.
  */
 export default function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto">{children}</main>
-    </div>
-  );
+  return <AppShell>{children}</AppShell>;
 }

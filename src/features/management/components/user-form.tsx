@@ -118,7 +118,7 @@ export function UserForm({ onCreated }: { onCreated: () => void }) {
 
       <div className="space-y-1.5">
         <Label>Nome de usuário</Label>
-        <Input {...register("username")} placeholder="Ex.: ana.silva" autoComplete="off" />
+        <Input {...register("username")} placeholder="Ex.: Isabelle" autoComplete="off" />
         {errors.username && (
           <p className="px-2 text-label-sm text-error">{errors.username.message}</p>
         )}
@@ -126,7 +126,7 @@ export function UserForm({ onCreated }: { onCreated: () => void }) {
 
       <div className="space-y-1.5">
         <Label>Nome completo</Label>
-        <Input {...register("fullName")} placeholder="Ex.: Ana Silva" autoComplete="name" />
+        <Input {...register("fullName")} placeholder="Ex.: Isabelle Corrêa" autoComplete="name" />
         {errors.fullName && (
           <p className="px-2 text-label-sm text-error">{errors.fullName.message}</p>
         )}

@@ -2,15 +2,6 @@ import { createClient } from "@/lib/supabase/client";
 import { PRODUCT_COLUMNS, toProduct, productToRow } from "@/lib/db/mappers";
 import type { Product, StockMovement } from "@/types/domain";
 
-/**
- * Product repository — online-only.
- *
- * O Supabase é a única fonte de verdade. Toda leitura/escrita vai direto ao
- * banco. O estoque é decrementado EXCLUSIVAMENTE pelo servidor: a função
- * applyStockMovement insere uma linha em `stock_movements` e o gatilho SQL
- * (apply_stock_movement) ajusta products.stock atomicamente. Nada de estoque é
- * calculado no cliente.
- */
 
 export async function listProducts(): Promise<Product[]> {
   const supabase = createClient();

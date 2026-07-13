@@ -75,8 +75,8 @@ export function ManagementScreen() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-md border-b border-outline-variant/50 px-margin py-md">
-        <h1 className="text-headline-lg text-primary">Gestão</h1>
+      <header className="flex flex-wrap items-center gap-3 border-b border-outline-variant/50 px-margin py-md">
+        <h1 className="font-logo text-headline-lg-mobile text-primary sm:text-headline-lg">Gestão</h1>
         <div className="ml-auto">
           <ToggleGroup
             aria-label="Ferramenta de gestão"
@@ -195,9 +195,9 @@ function UsersList({ users }: { users: ReturnType<typeof useManagement>["users"]
           {users.map((u) => (
             <li
               key={u.id}
-              className="flex items-center justify-between gap-md rounded-md bg-surface-container-low px-md py-sm"
+              className="flex items-center justify-between gap-3 rounded-md bg-surface-container-low px-3 py-sm sm:gap-md sm:px-md"
             >
-              <span className="flex items-center gap-3">
+              <span className="flex min-w-0 flex-1 items-center gap-3">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-fixed/60 text-label-sm font-semibold text-primary">
                   {u.photoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -206,9 +206,9 @@ function UsersList({ users }: { users: ReturnType<typeof useManagement>["users"]
                     u.fullName.slice(0, 2).toUpperCase()
                   )}
                 </span>
-                <span className="text-body-md text-on-surface">{u.fullName}</span>
+                <span className="truncate text-body-md text-on-surface">{u.fullName}</span>
               </span>
-              <span className="flex items-center gap-2">
+              <span className="flex shrink-0 items-center gap-2">
                 <Badge tone={u.role === "admin" ? "primary" : "neutral"}>
                   {ROLE_LABELS[u.role]}
                 </Badge>
@@ -354,7 +354,7 @@ function CampaignsList({
           {campaigns.map((c) => (
             <li
               key={c.id}
-              className="flex items-center justify-between gap-md rounded-md bg-surface-container-low px-md py-sm"
+              className="flex items-center justify-between gap-3 rounded-md bg-surface-container-low px-3 py-sm sm:gap-md sm:px-md"
             >
               <span className="text-body-md text-on-surface">{c.name}</span>
               <span className="flex items-center gap-2">

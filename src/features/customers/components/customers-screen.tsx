@@ -46,7 +46,7 @@ export function CustomersScreen() {
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-md border-b border-outline-variant/50 px-margin py-md">
-        <h1 className="text-headline-lg text-primary">Clientes</h1>
+        <h1 className="font-logo text-headline-lg-mobile text-primary sm:text-headline-lg">Clientes</h1>
         <span className="ml-auto text-label-md text-on-surface-variant">
           {customers.length}{" "}
           {customers.length === 1 ? "cliente" : "clientes"}
@@ -76,8 +76,8 @@ export function CustomersScreen() {
               Nenhum cliente cadastrado ainda.
             </p>
           ) : (
-            <div className="overflow-hidden rounded-lg border border-outline-variant/50">
-              <table className="w-full text-body-md">
+            <div className="overflow-x-auto rounded-lg border border-outline-variant/50 scrollbar-slim">
+              <table className="w-full min-w-[520px] text-body-md">
                 <thead>
                   <tr className="bg-surface-container text-label-sm uppercase tracking-wide text-on-surface-variant">
                     <th className="px-3 py-2 text-left font-medium">Código</th>

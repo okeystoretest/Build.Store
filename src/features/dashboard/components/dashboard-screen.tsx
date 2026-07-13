@@ -84,7 +84,7 @@ export function DashboardScreen() {
       className="h-full overflow-y-auto bg-background px-margin py-md"
     >
       <div className="flex flex-wrap items-end justify-between gap-md">
-        <h1 className="text-display-sm text-primary">Dashboard</h1>
+        <h1 className="font-logo text-headline-lg-mobile text-primary sm:text-headline-lg">Dashboard</h1>
         <div className="flex flex-wrap items-end gap-md">
           <ToggleGroup
             aria-label="Período"
@@ -109,7 +109,7 @@ export function DashboardScreen() {
 
       <div className="mt-md space-y-md">
         {/* Cards agregados */}
-        <div className="grid grid-cols-2 gap-md xl:grid-cols-4">
+        <div className="grid grid-cols-1 gap-md sm:grid-cols-2 xl:grid-cols-4">
           <Metric icon={TrendingUp} label="Recebido no período" value={formatBRL(data.revenueCents)} style={METRIC_STYLES.revenue} />
           <Metric icon={Receipt} label="Ticket médio" value={formatBRL(data.averageTicketCents)} style={METRIC_STYLES.ticket} />
           <Metric icon={Package} label="Itens vendidos" value={data.itemsSold.toLocaleString("pt-BR")} style={METRIC_STYLES.items} />

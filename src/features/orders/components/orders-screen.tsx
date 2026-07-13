@@ -68,7 +68,7 @@ export function OrdersScreen() {
   return (
     <div className="flex h-full flex-col">
       <header className="flex items-center gap-md border-b border-outline-variant/50 px-margin py-md">
-        <h1 className="text-headline-lg text-primary">Histórico de Pedidos</h1>
+        <h1 className="font-logo text-headline-lg-mobile text-primary sm:text-headline-lg">Histórico de Pedidos</h1>
         <div className="relative ml-auto w-80">
           <Search
             className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-on-surface-variant"
@@ -98,7 +98,7 @@ export function OrdersScreen() {
                   type="date"
                   value={o.from}
                   onChange={(e) => o.setFrom(e.target.value)}
-                  className="w-44"
+                  className="w-36 sm:w-44"
                   aria-label="Data inicial"
                 />
                 <span className="text-on-surface-variant">até</span>
@@ -106,7 +106,7 @@ export function OrdersScreen() {
                   type="date"
                   value={o.to}
                   onChange={(e) => o.setTo(e.target.value)}
-                  className="w-44"
+                  className="w-36 sm:w-44"
                   aria-label="Data final"
                 />
               </div>
@@ -116,7 +116,7 @@ export function OrdersScreen() {
               <Select
                 value={o.status}
                 onChange={(e) => o.setStatus(e.target.value as StatusFilter)}
-                className="w-52"
+                className="w-full sm:w-52"
                 aria-label="Status do pedido"
               >
                 <option value="all">Todos os Status</option>
@@ -133,7 +133,7 @@ export function OrdersScreen() {
             <p className="text-label-sm uppercase tracking-wide text-on-surface-variant">
               Total do período
             </p>
-            <p className="text-headline-lg text-primary">
+            <p className="text-headline-md text-primary sm:text-headline-lg">
               {formatBRL(o.periodTotalCents)}
             </p>
           </div>
