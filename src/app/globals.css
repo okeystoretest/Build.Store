@@ -1,0 +1,260 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --font-inter: "Inter", system-ui, sans-serif;
+
+    --surface: #fff8f7;
+    --surface-dim: #e0d8d8;
+    --surface-bright: #fff8f7;
+    --surface-container-lowest: #ffffff;
+    --surface-container-low: #faf2f2;
+    --surface-container: #f4ecec;
+    --surface-container-high: #eee6e6;
+    --surface-container-highest: #e8e1e1;
+    --surface-variant: #e8e1e1;
+
+    --on-surface: #1e1b1b;
+    --on-surface-variant: #514343;
+
+    --primary: #835051;
+    --primary-container: #e8a8a8;
+    --primary-fixed: #ffdad9;
+    --primary-fixed-dim: #f8b6b6;
+    --on-primary: #ffffff;
+    --on-primary-container: #6b3b3c;
+
+    --secondary: #785655;
+    --secondary-container: #ffd2d1;
+    --on-secondary: #ffffff;
+    --on-secondary-container: #7b5858;
+
+    --tertiary: #7e5353;
+    --tertiary-container: #e1abab;
+    --on-tertiary: #ffffff;
+    --on-tertiary-container: #663e3f;
+
+    --error: #ba1a1a;
+    --error-container: #ffdad6;
+    --on-error: #ffffff;
+    --on-error-container: #93000a;
+
+    --outline: #847373;
+    --outline-variant: #d6c2c1;
+
+    --inverse-surface: #332f30;
+    --inverse-on-surface: #f7efef;
+    --inverse-primary: #f8b6b6;
+
+    --background: #f7ebea;
+    --on-background: #1e1b1b;
+  }
+
+  
+  .dark {
+    --surface: #241d1f;
+    --surface-dim: #1f1819;
+    --surface-bright: #4a3e40;
+    --surface-container-lowest: #1b1516;
+    --surface-container-low: #2b2224;
+    --surface-container: #302629;
+    --surface-container-high: #3b3033;
+    --surface-container-highest: #473a3d;
+    --surface-variant: #574749;
+
+    --on-surface: #f2e3e3;
+    --on-surface-variant: #d9c6c7;
+
+    --primary: #f8b6b6;
+    --primary-container: #7a4b4c;
+    --primary-fixed: #ffdad9;
+    --primary-fixed-dim: #f8b6b6;
+    --on-primary: #4c2526;
+    --on-primary-container: #ffdad9;
+
+    --secondary: #e6bcbb;
+    --secondary-container: #5e3f3e;
+    --on-secondary: #442829;
+    --on-secondary-container: #ffd2d1;
+
+    --tertiary: #f1b9b9;
+    --tertiary-container: #643c3d;
+    --on-tertiary: #4a2526;
+    --on-tertiary-container: #ffdad9;
+
+    --error: #ffb4ab;
+    --error-container: #93000a;
+    --on-error: #690005;
+    --on-error-container: #ffdad6;
+
+    --outline: #a89496;
+    --outline-variant: #574749;
+
+    --inverse-surface: #f2e3e3;
+    --inverse-on-surface: #382e2f;
+    --inverse-primary: #904a4b;
+
+    --background: #201a1b;
+    --on-background: #f2e3e3;
+  }
+
+  * {
+    border-color: var(--outline-variant);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--on-surface);
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Keep focus visible for the quality floor. */
+  :focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Dashboard: preenchimento animado das barras de progresso. A largura final é
+   definida via --bar-target (custom property inline) e a barra cresce de 0 até
+   ela no carregamento. Respeita prefers-reduced-motion (regra acima). */
+@keyframes bar-fill {
+  from {
+    width: 0%;
+  }
+  to {
+    width: var(--bar-target, 0%);
+  }
+}
+
+.animate-bar-fill {
+  animation: bar-fill 900ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-pop-in {
+  animation: pop-in 400ms ease-out both;
+}
+
+/* Logo "Build.Store" — fonte script feminina (Dancing Script). */
+.font-logo {
+  font-family: "Dancing Script", "Inter", cursive;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+
+/*
+ * Títulos de seção (ex.: Dashboard) — destaque sóbrio, sem ornamento excessivo.
+ * Peso alto, leve aperto de tracking e caixa levemente estilizada para
+ * diferenciar do texto padrão sem trocar a família tipográfica.
+ */
+.font-heading {
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/*
+ * Scrollbar minimalista e discreta, harmônica com o tema (usa as cores de
+ * outline). Aplicada em áreas roláveis como a "Venda Atual" do PDV.
+ */
+.scrollbar-slim {
+  scrollbar-width: thin;
+  scrollbar-color: var(--outline-variant) transparent;
+}
+.scrollbar-slim::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.scrollbar-slim::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-slim::-webkit-scrollbar-thumb {
+  background-color: var(--outline-variant);
+  border-radius: 9999px;
+}
+.scrollbar-slim::-webkit-scrollbar-thumb:hover {
+  background-color: var(--outline);
+}
+
+/* ---------------------------------------------------------------------------
+ * Animações de feedback (toasts, entradas de lista, micro-interações).
+ * Leves e curtas, respeitando prefers-reduced-motion.
+ * ------------------------------------------------------------------------- */
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes toast-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to   { opacity: 0; transform: translateY(8px) scale(0.98); }
+}
+.animate-toast-in { animation: toast-in 220ms cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-toast-out { animation: toast-out 200ms ease-in both; }
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in-up { animation: fade-in-up 240ms ease-out both; }
+
+@keyframes pop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+.animate-pop { animation: pop 220ms ease-out; }
+
+/* Micro-interação de clique: leve recuo em qualquer botão. */
+button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+button {
+  transition: transform 90ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-toast-in,
+  .animate-toast-out,
+  .animate-fade-in-up,
+  .animate-pop {
+    animation: none;
+  }
+  button:active:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Responsividade: reduz o respiro lateral/vertical grande (token "margin" =
+ * 32px) em telas pequenas, onde 32px consome espaço demais. Aplica-se às
+ * utilidades geradas a partir do token, sem precisar tocar cada tela.
+ * ------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  .px-margin { padding-left: 1rem !important; padding-right: 1rem !important; }
+  .py-margin { padding-top: 1rem !important; padding-bottom: 1rem !important; }
+  .p-margin  { padding: 1rem !important; }
+  .gap-margin { gap: 1rem !important; }
+  .mx-margin { margin-left: 1rem !important; margin-right: 1rem !important; }
+}

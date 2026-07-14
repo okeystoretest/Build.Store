@@ -1,0 +1,11 @@
+node_modules
+.next
+out
+.env.local
+.env*.local
+public/sw.js
+public/sw.js.map
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts
+.env
