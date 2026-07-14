@@ -34,7 +34,10 @@ export const viewport: Viewport = {
   themeColor: "#fff8f7",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
+  // maximumScale removido: travar o zoom prejudica a acessibilidade (impede
+  // ampliar o texto). O layout já é legível sem zoom; quem precisar, pode.
+  // viewportFit "cover" permite usar a área do notch com as safe-area insets.
+  viewportFit: "cover",
 };
 
 export default function RootLayout({

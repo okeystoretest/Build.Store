@@ -42,8 +42,8 @@ export function OrderDetailsModal({
           <p className="mb-sm text-label-md font-semibold uppercase tracking-wide text-on-surface-variant">
             Itens
           </p>
-          <div className="overflow-hidden rounded-lg border border-outline-variant/50">
-            <table className="w-full text-body-md">
+          <div className="overflow-x-auto rounded-lg border border-outline-variant/50 scrollbar-slim">
+            <table className="w-full min-w-[30rem] text-body-md">
               <thead>
                 <tr className="bg-surface-container text-label-sm uppercase tracking-wide text-on-surface-variant">
                   <th className="px-3 py-2 text-left font-medium">Produto</th>

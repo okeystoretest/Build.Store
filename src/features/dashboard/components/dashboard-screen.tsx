@@ -155,9 +155,9 @@ function SellerCard({ block, rank }: { block: SellerBlock; rank: number }) {
       className="animate-pop-in rounded-xl border bg-surface-container-lowest p-md shadow-level-1"
       style={{ borderColor: medal }}
     >
-      <div className="flex items-center justify-between gap-md">
-        <span className="flex items-center gap-3">
-          <span className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-fixed/60 text-headline-md font-semibold text-primary">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+        <span className="flex min-w-0 flex-1 items-center gap-3">
+          <span className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-fixed/60 text-headline-md font-semibold text-primary sm:h-16 sm:w-16">
             {seller.photoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={seller.photoUrl} alt={seller.fullName} className="h-full w-full object-cover" />
@@ -165,14 +165,14 @@ function SellerCard({ block, rank }: { block: SellerBlock; rank: number }) {
               seller.fullName.slice(0, 2).toUpperCase()
             )}
           </span>
-          <span className="flex items-center gap-2">
+          <span className="flex min-w-0 items-center gap-2">
             <Trophy
               className="h-6 w-6 shrink-0"
               style={{ color: medal }}
               strokeWidth={2}
               aria-label={`Ranking: ${rank + 1}º`}
             />
-            <p className="text-headline-md font-medium text-on-surface">
+            <p className="truncate text-body-lg font-medium text-on-surface sm:text-headline-md">
               {seller.fullName}
             </p>
           </span>

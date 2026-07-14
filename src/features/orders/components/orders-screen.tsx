@@ -67,9 +67,9 @@ export function OrdersScreen() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-md border-b border-outline-variant/50 px-margin py-md">
+      <header className="flex flex-wrap items-center gap-3 border-b border-outline-variant/50 px-margin py-md sm:gap-md">
         <h1 className="font-logo text-headline-lg-mobile text-primary sm:text-headline-lg">Histórico de Pedidos</h1>
-        <div className="relative ml-auto w-80">
+        <div className="relative w-full sm:ml-auto sm:w-80">
           <Search
             className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-on-surface-variant"
             strokeWidth={1.75}

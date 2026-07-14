@@ -60,8 +60,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     .join("")
     .toUpperCase();
 
+  // h-screen (100vh) é o fallback: Safari iOS antigo não entende `dvh` e, sem
+  // isso, o container ficaria sem altura e o layout colapsaria. Navegadores
+  // modernos aplicam o dvh na sequência, respeitando a barra de endereço.
   return (
-    <div className="flex h-[100dvh] overflow-hidden bg-background">
+    <div className="app-viewport flex overflow-hidden overscroll-none bg-background">
       {/* Sidebar desktop (retrátil) */}
       <div className="hidden lg:block">
         <Sidebar
@@ -95,7 +98,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Área de conteúdo */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Barra de topo (só mobile) */}
-        <header className="flex items-center gap-3 border-b border-outline-variant/50 bg-surface px-4 py-3 lg:hidden">
+        <header className="flex min-w-0 items-center gap-3 border-b border-outline-variant/50 bg-surface px-4 py-3 lg:hidden">
           <button
             type="button"
             onClick={() => setDrawerOpen(true)}
@@ -104,11 +107,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <Menu className="h-6 w-6" strokeWidth={1.75} />
           </button>
-          <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-fixed/60 text-label-md font-semibold text-primary">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-fixed/60 text-label-md font-semibold text-primary">
               {initials}
             </span>
-            <span className="font-logo text-[1.4rem] leading-none text-primary">
+            <span className="font-logo truncate text-[1.4rem] leading-none text-primary">
               {storeName}
             </span>
           </div>
@@ -119,7 +122,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           que a tela empurrava o conteúdo para fora no mobile (cards do carrinho
           e textos apareciam cortados na direita).
         */}
-        <main className="min-h-0 w-full min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
+        <main className="safe-area-inset min-h-0 w-full min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
           {children}
         </main>
       </div>

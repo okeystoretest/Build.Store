@@ -45,7 +45,7 @@ export function CustomersScreen() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center gap-md border-b border-outline-variant/50 px-margin py-md">
+      <header className="flex flex-wrap items-center gap-3 border-b border-outline-variant/50 px-margin py-md sm:gap-md">
         <h1 className="font-logo text-headline-lg-mobile text-primary sm:text-headline-lg">Clientes</h1>
         <span className="ml-auto text-label-md text-on-surface-variant">
           {customers.length}{" "}

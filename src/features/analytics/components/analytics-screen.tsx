@@ -38,7 +38,7 @@ export function AnalyticsScreen() {
 
   return (
     <div className="h-full overflow-y-auto px-margin py-md">
-      <div className="mb-md flex items-center justify-between">
+      <div className="mb-md flex flex-wrap items-center justify-between gap-3">
         <h1 className="font-logo text-headline-lg-mobile text-primary sm:text-headline-lg">Relatórios</h1>
         <Button onClick={handleDownload} variant="secondary">
           <Download className="h-4 w-4" strokeWidth={1.75} />
@@ -46,7 +46,7 @@ export function AnalyticsScreen() {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-sm lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-sm sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           label="Receita Total"
           value={formatBRL(summary.revenueCents)}

@@ -258,3 +258,80 @@ button {
   .gap-margin { gap: 1rem !important; }
   .mx-margin { margin-left: 1rem !important; margin-right: 1rem !important; }
 }
+
+/* ---------------------------------------------------------------------------
+ * Correções de responsividade mobile (Chrome + Safari)
+ * ------------------------------------------------------------------------- */
+
+/*
+ * Rede de segurança contra corte lateral: nada deve estourar a largura da tela.
+ * Se algum componente exceder, ele é contido em vez de cortar a interface.
+ */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+/* Evita "borracha" horizontal e quicar a página no iOS. */
+body {
+  overscroll-behavior-x: none;
+}
+
+/*
+ * Safari iOS amplia a página automaticamente ao focar um campo com fonte menor
+ * que 16px. Forçamos 16px nos campos em telas pequenas para impedir esse zoom
+ * indesejado (o layout se mantém no lugar ao digitar).
+ */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+
+/*
+ * Safe areas (iPhone com notch / barra inferior). Como o viewport usa
+ * viewport-fit=cover, o conteúdo poderia ficar sob as áreas do sistema.
+ */
+.safe-area-inset {
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/*
+ * Quebra palavras longas (SKUs, e-mails, nomes sem espaço) em vez de estourar o
+ * container — causa comum de corte lateral no mobile.
+ */
+@media (max-width: 640px) {
+  /*
+    td/th ficam de fora de propósito: as tabelas do sistema rolam
+    horizontalmente e têm min-width; quebrar palavras dentro delas espremeria
+    as colunas em vez de ajudar.
+  */
+  h1, h2, h3, p, li, label {
+    overflow-wrap: anywhere;
+  }
+}
+
+/* Alvo de toque mínimo confortável em telas pequenas. */
+@media (max-width: 640px) and (pointer: coarse) {
+  button,
+  a[role="button"],
+  [role="tab"] {
+    min-height: 44px;
+  }
+}
+
+/*
+ * Altura da viewport com fallback garantido. A ordem importa: navegadores que
+ * não entendem `dvh` (Safari iOS antigo) usam o 100vh e ignoram a segunda
+ * regra; os modernos aplicam o dvh, que acompanha a barra de endereço dinâmica
+ * (evita o corte da parte de baixo no Chrome/Safari mobile).
+ */
+.app-viewport {
+  height: 100vh;
+  height: 100dvh;
+}

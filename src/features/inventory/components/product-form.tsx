@@ -161,7 +161,7 @@ export function ProductForm({ product, onSubmit, onCancel }: ProductFormProps) {
             </Field>
           </div>
 
-          <div className="grid grid-cols-3 gap-md">
+          <div className="grid grid-cols-2 gap-md sm:grid-cols-3">
             <Field label="Preço (R$)" error={errors.priceReais?.message}>
               <Input type="number" step="0.01" {...register("priceReais", { valueAsNumber: true })} />
             </Field>
@@ -194,8 +194,8 @@ export function ProductForm({ product, onSubmit, onCancel }: ProductFormProps) {
             </button>
           </div>
 
-          <div className="overflow-hidden border border-outline-variant/60">
-            <table className="w-full border-collapse text-body-md">
+          <div className="overflow-x-auto border border-outline-variant/60 scrollbar-slim">
+            <table className="w-full min-w-[26rem] border-collapse text-body-md">
               <thead>
                 <tr className="bg-surface-container text-label-sm uppercase tracking-wide text-on-surface-variant">
                   <th className="border-r border-outline-variant/40 px-2 py-2 text-left font-medium">
