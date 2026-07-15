@@ -35,7 +35,7 @@ interface NavItem {
 
 const NAV: NavItem[] = [
   { href: "/pos", label: "PDV", icon: ShoppingCart },
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/dashboard", label: "Rank de Vendas", icon: LayoutDashboard },
   { href: "/inventory", label: "Estoque", icon: Package },
   { href: "/reports", label: "Relatórios", icon: BarChart3, gate: "reports" },
   { href: "/orders", label: "Pedidos", icon: History },
