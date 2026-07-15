@@ -70,6 +70,19 @@ export function POSScreen() {
     }
   };
 
+  // Código lido pela câmera: procura pelo código de barras/SKU. Se achar, abre o
+  // seletor de variação; se não, deixa o código na busca para a operadora ver
+  // que não houve correspondência.
+  const handleScan = (code: string) => {
+    const match = findByCode(code);
+    if (match) {
+      setPendingProduct(match);
+      setQuery("");
+    } else {
+      setQuery(code);
+    }
+  };
+
   const finalize = async () => {
     if (!canFinalize || saving) return;
     setSaving(true);
@@ -165,6 +178,7 @@ export function POSScreen() {
         onQueryChange={handleQueryChange}
         onCheckout={finalize}
         checkoutDisabled={!canFinalize || saving}
+        onScan={handleScan}
       />
 
       {/* Abas (só mobile) */}
