@@ -42,6 +42,15 @@ export function TopBar({
   // Botão da câmera só em dispositivo mobile real (toque + câmera).
   const isMobileScanner = useIsMobileScanner();
 
+  // Pré-carrega o módulo do scanner (lib zxing) assim que sabemos que é mobile,
+  // em segundo plano. Assim, ao tocar no botão, o modal abre sem esperar o
+  // download da biblioteca.
+  useEffect(() => {
+    if (isMobileScanner) {
+      void import("./barcode-scanner");
+    }
+  }, [isMobileScanner]);
+
   useEffect(() => {
     const update = () =>
       setOnline(typeof navigator === "undefined" ? true : navigator.onLine);
@@ -66,41 +75,37 @@ export function TopBar({
           onChange={(e) => onQueryChange(e.target.value)}
           placeholder="Buscar produtos ou escanear código..."
           aria-label="Buscar produtos"
-          className={cn(
-            "h-12 w-full rounded-full border border-outline-variant bg-surface pl-12 text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus:border-primary-container focus:outline-none sm:h-14 sm:pl-14",
-            // Reserva espaço à direita: câmera (mobile) e/ou limpar.
-            isMobileScanner ? "pr-20 sm:pr-20" : "pr-12 sm:pr-14",
-          )}
+          className="h-12 w-full rounded-full border border-outline-variant bg-surface pl-12 pr-12 text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus:border-primary-container focus:outline-none sm:h-14 sm:pl-14 sm:pr-14"
         />
-        {/* Limpar busca — só aparece quando há texto. */}
+        {/* Limpar busca — só aparece quando há texto (posição fixa). */}
         {query.length > 0 && (
           <button
             type="button"
             onClick={() => onQueryChange("")}
             aria-label="Limpar busca"
             title="Limpar busca"
-            className={cn(
-              "absolute top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface",
-              // Se o botão de câmera está presente, desloca o X para a esquerda dele.
-              isMobileScanner ? "right-12" : "right-3 sm:right-4",
-            )}
+            className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-on-surface-variant transition-colors hover:bg-surface-container hover:text-on-surface sm:right-4"
           >
             <X className="h-4 w-4" strokeWidth={2} />
           </button>
         )}
-        {/* Botão da câmera — só em mobile real (decisão 1b). */}
-        {isMobileScanner && (
-          <button
-            type="button"
-            onClick={() => setScannerOpen(true)}
-            aria-label="Ler código de barras com a câmera"
-            title="Ler código de barras"
-            className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-primary transition-colors hover:bg-primary-fixed/40"
-          >
-            <ScanLine className="h-5 w-5" strokeWidth={1.75} />
-          </button>
-        )}
       </div>
+
+      {/*
+        Botão da câmera — só em mobile real (decisão 1b). Fica AO LADO da busca,
+        não dentro dela: assim não desloca o campo nem o botão de limpar.
+      */}
+      {isMobileScanner && (
+        <button
+          type="button"
+          onClick={() => setScannerOpen(true)}
+          aria-label="Ler código de barras com a câmera"
+          title="Ler código de barras"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-outline-variant bg-surface text-primary transition-colors hover:bg-primary-fixed/40"
+        >
+          <ScanLine className="h-5 w-5" strokeWidth={1.75} />
+        </button>
+      )}
 
       <div
         className={cn(
