@@ -9,8 +9,9 @@ import { queryKeys } from "@/lib/db/query-keys";
 import { useAuth } from "@/hooks/use-auth";
 import { OrdersTable } from "./orders-table";
 import { OrderDetailsModal } from "./order-details-modal";
-import { generateReceiptPdf } from "@/features/orders/receipt-pdf";
+import { printReceipt } from "@/features/orders/receipt-pdf";
 import { useStoreName } from "@/hooks/use-store-name";
+import { useStoreLogo } from "@/hooks/use-store-logo";
 import { LoadingArea } from "@/components/ui/spinner";
 import { STATUS_LABELS } from "@/features/analytics/aggregations";
 import { formatBRL } from "@/lib/utils/money";
@@ -36,6 +37,7 @@ export function OrdersScreen() {
   const { canRefund } = useAuth();
   const queryClient = useQueryClient();
   const storeName = useStoreName();
+  const storeLogo = useStoreLogo();
   const [details, setDetails] = useState<Order | null>(null);
 
   const handleRefund = async (order: Order) => {
@@ -54,7 +56,7 @@ export function OrdersScreen() {
   };
 
   const handleReprint = (order: Order) => {
-    generateReceiptPdf(order, storeName);
+    printReceipt(order, storeName, storeLogo);
   };
 
   if (o.loading) {

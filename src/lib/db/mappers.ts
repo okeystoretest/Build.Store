@@ -19,10 +19,10 @@ import type {
  */
 
 export const PRODUCT_COLUMNS =
-  "id, sku, barcode, name, description, category, cost_cents, price_cents, unit, stock, low_stock_threshold, color, size, grade, image_url, active, created_at, updated_at";
+  "id, sku, barcode, name, description, category, cost_cents, price_cents, unit, stock, low_stock_threshold, color, size, grade, address, image_url, active, created_at, updated_at";
 
 export const ORDER_COLUMNS =
-  "id, reference, customer_id, customer_name, subtotal_cents, discount_cents, total_cents, payment_method, tendered_cents, change_cents, status, seller_id, seller_name, campaign_id, created_by, created_at";
+  "id, reference, customer_id, customer_name, subtotal_cents, discount_cents, total_cents, payment_method, tendered_cents, change_cents, status, seller_id, seller_name, campaign_id, invoice_number, created_by, created_at";
 
 export const ORDER_ITEM_COLUMNS =
   "id, order_id, product_id, sku, name, image_url, unit_price_cents, quantity, line_discount_cents, color, size";
@@ -39,7 +39,7 @@ export const NOTIFICATION_COLUMNS =
   "id, kind, title, body, read, created_at";
 
 export const CUSTOMER_COLUMNS =
-  "id, code, name, phone, address, document, created_at";
+  "id, code, name, phone, address, instagram, email, document, created_at";
 
 type Row = Record<string, unknown>;
 
@@ -59,6 +59,7 @@ export function toProduct(r: Row): Product {
     color: (r.color as string | null) ?? null,
     size: (r.size as string | null) ?? null,
     grade: Array.isArray(r.grade) ? (r.grade as Product["grade"]) : [],
+    address: (r.address as string | null) ?? null,
     imageUrl: (r.image_url as string | null) ?? null,
     active: (r.active as boolean) ?? true,
     createdAt: r.created_at as string,
@@ -82,6 +83,7 @@ export function productToRow(p: Product): Row {
     color: p.color,
     size: p.size,
     grade: p.grade ?? [],
+    address: p.address,
     image_url: p.imageUrl,
     active: p.active,
     updated_at: p.updatedAt,
@@ -121,6 +123,7 @@ export function toOrder(r: Row, items: OrderItem[]): Order {
     sellerId: (r.seller_id as string | null) ?? null,
     sellerName: (r.seller_name as string | null) ?? null,
     campaignId: (r.campaign_id as string | null) ?? null,
+    invoiceNumber: (r.invoice_number as string | null) ?? null,
     createdAt: r.created_at as string,
     createdBy: (r.created_by as string | null) ?? null,
   };
@@ -178,6 +181,8 @@ export function toCustomer(r: Row): Customer {
     name: r.name as string,
     phone: (r.phone as string | null) ?? null,
     address: (r.address as string | null) ?? null,
+    instagram: (r.instagram as string | null) ?? null,
+    email: (r.email as string | null) ?? null,
     document: (r.document as string | null) ?? null,
     createdAt: r.created_at as string,
   };

@@ -14,10 +14,11 @@ import {
 } from "@/lib/db/management-repository";
 import { parseToCents } from "@/lib/utils/money";
 import { queryKeys } from "@/lib/db/query-keys";
-import { setStoreName } from "@/lib/db/settings-repository";
+import { setStoreName, setStoreLogo } from "@/lib/db/settings-repository";
 import { useToast } from "@/components/ui/toast";
 import { useStoreName } from "@/hooks/use-store-name";
-import { Store } from "lucide-react";
+import { useStoreLogo } from "@/hooks/use-store-logo";
+import { Store, ImageIcon } from "lucide-react";
 import type { User, Campaign, Goal, Role } from "@/types/domain";
 import { UserForm, ROLE_LABELS } from "./user-form";
 import { CampaignForm } from "./campaign-form";
@@ -596,8 +597,10 @@ function Empty({ text }: { text: string }) {
 function StoreSettings() {
   const toastStore = useToast();
   const currentName = useStoreName();
+  const currentLogo = useStoreLogo();
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
+  const [logo, setLogo] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -606,13 +609,28 @@ function StoreSettings() {
     setName(currentName);
   }, [currentName]);
 
+  useEffect(() => {
+    setLogo(currentLogo);
+  }, [currentLogo]);
+
+  const handleLogo = (file: File | undefined) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setLogo(reader.result as string);
+      setSaved(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const save = async () => {
     if (!name.trim()) return;
     setSaving(true);
     setSaved(false);
     try {
       await setStoreName(name.trim());
-      toastStore.success("Nome da loja atualizado.");
+      await setStoreLogo(logo);
+      toastStore.success("Dados da loja atualizados.");
       await queryClient.invalidateQueries({ queryKey: queryKeys.settings });
       setSaved(true);
     } finally {
@@ -623,6 +641,7 @@ function StoreSettings() {
   return (
     <div className="max-w-xl rounded-lg bg-surface-container-lowest p-md shadow-level-1">
       <h2 className="mb-md text-headline-md text-on-surface">Dados da loja</h2>
+
       <div className="space-y-1.5">
         <Label>Nome da Loja</Label>
         <Input
@@ -637,12 +656,54 @@ function StoreSettings() {
           Exibido abaixo da logo, na barra lateral.
         </p>
       </div>
+
+      <div className="mt-md space-y-1.5">
+        <Label>Logotipo do comprovante</Label>
+        <div className="flex items-center gap-md">
+          <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-md bg-surface-container">
+            {logo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logo} alt="Logo da loja" className="h-full w-full object-contain" />
+            ) : (
+              <ImageIcon className="h-8 w-8 text-on-surface-variant/40" strokeWidth={1.5} />
+            )}
+          </div>
+          <div className="flex flex-col gap-2">
+            <label className="flex w-max cursor-pointer items-center gap-2 rounded-full border border-primary-container px-4 py-2.5 text-label-md text-primary transition-colors hover:bg-primary-fixed/40">
+              <ImageIcon className="h-4 w-4" strokeWidth={1.75} />
+              Enviar logotipo
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleLogo(e.target.files?.[0])}
+              />
+            </label>
+            {logo && (
+              <button
+                type="button"
+                onClick={() => {
+                  setLogo(null);
+                  setSaved(false);
+                }}
+                className="w-max text-label-sm text-error hover:underline"
+              >
+                Remover logotipo
+              </button>
+            )}
+          </div>
+        </div>
+        <p className="px-2 text-label-sm text-on-surface-variant">
+          Aparece no cabeçalho do comprovante impresso.
+        </p>
+      </div>
+
       <div className="mt-md flex items-center gap-md">
         <Button onClick={save} disabled={saving || !name.trim()}>
           {saving ? "Salvando..." : "Salvar"}
         </Button>
         {saved && (
-          <span className="text-label-md text-primary">Nome atualizado.</span>
+          <span className="text-label-md text-primary">Dados atualizados.</span>
         )}
       </div>
     </div>

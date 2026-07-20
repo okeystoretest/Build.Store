@@ -22,8 +22,8 @@ import { useToast } from "@/components/ui/toast";
 
 /**
  * Módulo de Clientes. Formulário de cadastro (código automático + único, nome,
- * contato com máscara, endereço) ao lado da lista viva de clientes, com editar
- * e excluir. Acessível a todos os usuários.
+ * contato com máscara, Instagram e e-mail) ao lado da lista viva de clientes,
+ * com editar e excluir. Acessível a todos os usuários.
  */
 export function CustomersScreen() {
   const { customers, loading } = useCustomers();
@@ -199,7 +199,8 @@ function CustomerForm({
   const [phone, setPhone] = useState(
     initial?.phone ? formatPhone(initial.phone) : "",
   );
-  const [address, setAddress] = useState(initial?.address ?? "");
+  const [instagram, setInstagram] = useState(initial?.instagram ?? "");
+  const [email, setEmail] = useState(initial?.email ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -223,6 +224,13 @@ function CustomerForm({
       setError("Informe o nome completo do cliente.");
       return;
     }
+    const emailTrim = email.trim();
+    if (emailTrim && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrim)) {
+      setError("Informe um e-mail válido.");
+      return;
+    }
+    // Normaliza o Instagram: sem "@" e sem espaços.
+    const igTrim = instagram.trim().replace(/^@+/, "").replace(/\s+/g, "");
     setSaving(true);
     try {
       if (initial) {
@@ -230,14 +238,16 @@ function CustomerForm({
           code: code.trim() || null,
           name: name.trim(),
           phone: phone || null,
-          address: address.trim() || null,
+          instagram: igTrim || null,
+          email: emailTrim || null,
         });
       } else {
         await createCustomer({
           code: code.trim(),
           name: name.trim(),
           phone: phone || null,
-          address: address.trim() || null,
+          instagram: igTrim || null,
+          email: emailTrim || null,
         });
       }
       onSaved();
@@ -286,11 +296,24 @@ function CustomerForm({
       </div>
 
       <div className="space-y-1.5">
-        <Label>Endereço</Label>
+        <Label>Instagram</Label>
         <Input
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
-          placeholder="Rua, número, bairro, cidade"
+          value={instagram}
+          onChange={(e) => setInstagram(e.target.value)}
+          placeholder="@usuario"
+          autoComplete="off"
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <Label>E-mail</Label>
+        <Input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="cliente@email.com"
+          autoComplete="email"
+          inputMode="email"
         />
       </div>
 

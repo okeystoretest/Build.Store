@@ -152,6 +152,21 @@ export function ProductForm({ product, onSubmit, onCancel }: ProductFormProps) {
             <Input {...register("name")} placeholder="Ex.: Sandália Rasteira" />
           </Field>
 
+          {product?.address?.trim() && (
+            <div className="space-y-1.5">
+              <Label>Endereço do Produto</Label>
+              <Input
+                value={product.address}
+                readOnly
+                tabIndex={-1}
+                className="cursor-default bg-surface-container text-on-surface-variant"
+              />
+              <p className="px-2 text-label-sm text-on-surface-variant">
+                Editável por Lojista e Vendedora na visualização do produto.
+              </p>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-md">
             <Field label="Referência" error={errors.sku?.message}>
               <Input {...register("sku")} placeholder="SAN-0012" />

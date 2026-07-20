@@ -74,6 +74,11 @@ export interface Product {
   size: string | null;
   /** Grade de peças — cores com quantidade por tamanho. */
   grade: GradeItem[];
+  /**
+   * Endereço físico do produto no estoque (ex.: prateleira/gaveta). Editável
+   * apenas por Lojista e Vendedora.
+   */
+  address: string | null;
   imageUrl: string | null;
   active: boolean;
   createdAt: ISODateString;
@@ -87,8 +92,12 @@ export interface Customer {
   name: string;
   /** Contato (telefone), armazenado só com dígitos; formatado na UI. */
   phone: string | null;
-  /** Endereço completo. */
+  /** Endereço completo (legado; removido do formulário atual). */
   address: string | null;
+  /** @ do Instagram do cliente (sem o "@"). */
+  instagram: string | null;
+  /** E-mail do cliente. */
+  email: string | null;
   document: string | null; // CPF (legado; não usado no formulário atual)
   createdAt: ISODateString;
 }
@@ -138,6 +147,8 @@ export interface Order {
   sellerName: string | null;
   /** Campaign this sale is attributed to, when flagged at checkout. */
   campaignId: UUID | null;
+  /** Número da Nota Fiscal informado no checkout do PDV. */
+  invoiceNumber: string | null;
   createdAt: ISODateString;
   createdBy: UUID | null;
 }

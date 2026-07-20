@@ -67,15 +67,15 @@ export function TopBar({
     <header className="flex items-center gap-3 border-b border-outline-variant/50 px-3 py-3 sm:gap-md sm:px-margin">
       <div className="relative flex-1">
         <Search
-          className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-on-surface-variant sm:left-5"
-          strokeWidth={1.75}
+          className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-primary sm:left-5"
+          strokeWidth={2}
         />
         <input
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
-          placeholder="Buscar produtos ou escanear código..."
+          placeholder="1. Busque um produto ou escaneie o código para iniciar a venda..."
           aria-label="Buscar produtos"
-          className="h-12 w-full rounded-full border border-outline-variant bg-surface pl-12 pr-12 text-body-md text-on-surface placeholder:text-on-surface-variant/60 focus:border-primary-container focus:outline-none sm:h-14 sm:pl-14 sm:pr-14"
+          className="h-12 w-full rounded-full border-2 border-primary-container bg-surface pl-12 pr-12 text-body-md text-on-surface shadow-level-1 ring-2 ring-primary-fixed/40 placeholder:text-on-surface-variant/60 focus:border-primary focus:outline-none sm:h-14 sm:pl-14 sm:pr-14"
         />
         {/* Limpar busca — só aparece quando há texto (posição fixa). */}
         {query.length > 0 && (

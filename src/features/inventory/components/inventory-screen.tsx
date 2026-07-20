@@ -73,6 +73,7 @@ export function InventoryScreen() {
       color: values.color ?? editing?.color ?? null,
       size: values.size ?? editing?.size ?? null,
       grade: values.grade ?? editing?.grade ?? [],
+      address: editing?.address ?? null,
       imageUrl: values.imageUrl ?? editing?.imageUrl ?? null,
       active: true,
       createdAt: editing?.createdAt ?? now,

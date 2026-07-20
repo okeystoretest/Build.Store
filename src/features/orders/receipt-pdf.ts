@@ -54,6 +54,10 @@ export function generateReceiptPdf(order: Order, storeName: string): void {
 
   row("Pedido:", order.reference, y, 9, true);
   y += lineH;
+  if (order.invoiceNumber) {
+    row("Nota Fiscal:", order.invoiceNumber, y);
+    y += lineH;
+  }
   row(
     "Data:",
     format(new Date(order.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR }),
@@ -128,4 +132,162 @@ export function generateReceiptPdf(order: Order, storeName: string): void {
   center("Obrigada pela preferência!", y, 9);
 
   doc.save(`comprovante-${order.reference.replace(/[^\w-]/g, "")}.pdf`);
+}
+
+/**
+ * Impressão DIRETA do comprovante (sem baixar PDF). Monta um cupom em HTML
+ * (80mm), opcionalmente com o logotipo da loja no cabeçalho, abre uma janela
+ * oculta e dispara o diálogo de impressão do navegador. A janela se fecha
+ * sozinha após a impressão.
+ */
+export function printReceipt(
+  order: Order,
+  storeName: string,
+  logoUrl?: string | null,
+): void {
+  const esc = (s: string) =>
+    s.replace(/[&<>"']/g, (c) =>
+      c === "&"
+        ? "&amp;"
+        : c === "<"
+          ? "&lt;"
+          : c === ">"
+            ? "&gt;"
+            : c === '"'
+              ? "&quot;"
+              : "&#39;",
+    );
+
+  const itemsHtml = order.items
+    .map((item) => {
+      const variation = [item.color, item.size].filter(Boolean).join(" · ");
+      const title = variation ? `${item.name} (${variation})` : item.name;
+      const lineTotal = formatBRL(
+        item.unitPriceCents * item.quantity - item.lineDiscountCents,
+      );
+      return `
+        <div class="item">
+          <div class="item-row">
+            <span class="item-name">${esc(title)}</span>
+            <span class="item-total">${esc(lineTotal)}</span>
+          </div>
+          <div class="item-sub">${item.quantity} x ${esc(formatBRL(item.unitPriceCents))}</div>
+        </div>`;
+    })
+    .join("");
+
+  const cashRows =
+    order.paymentMethod === "cash" && order.tenderedCents != null
+      ? `<div class="row"><span>Recebido</span><span>${esc(formatBRL(order.tenderedCents))}</span></div>
+         <div class="row"><span>Troco</span><span>${esc(formatBRL(order.changeCents ?? 0))}</span></div>`
+      : "";
+
+  const discountRow =
+    order.discountCents > 0
+      ? `<div class="row"><span>Desconto</span><span>- ${esc(formatBRL(order.discountCents))}</span></div>`
+      : "";
+
+  const invoiceRow = order.invoiceNumber
+    ? `<div class="row"><span>Nota Fiscal</span><span>${esc(order.invoiceNumber)}</span></div>`
+    : "";
+
+  const customerRow = order.customerName
+    ? `<div class="row"><span>Cliente</span><span>${esc(order.customerName)}</span></div>`
+    : "";
+
+  const sellerRow = order.sellerName
+    ? `<div class="row"><span>Vendedora</span><span>${esc(order.sellerName)}</span></div>`
+    : "";
+
+  const logoHtml = logoUrl
+    ? `<img class="logo" src="${logoUrl}" alt="Logo" />`
+    : "";
+
+  const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>Comprovante ${esc(order.reference)}</title>
+<style>
+  @page { size: 80mm auto; margin: 4mm; }
+  * { box-sizing: border-box; }
+  body { width: 72mm; margin: 0 auto; font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #111; font-size: 12px; }
+  .center { text-align: center; }
+  .logo { max-width: 48mm; max-height: 22mm; object-fit: contain; margin: 0 auto 6px; display: block; }
+  .store { font-size: 16px; font-weight: 700; }
+  .sub { font-size: 11px; color: #444; margin-bottom: 6px; }
+  .divider { border-top: 1px dashed #999; margin: 6px 0; }
+  .row { display: flex; justify-content: space-between; gap: 8px; padding: 1px 0; }
+  .item { padding: 2px 0; }
+  .item-row { display: flex; justify-content: space-between; gap: 8px; }
+  .item-name { font-size: 12px; }
+  .item-total { font-size: 12px; white-space: nowrap; }
+  .item-sub { font-size: 10px; color: #666; }
+  .total { font-size: 15px; font-weight: 700; }
+  .thanks { margin-top: 8px; font-size: 11px; }
+</style>
+</head>
+<body>
+  <div class="center">
+    ${logoHtml}
+    <div class="store">${esc(storeName)}</div>
+    <div class="sub">Comprovante de Venda</div>
+  </div>
+  <div class="divider"></div>
+  <div class="row"><span><strong>Pedido</strong></span><span><strong>${esc(order.reference)}</strong></span></div>
+  <div class="row"><span>Data</span><span>${esc(format(new Date(order.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR }))}</span></div>
+  ${invoiceRow}
+  ${customerRow}
+  ${sellerRow}
+  <div class="divider"></div>
+  ${itemsHtml}
+  <div class="divider"></div>
+  <div class="row"><span>Subtotal</span><span>${esc(formatBRL(order.subtotalCents))}</span></div>
+  ${discountRow}
+  <div class="row total"><span>TOTAL</span><span>${esc(formatBRL(order.totalCents))}</span></div>
+  <div class="row"><span>Pagamento</span><span>${esc(PAYMENT_LABEL[order.paymentMethod])}</span></div>
+  ${cashRows}
+  <div class="center thanks">Obrigada pela preferência!</div>
+</body>
+</html>`;
+
+  // iframe oculto: imprime sem abrir aba nova nem exigir pop-up.
+  const iframe = document.createElement("iframe");
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "0";
+  iframe.style.height = "0";
+  iframe.style.border = "0";
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow?.document;
+  if (!doc) {
+    document.body.removeChild(iframe);
+    return;
+  }
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  const triggerPrint = () => {
+    const win = iframe.contentWindow;
+    if (!win) return;
+    win.focus();
+    win.print();
+    // Remove o iframe depois de dar tempo ao diálogo de impressão.
+    setTimeout(() => {
+      if (iframe.parentNode) iframe.parentNode.removeChild(iframe);
+    }, 1000);
+  };
+
+  // Espera o logo (se houver) carregar antes de imprimir.
+  const img = doc.querySelector("img.logo") as HTMLImageElement | null;
+  if (img && !img.complete) {
+    img.onload = triggerPrint;
+    img.onerror = triggerPrint;
+  } else {
+    // Pequeno atraso garante layout aplicado.
+    setTimeout(triggerPrint, 150);
+  }
 }

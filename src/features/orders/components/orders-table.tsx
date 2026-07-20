@@ -129,7 +129,7 @@ export function OrdersTable({
                       <Eye className="h-4 w-4" strokeWidth={1.75} />
                     </IconBtn>
                     <IconBtn
-                      label="Reimprimir comprovante"
+                      label="Imprimir comprovante"
                       onClick={() => onReprint(o)}
                     >
                       <Printer className="h-4 w-4" strokeWidth={1.75} />

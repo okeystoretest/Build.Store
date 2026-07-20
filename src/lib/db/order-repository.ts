@@ -32,6 +32,8 @@ export interface RecordSaleInput {
   sellerId?: string | null;
   sellerName?: string | null;
   campaignId?: string | null;
+  /** Número da Nota Fiscal informado no checkout. */
+  invoiceNumber?: string | null;
   createdBy?: string | null;
 }
 
@@ -72,6 +74,7 @@ export async function recordSale(input: RecordSaleInput): Promise<Order> {
     sellerId: input.sellerId ?? null,
     sellerName: input.sellerName ?? null,
     campaignId: input.campaignId ?? null,
+    invoiceNumber: input.invoiceNumber?.trim() ? input.invoiceNumber.trim() : null,
     createdAt: now,
     createdBy: input.createdBy ?? null,
   };
@@ -92,6 +95,7 @@ export async function recordSale(input: RecordSaleInput): Promise<Order> {
     seller_id: order.sellerId,
     seller_name: order.sellerName,
     campaign_id: order.campaignId,
+    invoice_number: order.invoiceNumber,
     created_by: order.createdBy,
     created_at: order.createdAt,
   });

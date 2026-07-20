@@ -46,6 +46,7 @@ export function POSScreen() {
   const [campaignId, setCampaignId] = useState<string | null>(null);
   const [customerName, setCustomerName] = useState("");
   const [customerId, setCustomerId] = useState<string | null>(null);
+  const [invoiceNumber, setInvoiceNumber] = useState("");
   const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
 
   // Aba ativa no mobile.
@@ -55,11 +56,13 @@ export function POSScreen() {
   const isCash = method === "cash";
   const campaignOk = !isCampaign || campaignId !== null;
   const customerOk = customerName.trim().length > 0;
+  const invoiceOk = invoiceNumber.trim().length > 0;
   const canFinalize =
     cart.items.length > 0 &&
     (!isCash || tender.cents >= totalCents) &&
     campaignOk &&
-    customerOk;
+    customerOk &&
+    invoiceOk;
 
   const handleQueryChange = (value: string) => {
     setQuery(value);
@@ -98,6 +101,7 @@ export function POSScreen() {
         sellerId,
         sellerName: seller?.fullName ?? null,
         campaignId: isCampaign ? campaignId : null,
+        invoiceNumber: invoiceNumber.trim(),
       });
       cart.clear();
       tender.clear();
@@ -107,6 +111,7 @@ export function POSScreen() {
       setCampaignId(null);
       setCustomerName("");
       setCustomerId(null);
+      setInvoiceNumber("");
       setMobileTab("products");
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: queryKeys.products }),
@@ -153,6 +158,8 @@ export function POSScreen() {
           onIsCampaignChange={setIsCampaign}
           campaignId={campaignId}
           onCampaignChange={setCampaignId}
+          invoiceNumber={invoiceNumber}
+          onInvoiceNumberChange={setInvoiceNumber}
         />
       }
     />

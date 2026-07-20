@@ -78,7 +78,8 @@ export interface CustomerInput {
   code: string;
   name: string;
   phone: string | null;
-  address: string | null;
+  instagram: string | null;
+  email: string | null;
 }
 
 /**
@@ -95,7 +96,8 @@ export async function createCustomer(input: CustomerInput): Promise<Customer> {
         code,
         name: input.name,
         phone: input.phone ? digitsOnly(input.phone) : null,
-        address: input.address,
+        instagram: input.instagram,
+        email: input.email,
       })
       .select(CUSTOMER_COLUMNS)
       .single();
@@ -114,7 +116,9 @@ export async function createCustomer(input: CustomerInput): Promise<Customer> {
 
 export async function updateCustomer(
   id: string,
-  patch: Partial<Pick<Customer, "code" | "name" | "phone" | "address">>,
+  patch: Partial<
+    Pick<Customer, "code" | "name" | "phone" | "instagram" | "email">
+  >,
 ): Promise<void> {
   const supabase = createClient();
   const row: Record<string, unknown> = {};
@@ -122,7 +126,8 @@ export async function updateCustomer(
   if (patch.name !== undefined) row.name = patch.name;
   if (patch.phone !== undefined)
     row.phone = patch.phone ? digitsOnly(patch.phone) : null;
-  if (patch.address !== undefined) row.address = patch.address;
+  if (patch.instagram !== undefined) row.instagram = patch.instagram;
+  if (patch.email !== undefined) row.email = patch.email;
   if (Object.keys(row).length === 0) return;
 
   const { error } = await supabase.from("customers").update(row).eq("id", id);

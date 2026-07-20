@@ -2,6 +2,7 @@
 
 import type { User, Campaign, Customer } from "@/types/domain";
 import { Select } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CustomerAutocomplete } from "./customer-autocomplete";
@@ -19,6 +20,9 @@ interface SaleMetaProps {
   onIsCampaignChange: (v: boolean) => void;
   campaignId: string | null;
   onCampaignChange: (id: string | null) => void;
+  /** Número da Nota Fiscal (obrigatório para finalizar). */
+  invoiceNumber: string;
+  onInvoiceNumberChange: (v: string) => void;
 }
 
 /**
@@ -38,12 +42,20 @@ export function SaleMeta({
   onIsCampaignChange,
   campaignId,
   onCampaignChange,
+  invoiceNumber,
+  onInvoiceNumberChange,
 }: SaleMetaProps) {
   const { customers } = useCustomers();
   const customerMissing = customerName.trim().length === 0;
+  const invoiceMissing = invoiceNumber.trim().length === 0;
   return (
-    <div className="space-y-md rounded-lg bg-surface-container-low px-md py-md">
-      <div className="space-y-1.5">
+    <div className="space-y-md rounded-lg border border-primary-container/40 bg-surface-container-low px-md py-md">
+      <div
+        className={
+          "space-y-1.5 rounded-md p-2 transition-colors " +
+          (customerMissing ? "bg-error-container/30 ring-1 ring-error/40" : "")
+        }
+      >
         <Label>
           Cliente <span className="text-error">*</span>
         </Label>
@@ -60,6 +72,29 @@ export function SaleMeta({
         {customerMissing && (
           <p className="px-2 text-label-sm text-error">
             Informe o nome do cliente para finalizar a venda.
+          </p>
+        )}
+      </div>
+
+      <div
+        className={
+          "space-y-1.5 rounded-md p-2 transition-colors " +
+          (invoiceMissing ? "bg-error-container/30 ring-1 ring-error/40" : "")
+        }
+      >
+        <Label>
+          Nota Fiscal (NF) <span className="text-error">*</span>
+        </Label>
+        <Input
+          value={invoiceNumber}
+          onChange={(e) => onInvoiceNumberChange(e.target.value)}
+          placeholder="Ex.: 000123456"
+          inputMode="numeric"
+          aria-label="Número da Nota Fiscal"
+        />
+        {invoiceMissing && (
+          <p className="px-2 text-label-sm text-error">
+            Informe o número da Nota Fiscal para finalizar a venda.
           </p>
         )}
       </div>

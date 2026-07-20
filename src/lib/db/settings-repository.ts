@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
  */
 
 const STORE_NAME_KEY = "store_name";
+const STORE_LOGO_KEY = "store_logo";
 export const DEFAULT_STORE_NAME = "Build.Store";
 
 export async function getStoreName(): Promise<string> {
@@ -26,5 +27,33 @@ export async function setStoreName(name: string): Promise<void> {
   const { error } = await supabase
     .from("settings")
     .upsert({ key: STORE_NAME_KEY, value, updated_at: new Date().toISOString() });
+  if (error) throw error;
+}
+
+/**
+ * Logotipo institucional (data URL) exibido no cabeçalho do comprovante
+ * impresso. Vazio quando não há logo configurada.
+ */
+export async function getStoreLogo(): Promise<string | null> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("settings")
+    .select("value")
+    .eq("key", STORE_LOGO_KEY)
+    .maybeSingle();
+  if (error) throw error;
+  const value = (data?.value as string | null) ?? "";
+  return value.trim() ? value : null;
+}
+
+export async function setStoreLogo(dataUrl: string | null): Promise<void> {
+  const supabase = createClient();
+  const { error } = await supabase
+    .from("settings")
+    .upsert({
+      key: STORE_LOGO_KEY,
+      value: dataUrl ?? "",
+      updated_at: new Date().toISOString(),
+    });
   if (error) throw error;
 }

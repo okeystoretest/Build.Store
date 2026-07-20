@@ -52,9 +52,15 @@ export function CheckoutPanel({
 
   return (
     <aside className="flex h-full flex-col gap-sm px-margin py-md lg:border-l lg:border-outline-variant/50">
-      <h2 className="text-headline-md text-on-surface">Checkout</h2>
+      <div className="flex items-center gap-2">
+        <h2 className="text-headline-md text-on-surface">Checkout</h2>
+        <span className="rounded-full bg-primary-fixed/60 px-2.5 py-0.5 text-label-sm font-semibold text-primary">
+          Finalização
+        </span>
+      </div>
 
-      <div className="grid grid-cols-3 gap-sm">
+      <StepLabel n={1} text="Forma de pagamento" />
+      <div className="grid grid-cols-3 gap-sm rounded-lg ring-1 ring-primary-container/40 p-1.5">
         {PAYMENT_OPTIONS.map(({ method: m, label }) => {
           const Icon = METHOD_ICON[m];
           const active = method === m;
@@ -76,6 +82,8 @@ export function CheckoutPanel({
           );
         })}
       </div>
+
+      <StepLabel n={2} text={isCash ? "Valor recebido e troco" : "Valor a cobrar"} />
 
       {isCash ? (
         <>
@@ -117,6 +125,7 @@ export function CheckoutPanel({
         </div>
       )}
 
+      <StepLabel n={3} text="Dados da venda" />
       {meta}
 
       <button
@@ -142,5 +151,19 @@ export function CheckoutPanel({
         )}
       </button>
     </aside>
+  );
+}
+
+/** Rótulo de etapa sequencial: guia a operadora pelo fluxo do checkout. */
+function StepLabel({ n, text }: { n: number; text: string }) {
+  return (
+    <div className="flex items-center gap-2 pt-1">
+      <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary text-label-sm font-semibold text-on-primary">
+        {n}
+      </span>
+      <span className="text-label-md font-semibold uppercase tracking-wide text-on-surface-variant">
+        {text}
+      </span>
+    </div>
   );
 }

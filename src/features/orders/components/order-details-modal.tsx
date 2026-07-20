@@ -36,6 +36,7 @@ export function OrderDetailsModal({
           <Info label="Pagamento">{PAYMENT_LABEL[order.paymentMethod]}</Info>
           <Info label="Cliente">{order.customerName ?? "Sem cliente"}</Info>
           <Info label="Vendedora">{order.sellerName ?? "—"}</Info>
+          <Info label="Nota Fiscal">{order.invoiceNumber ?? "—"}</Info>
         </div>
 
         <div>

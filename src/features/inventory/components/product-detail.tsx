@@ -1,17 +1,58 @@
 "use client";
 
-import { ImageIcon } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { ImageIcon, MapPin, Save } from "lucide-react";
 import type { Product } from "@/types/domain";
 import { GRADE_SIZES } from "@/types/domain";
 import { formatBRL } from "@/lib/utils/money";
 import { gradeTotal, variationQty } from "@/lib/db/grade";
+import { upsertProduct } from "@/lib/db/product-repository";
+import { queryKeys } from "@/lib/db/query-keys";
+import { useAuth } from "@/hooks/use-auth";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/toast";
 
 /**
- * Visualização de produto (somente leitura) para Lojista/Vendedora.
+ * Visualização de produto para Lojista/Vendedora.
  * Exibe imagem, referência, nome, preço e a grade de peças como tabela
  * (Nome / Cor / 36 / 38 / 40) com o estoque total.
+ *
+ * O campo "Endereço do Produto" é EDITÁVEL exclusivamente por Lojista e
+ * Vendedora (endereçamento físico no estoque, ex.: prateleira/gaveta).
  */
 export function ProductDetail({ product }: { product: Product }) {
+  const queryClient = useQueryClient();
+  const toast = useToast();
+  const { role } = useAuth();
+  // Somente Lojista e Vendedora podem editar o endereço do produto.
+  const canEditAddress = role === "lojista" || role === "vendedora";
+
+  const [address, setAddress] = useState(product.address ?? "");
+  const [saving, setSaving] = useState(false);
+
+  // Reseta o campo ao trocar de produto.
+  useEffect(() => {
+    setAddress(product.address ?? "");
+  }, [product.id, product.address]);
+
+  const dirty = (address.trim() || null) !== (product.address ?? null);
+
+  const saveAddress = async () => {
+    setSaving(true);
+    try {
+      await upsertProduct({ ...product, address: address.trim() || null });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.products });
+      toast.success("Endereço do produto atualizado.");
+    } catch {
+      toast.error("Não foi possível salvar o endereço.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-md">
       <div className="flex h-56 w-full items-center justify-center overflow-hidden rounded-lg bg-surface-container">
@@ -34,6 +75,36 @@ export function ProductDetail({ product }: { product: Product }) {
         <h3 className="mt-1 text-headline-md text-on-surface">{product.name}</h3>
         <p className="mt-1 text-headline-md text-primary">
           {formatBRL(product.priceCents)}
+        </p>
+      </div>
+
+      {/* Endereço do produto — editável por Lojista/Vendedora. */}
+      <div className="rounded-lg border border-primary-container/40 bg-surface-container-low px-md py-md">
+        <div className="mb-2 flex items-center gap-2 text-on-surface">
+          <MapPin className="h-4 w-4 text-primary" strokeWidth={1.75} />
+          <Label>Endereço do Produto</Label>
+        </div>
+        {canEditAddress ? (
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Input
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              placeholder="Ex.: Prateleira A3 · Gaveta 2"
+              aria-label="Endereço do produto no estoque"
+              className="flex-1"
+            />
+            <Button onClick={saveAddress} disabled={saving || !dirty}>
+              <Save className="h-4 w-4" strokeWidth={1.75} />
+              {saving ? "Salvando..." : "Salvar"}
+            </Button>
+          </div>
+        ) : (
+          <p className="text-body-md text-on-surface">
+            {product.address?.trim() ? product.address : "—"}
+          </p>
+        )}
+        <p className="mt-1.5 px-1 text-label-sm text-on-surface-variant">
+          Localização física da peça no estoque.
         </p>
       </div>
 
