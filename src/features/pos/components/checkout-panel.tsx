@@ -60,7 +60,7 @@ export function CheckoutPanel({
       </div>
 
       <StepLabel n={1} text="Forma de pagamento" />
-      <div className="grid grid-cols-3 gap-sm rounded-lg ring-1 ring-primary-container/40 p-1.5">
+      <div className="grid grid-cols-3 gap-sm rounded-lg ring-1 ring-outline-variant p-1.5">
         {PAYMENT_OPTIONS.map(({ method: m, label }) => {
           const Icon = METHOD_ICON[m];
           const active = method === m;
@@ -104,7 +104,7 @@ export function CheckoutPanel({
             <span
               className={cn(
                 "text-headline-md font-semibold tabular-nums",
-                shortfall ? "text-error" : "text-primary",
+                shortfall ? "text-on-surface-variant" : "text-primary",
               )}
             >
               {formatBRL(change)}

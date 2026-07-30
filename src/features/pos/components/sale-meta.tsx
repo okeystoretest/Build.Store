@@ -49,15 +49,15 @@ export function SaleMeta({
   const customerMissing = customerName.trim().length === 0;
   const invoiceMissing = invoiceNumber.trim().length === 0;
   return (
-    <div className="space-y-md rounded-lg border border-primary-container/40 bg-surface-container-low px-md py-md">
+    <div className="space-y-md rounded-lg border border-outline-variant bg-surface-container-low px-md py-md">
       <div
         className={
           "space-y-1.5 rounded-md p-2 transition-colors " +
-          (customerMissing ? "bg-error-container/30 ring-1 ring-error/40" : "")
+          (customerMissing ? "ring-1 ring-outline-variant" : "")
         }
       >
         <Label>
-          Cliente <span className="text-error">*</span>
+          Cliente <span className="text-on-surface-variant/70">*</span>
         </Label>
         <CustomerAutocomplete
           value={customerName}
@@ -70,7 +70,7 @@ export function SaleMeta({
           onClearSelection={() => onCustomerSelect?.(null)}
         />
         {customerMissing && (
-          <p className="px-2 text-label-sm text-error">
+          <p className="px-2 text-label-sm text-on-surface-variant">
             Informe o nome do cliente para finalizar a venda.
           </p>
         )}
@@ -79,11 +79,11 @@ export function SaleMeta({
       <div
         className={
           "space-y-1.5 rounded-md p-2 transition-colors " +
-          (invoiceMissing ? "bg-error-container/30 ring-1 ring-error/40" : "")
+          (invoiceMissing ? "ring-1 ring-outline-variant" : "")
         }
       >
         <Label>
-          Nota Fiscal (NF) <span className="text-error">*</span>
+          Nota Fiscal (NF) <span className="text-on-surface-variant/70">*</span>
         </Label>
         <Input
           value={invoiceNumber}
@@ -93,7 +93,7 @@ export function SaleMeta({
           aria-label="Número da Nota Fiscal"
         />
         {invoiceMissing && (
-          <p className="px-2 text-label-sm text-error">
+          <p className="px-2 text-label-sm text-on-surface-variant">
             Informe o número da Nota Fiscal para finalizar a venda.
           </p>
         )}
@@ -140,7 +140,7 @@ export function SaleMeta({
             ))}
           </Select>
           {!campaignId && (
-            <p className="px-2 text-label-sm text-error">
+            <p className="px-2 text-label-sm text-on-surface-variant">
               Selecione uma campanha para finalizar a venda.
             </p>
           )}

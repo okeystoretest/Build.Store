@@ -75,7 +75,7 @@ export function TopBar({
           onChange={(e) => onQueryChange(e.target.value)}
           placeholder="1. Busque um produto ou escaneie o código para iniciar a venda..."
           aria-label="Buscar produtos"
-          className="h-12 w-full rounded-full border-2 border-primary-container bg-surface pl-12 pr-12 text-body-md text-on-surface shadow-level-1 ring-2 ring-primary-fixed/40 placeholder:text-on-surface-variant/60 focus:border-primary focus:outline-none sm:h-14 sm:pl-14 sm:pr-14"
+          className="h-12 w-full rounded-full border border-outline-variant bg-surface pl-12 pr-12 text-body-md text-on-surface shadow-level-1 placeholder:text-on-surface-variant/60 focus:border-outline-variant focus:outline-none sm:h-14 sm:pl-14 sm:pr-14"
         />
         {/* Limpar busca — só aparece quando há texto (posição fixa). */}
         {query.length > 0 && (
