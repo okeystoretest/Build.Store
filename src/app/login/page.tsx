@@ -59,10 +59,9 @@ export default function LoginPage() {
         <div className="text-center">
           <h1 className="font-logo text-[2rem] text-primary">Build.Sales</h1>
           <p className="mt-1 text-label-sm uppercase tracking-wide text-on-surface-variant">
-            BUILD.Sales - PDV
+            BUILD.SALES - PDV
           </p>
         </div>
-
         <form onSubmit={handleSubmit(onSubmit)} className="mt-lg space-y-md">
           <div className="space-y-1.5">
             <Label>Usuário</Label>
