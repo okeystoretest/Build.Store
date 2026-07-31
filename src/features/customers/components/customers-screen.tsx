@@ -93,7 +93,7 @@ export function CustomersScreen() {
                       className="animate-fade-in-up border-t border-outline-variant/40"
                     >
                       <td className="px-3 py-2 font-medium text-primary">
-                        {c.code ?? "—"}
+                        {c.code ? c.code.replace(/\D/g, "") || c.code : "—"}
                       </td>
                       <td className="px-3 py-2 text-on-surface">{c.name}</td>
                       <td className="px-3 py-2 text-on-surface-variant">

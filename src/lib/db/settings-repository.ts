@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 
 const STORE_NAME_KEY = "store_name";
 const STORE_LOGO_KEY = "store_logo";
-export const DEFAULT_STORE_NAME = "Build.Store";
+export const DEFAULT_STORE_NAME = "Build.Sales";
 
 export async function getStoreName(): Promise<string> {
   const supabase = createClient();

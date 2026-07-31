@@ -49,29 +49,29 @@ export async function searchCustomers(
 }
 
 /**
- * Gera o próximo código no padrão CLI-0001. Lê o maior código existente e
- * incrementa. Como o código também é validado por índice único no banco, uma
- * corrida entre dois cadastros simultâneos é resolvida com uma tentativa extra
- * em createCustomer.
+ * Gera o próximo código de cliente — apenas sequência numérica (sem prefixo).
+ * Lê o maior código existente (tolerando o prefixo legado "CLI-") e incrementa.
+ * O código também é validado por índice único no banco; uma corrida entre dois
+ * cadastros simultâneos é resolvida com uma tentativa extra em createCustomer.
  */
 export async function nextCustomerCode(): Promise<string> {
   const supabase = createClient();
+  // Busca todos os códigos e calcula o máximo NUMÉRICO no cliente. Ordenar por
+  // string no banco não serve: com códigos antigos ("CLI-0009") e novos
+  // ("0010") convivendo, a ordenação textual coloca "C" acima de dígitos e
+  // devolveria o código errado. Extrair os dígitos e pegar o max evita isso.
   const { data, error } = await supabase
     .from("customers")
     .select("code")
-    .ilike("code", "CLI-%")
-    .order("code", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .not("code", "is", null);
   if (error) throw error;
 
-  let next = 1;
-  const current = data?.code as string | undefined;
-  if (current) {
-    const n = parseInt(current.replace(/\D/g, ""), 10);
-    if (!Number.isNaN(n)) next = n + 1;
+  let max = 0;
+  for (const row of data ?? []) {
+    const n = parseInt(String(row.code).replace(/\D/g, ""), 10);
+    if (!Number.isNaN(n) && n > max) max = n;
   }
-  return `CLI-${String(next).padStart(4, "0")}`;
+  return String(max + 1).padStart(4, "0");
 }
 
 export interface CustomerInput {

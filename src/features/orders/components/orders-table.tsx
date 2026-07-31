@@ -12,6 +12,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { Order, OrderStatus, PaymentMethod } from "@/types/domain";
 import { formatBRL } from "@/lib/utils/money";
+import { displayReference } from "@/lib/utils/reference";
 import { STATUS_LABELS } from "@/features/analytics/aggregations";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils/cn";
@@ -93,7 +94,7 @@ export function OrdersTable({
                 key={o.id}
                 className="border-b border-outline-variant/30 last:border-0"
               >
-                <Td className="font-medium text-primary">{o.reference}</Td>
+                <Td className="font-medium text-primary">{displayReference(o.reference)}</Td>
                 <Td className="text-on-surface-variant">
                   {format(new Date(o.createdAt), "dd MMM yyyy, HH:mm", {
                     locale: ptBR,

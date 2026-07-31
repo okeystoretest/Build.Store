@@ -17,6 +17,8 @@ interface CustomerAutocompleteProps {
   onSelect: (customer: Customer) => void;
   /** Limpa a associação com um cliente quando o texto muda manualmente. */
   onClearSelection?: () => void;
+  /** Estética compacta e sem borda (integrada ao fundo) para o checkout. */
+  borderless?: boolean;
 }
 
 /**
@@ -33,6 +35,7 @@ export function CustomerAutocomplete({
   customers,
   onSelect,
   onClearSelection,
+  borderless = false,
 }: CustomerAutocompleteProps) {
   const [open, setOpen] = useState(false);
   const [highlight, setHighlight] = useState(0);
@@ -107,7 +110,11 @@ export function CustomerAutocomplete({
           placeholder="Buscar por nome ou código"
           aria-label="Buscar cliente"
           autoComplete="off"
-          className="pl-12"
+          className={
+            borderless
+              ? "h-11 border-transparent bg-surface-container pl-12"
+              : "pl-12"
+          }
         />
       </div>
 
@@ -134,7 +141,7 @@ export function CustomerAutocomplete({
                     {c.name}
                   </span>
                   <span className="block truncate text-label-sm text-on-surface-variant">
-                    {c.code ?? "sem código"}
+                    {c.code ? c.code.replace(/\D/g, "") || c.code : "sem código"}
                     {c.phone ? ` · ${formatPhone(c.phone)}` : ""}
                   </span>
                 </span>

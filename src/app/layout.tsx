@@ -4,13 +4,13 @@ import { Providers } from "./providers";
 import "@fontsource/inter/400.css";
 import "@fontsource/inter/500.css";
 import "@fontsource/inter/600.css";
-// Dancing Script — fonte script feminina usada apenas na logo "Build.Store".
+// Dancing Script — fonte script feminina usada apenas na logo "Build.Sales".
 import "@fontsource/dancing-script/600.css";
 import "@fontsource/dancing-script/700.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Build.Store",
+  title: "Build.Sales",
   description: "PDV premium para lojas boutique",
   manifest: "/manifest.json",
   icons: {
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     ],
     apple: "/icons/icon-192.png",
   },
-  appleWebApp: { capable: true, title: "Build.Store", statusBarStyle: "default" },
+  appleWebApp: { capable: true, title: "Build.Sales", statusBarStyle: "default" },
   other: {
     // `apple-mobile-web-app-capable` (emitida pelo appleWebApp acima) está
     // depreciada; os navegadores pedem a versão padronizada. Mantemos as duas:

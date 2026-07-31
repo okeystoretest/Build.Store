@@ -170,7 +170,7 @@ export function Sidebar({
                 {storeName}
               </h1>
               <p className="mt-1 text-label-sm uppercase tracking-wide text-on-surface-variant">
-                BUILD.STORE - PDV
+                BUILD.Sales - PDV
               </p>
             </>
           )}

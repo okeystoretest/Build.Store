@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { Order, PaymentMethod } from "@/types/domain";
 import { formatBRL } from "@/lib/utils/money";
+import { displayReference } from "@/lib/utils/reference";
 import { Modal } from "@/components/ui/modal";
 
 const PAYMENT_LABEL: Record<PaymentMethod, string> = {
@@ -25,7 +26,7 @@ export function OrderDetailsModal({
   if (!order) return null;
 
   return (
-    <Modal open={!!order} onClose={onClose} title={`Pedido ${order.reference}`}>
+    <Modal open={!!order} onClose={onClose} title={`Pedido ${displayReference(order.reference)}`}>
       <div className="space-y-md">
         <div className="grid grid-cols-2 gap-md">
           <Info label="Data">

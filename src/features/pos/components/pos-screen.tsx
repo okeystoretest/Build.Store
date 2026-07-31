@@ -9,13 +9,14 @@ import { useProducts } from "@/features/pos/hooks/use-products";
 import { useTender } from "@/features/pos/hooks/use-tender";
 import { useLiveProductsQuery } from "@/features/inventory/hooks/use-live-products";
 import { useSaleMeta } from "@/features/pos/hooks/use-sale-meta";
+import { useAuth } from "@/hooks/use-auth";
 import { recordSale } from "@/lib/db/order-repository";
 import { queryKeys } from "@/lib/db/query-keys";
 import { cn } from "@/lib/utils/cn";
 import { TopBar } from "./top-bar";
 import { CartPanel } from "./cart-panel";
 import { CheckoutPanel } from "./checkout-panel";
-import { SaleMeta } from "./sale-meta";
+import { SaleMeta, type CampaignDetails } from "./sale-meta";
 import { ProductResults } from "./product-results";
 import { VariationPicker } from "./variation-picker";
 import { LoadingArea } from "@/components/ui/spinner";
@@ -39,11 +40,19 @@ export function POSScreen() {
   const [tenderInput, setTenderInput] = useState("");
   const [method, setMethod] = useState<PaymentMethod>("cash");
   const [saving, setSaving] = useState(false);
-  const { sellers, campaigns } = useSaleMeta();
+  const { campaigns } = useSaleMeta();
+  // Vendedora responsável é o usuário logado — capturado automaticamente,
+  // sem seleção manual (elimina redundância e erro de escolha).
+  const { userId, fullName } = useAuth();
 
-  const [sellerId, setSellerId] = useState<string | null>(null);
   const [isCampaign, setIsCampaign] = useState(false);
   const [campaignId, setCampaignId] = useState<string | null>(null);
+  const [campaignDetails, setCampaignDetails] = useState<CampaignDetails>({
+    campaignId: null,
+    reference: "",
+    valueReais: "",
+    quantity: "",
+  });
   const [customerName, setCustomerName] = useState("");
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState("");
@@ -90,7 +99,6 @@ export function POSScreen() {
     if (!canFinalize || saving) return;
     setSaving(true);
     try {
-      const seller = sellers.find((s) => s.id === sellerId) ?? null;
       await recordSale({
         items: cart.items,
         globalDiscountCents: cart.globalDiscountCents,
@@ -98,8 +106,9 @@ export function POSScreen() {
         tenderedCents: method === "cash" ? tender.cents : null,
         customerId,
         customerName: customerName.trim(),
-        sellerId,
-        sellerName: seller?.fullName ?? null,
+        // Vendedora = usuário logado (atribuição automática).
+        sellerId: userId,
+        sellerName: fullName,
         campaignId: isCampaign ? campaignId : null,
         invoiceNumber: invoiceNumber.trim(),
       });
@@ -109,6 +118,12 @@ export function POSScreen() {
       setMethod("cash");
       setIsCampaign(false);
       setCampaignId(null);
+      setCampaignDetails({
+        campaignId: null,
+        reference: "",
+        valueReais: "",
+        quantity: "",
+      });
       setCustomerName("");
       setCustomerId(null);
       setInvoiceNumber("");
@@ -150,14 +165,13 @@ export function POSScreen() {
           customerName={customerName}
           onCustomerNameChange={setCustomerName}
           onCustomerSelect={(c) => setCustomerId(c?.id ?? null)}
-          sellers={sellers}
           campaigns={campaigns}
-          sellerId={sellerId}
-          onSellerChange={setSellerId}
           isCampaign={isCampaign}
           onIsCampaignChange={setIsCampaign}
           campaignId={campaignId}
           onCampaignChange={setCampaignId}
+          campaignDetails={campaignDetails}
+          onCampaignDetailsChange={setCampaignDetails}
           invoiceNumber={invoiceNumber}
           onInvoiceNumberChange={setInvoiceNumber}
         />

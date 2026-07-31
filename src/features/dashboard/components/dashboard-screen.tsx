@@ -134,7 +134,7 @@ export function DashboardScreen() {
               Nenhuma vendedora cadastrada.
             </p>
           ) : (
-            <div className="grid grid-cols-1 gap-md xl:grid-cols-2">
+            <div className="grid grid-cols-1 gap-sm md:grid-cols-2 xl:grid-cols-3">
               {ranked.map((block, i) => (
                 <SellerCard key={block.seller.id} block={block} rank={i} />
               ))}
@@ -152,12 +152,12 @@ function SellerCard({ block, rank }: { block: SellerBlock; rank: number }) {
 
   return (
     <div
-      className="animate-pop-in rounded-xl border bg-surface-container-lowest p-md shadow-level-1"
+      className="animate-pop-in rounded-xl border bg-surface-container-lowest p-sm shadow-level-1"
       style={{ borderColor: medal }}
     >
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-        <span className="flex min-w-0 flex-1 items-center gap-3">
-          <span className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-fixed/60 text-headline-md font-semibold text-primary sm:h-16 sm:w-16">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+        <span className="flex min-w-0 flex-1 items-center gap-2">
+          <span className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-fixed/60 text-body-md font-semibold text-primary">
             {seller.photoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={seller.photoUrl} alt={seller.fullName} className="h-full w-full object-cover" />
@@ -165,21 +165,21 @@ function SellerCard({ block, rank }: { block: SellerBlock; rank: number }) {
               seller.fullName.slice(0, 2).toUpperCase()
             )}
           </span>
-          <span className="flex min-w-0 items-center gap-2">
+          <span className="flex min-w-0 items-center gap-1.5">
             <Trophy
-              className="h-6 w-6 shrink-0"
+              className="h-5 w-5 shrink-0"
               style={{ color: medal }}
               strokeWidth={2}
               aria-label={`Ranking: ${rank + 1}º`}
             />
-            <p className="truncate text-body-lg font-medium text-on-surface sm:text-headline-md">
+            <p className="truncate text-body-md font-medium text-on-surface">
               {seller.fullName}
             </p>
           </span>
         </span>
-        <span className="flex flex-col items-end gap-1">
-          <span className="flex items-center gap-1.5 rounded-full bg-[#fff3e0] px-3 py-1.5 text-body-md font-semibold text-[#e65100]">
-            <Wallet className="h-5 w-5" strokeWidth={1.75} />
+        <span className="flex flex-col items-end gap-0.5">
+          <span className="flex items-center gap-1 rounded-full bg-[#fff3e0] px-2.5 py-1 text-label-md font-semibold text-[#e65100]">
+            <Wallet className="h-4 w-4" strokeWidth={1.75} />
             {formatBRL(premiacaoCents)}
           </span>
           <span className="text-label-sm text-on-surface-variant">
@@ -188,8 +188,8 @@ function SellerCard({ block, rank }: { block: SellerBlock; rank: number }) {
         </span>
       </div>
 
-      {/* Metas: individual + campanhas, agrupadas e destacadas. */}
-      <div className="mt-md space-y-md rounded-lg border border-primary-container/50 bg-surface-container-low p-md">
+      {/* Metas: individual + campanhas, agrupadas de forma compacta. */}
+      <div className="mt-sm space-y-sm rounded-lg border border-outline-variant/60 bg-surface-container-low p-sm">
         <Bar
           label="Meta individual"
           ratio={individual.ratio}
@@ -221,19 +221,19 @@ function Bar({
   const color = progressColor(ratio);
   return (
     <div>
-      <div className="flex items-baseline justify-between gap-md">
-        <span className="text-label-md uppercase tracking-wide text-on-surface-variant">
+      <div className="flex items-baseline justify-between gap-sm">
+        <span className="truncate text-label-sm uppercase tracking-wide text-on-surface-variant">
           {label}
         </span>
-        <span className="text-headline-md font-semibold tabular-nums" style={{ color }}>
+        <span className="text-body-lg font-semibold tabular-nums" style={{ color }}>
           {pct}%
         </span>
       </div>
-      {/* Valor da meta em destaque, tamanho ampliado para leitura rápida. */}
-      <p className="mt-0.5 text-body-lg font-semibold tabular-nums text-on-surface">
+      {/* Valor da meta — compacto, ainda legível. */}
+      <p className="mt-0.5 text-label-md font-semibold tabular-nums text-on-surface">
         {detail}
       </p>
-      <div className="mt-2 h-4 overflow-hidden rounded-full bg-surface-container">
+      <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-surface-container">
         <div
           className="animate-bar-fill h-full rounded-full"
           style={{

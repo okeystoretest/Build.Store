@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import type { Order, PaymentMethod } from "@/types/domain";
 import { formatBRL } from "@/lib/utils/money";
+import { displayReference } from "@/lib/utils/reference";
 
 const PAYMENT_LABEL: Record<PaymentMethod, string> = {
   cash: "Dinheiro",
@@ -52,7 +53,7 @@ export function generateReceiptPdf(order: Order, storeName: string): void {
   divider(y);
   y += 5;
 
-  row("Pedido:", order.reference, y, 9, true);
+  row("Pedido:", displayReference(order.reference), y, 9, true);
   y += lineH;
   if (order.invoiceNumber) {
     row("Nota Fiscal:", order.invoiceNumber, y);
@@ -131,7 +132,7 @@ export function generateReceiptPdf(order: Order, storeName: string): void {
   y += 3;
   center("Obrigada pela preferência!", y, 9);
 
-  doc.save(`comprovante-${order.reference.replace(/[^\w-]/g, "")}.pdf`);
+  doc.save(`comprovante-${displayReference(order.reference)}.pdf`);
 }
 
 /**
@@ -207,7 +208,7 @@ export function printReceipt(
 <html>
 <head>
 <meta charset="utf-8" />
-<title>Comprovante ${esc(order.reference)}</title>
+<title>Comprovante ${esc(displayReference(order.reference))}</title>
 <style>
   @page { size: 80mm auto; margin: 4mm; }
   * { box-sizing: border-box; }
@@ -234,7 +235,7 @@ export function printReceipt(
     <div class="sub">Comprovante de Venda</div>
   </div>
   <div class="divider"></div>
-  <div class="row"><span><strong>Pedido</strong></span><span><strong>${esc(order.reference)}</strong></span></div>
+  <div class="row"><span><strong>Pedido</strong></span><span><strong>${esc(displayReference(order.reference))}</strong></span></div>
   <div class="row"><span>Data</span><span>${esc(format(new Date(order.createdAt), "dd/MM/yyyy HH:mm", { locale: ptBR }))}</span></div>
   ${invoiceRow}
   ${customerRow}

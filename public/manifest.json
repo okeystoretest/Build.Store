@@ -1,6 +1,6 @@
 {
-  "name": "Build.Store",
-  "short_name": "Build.Store",
+  "name": "Build.Sales",
+  "short_name": "Build.Sales",
   "description": "PDV premium para lojas boutique",
   "start_url": "/pos",
   "display": "standalone",

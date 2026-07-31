@@ -87,7 +87,7 @@ export function CheckoutPanel({
 
       {isCash ? (
         <>
-          <div className="space-y-1.5">
+          <div className="space-y-1">
             <Label>Valor recebido</Label>
             <Input
               value={tenderInput}
@@ -95,7 +95,7 @@ export function CheckoutPanel({
               inputMode="decimal"
               placeholder="0,00"
               aria-label="Valor recebido em dinheiro"
-              className="text-right text-headline-md tabular-nums"
+              className="h-11 px-4 text-right text-headline-md tabular-nums"
             />
           </div>
 
