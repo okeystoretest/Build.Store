@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   Users,
   Contact,
+  Store,
   Sun,
   Moon,
   LogOut,
@@ -23,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
 import { useStoreName } from "@/hooks/use-store-name";
+import { useStoreLogo } from "@/hooks/use-store-logo";
 
 const SUPPORT_WHATSAPP = "558592178804";
 
@@ -40,6 +42,7 @@ const NAV: NavItem[] = [
   { href: "/reports", label: "Relatórios", icon: BarChart3, gate: "reports" },
   { href: "/orders", label: "Pedidos", icon: History },
   { href: "/customers", label: "Clientes", icon: Contact },
+  { href: "/showcase", label: "Vitrine", icon: Store, gate: "management" },
   { href: "/management", label: "Gestão", icon: Users, gate: "management" },
 ];
 
@@ -72,10 +75,11 @@ export function Sidebar({
   onNavigate,
 }: SidebarProps) {
   const pathname = usePathname();
-  const { canSeeReports, canSeeManagement, fullName, photoUrl, signOut } =
-    useAuth();
+  const { canSeeReports, canSeeManagement, fullName, signOut } = useAuth();
   const { theme, toggle } = useTheme();
   const storeName = useStoreName();
+  // Imagem de perfil unificada: passa a usar o logotipo da marca.
+  const photoUrl = useStoreLogo();
 
   const visible = NAV.filter((item) => {
     if (item.gate === "reports") return canSeeReports;

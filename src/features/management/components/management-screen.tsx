@@ -180,6 +180,7 @@ function ActionButtons({
 
 function UsersList({ users }: { users: ReturnType<typeof useManagement>["users"] }) {
   const toast = useToast();
+  const storeLogo = useStoreLogo();
   const [editing, setEditing] = useState<User | null>(null);
   const [confirm, setConfirm] = useState<User | null>(null);
   const queryClient = useQueryClient();
@@ -200,9 +201,9 @@ function UsersList({ users }: { users: ReturnType<typeof useManagement>["users"]
             >
               <span className="flex min-w-0 flex-1 items-center gap-3">
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-fixed/60 text-label-sm font-semibold text-primary">
-                  {u.photoUrl ? (
+                  {storeLogo ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={u.photoUrl} alt={u.fullName} className="h-full w-full object-cover" />
+                    <img src={storeLogo} alt={u.fullName} className="h-full w-full object-cover" />
                   ) : (
                     u.fullName.slice(0, 2).toUpperCase()
                   )}
@@ -250,21 +251,12 @@ function UserEditForm({ user, onDone }: { user: User; onDone: () => void }) {
   const [fullName, setFullName] = useState(user.fullName);
   const [birthDate, setBirthDate] = useState(user.birthDate ?? "");
   const [role, setRole] = useState<Role>(user.role);
-  const [photoUrl, setPhotoUrl] = useState<string | null>(user.photoUrl);
-
-  const handlePhoto = (file: File | undefined) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setPhotoUrl(reader.result as string);
-    reader.readAsDataURL(file);
-  };
 
   const save = async () => {
     await updateUser(user.id, {
       fullName: fullName.trim(),
       birthDate: birthDate || null,
       role,
-      photoUrl,
     });
     await queryClient.invalidateQueries({ queryKey: queryKeys.users });
     onDone();
@@ -272,29 +264,6 @@ function UserEditForm({ user, onDone }: { user: User; onDone: () => void }) {
 
   return (
     <div className="space-y-md">
-      <div className="space-y-1.5">
-        <Label>Foto do usuário</Label>
-        <div className="flex items-center gap-md">
-          <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-surface-container text-label-md font-semibold text-primary">
-            {photoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={photoUrl} alt="Prévia" className="h-full w-full object-cover" />
-            ) : (
-              user.fullName.slice(0, 2).toUpperCase()
-            )}
-          </div>
-          <label className="cursor-pointer rounded-full border border-primary-container px-5 py-2.5 text-label-md text-primary hover:bg-primary-fixed/40">
-            Trocar foto
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => handlePhoto(e.target.files?.[0])}
-            />
-          </label>
-        </div>
-      </div>
-
       <div className="space-y-1.5">
         <Label>Nome completo</Label>
         <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
@@ -658,7 +627,7 @@ function StoreSettings() {
       </div>
 
       <div className="mt-md space-y-1.5">
-        <Label>Logotipo do comprovante</Label>
+        <Label>Logotipo da Marca</Label>
         <div className="flex items-center gap-md">
           <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-md bg-surface-container">
             {logo ? (
@@ -694,7 +663,8 @@ function StoreSettings() {
           </div>
         </div>
         <p className="px-2 text-label-sm text-on-surface-variant">
-          Aparece no cabeçalho do comprovante impresso.
+          Usado no cabeçalho do comprovante impresso e como imagem de perfil dos
+          usuários.
         </p>
       </div>
 

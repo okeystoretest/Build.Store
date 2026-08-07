@@ -34,7 +34,11 @@ export function POSScreen() {
   const toast = useToast();
   const cart = useCart();
   const productsQ = useLiveProductsQuery();
-  const liveProducts = productsQ.data ?? [];
+  // Regra de negócio: produto esgotado (stock 0) fica Indisponível e some do
+  // catálogo do PDV. Filtramos por estoque > 0 e status ativo.
+  const liveProducts = (productsQ.data ?? []).filter(
+    (p) => p.active && p.stock > 0,
+  );
   const { products, query, setQuery, findByCode } = useProducts(liveProducts);
   const tender = useTender();
   const [tenderInput, setTenderInput] = useState("");

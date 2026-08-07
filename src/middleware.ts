@@ -8,6 +8,6 @@ export async function middleware(request: NextRequest) {
 export const config = {
   // Run on app routes; skip static assets, images and the service worker.
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|manifest.json|sw.js|icons|.*\\.png$).*)",
+    "/((?!api|_next/static|_next/image|favicon.ico|manifest.json|sw.js|icons|.*\\.png$).*)",
   ],
 };

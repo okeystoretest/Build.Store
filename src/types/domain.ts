@@ -220,6 +220,40 @@ export interface Goal {
   createdAt: ISODateString;
 }
 
+// ---------------------------------------------------------------------------
+// Vitrine (showcase): distribuição de mídia por coleção, com exclusão
+// automática após 90 dias.
+// ---------------------------------------------------------------------------
+
+/** Abas do módulo Vitrine. */
+export type ShowcaseTab = "workshop" | "collection_videos" | "collection_photos";
+
+/** Temporada da coleção. */
+export type ShowcaseSeason = "primavera_verao" | "outono_inverno";
+
+/**
+ * Um arquivo de mídia publicado na Vitrine. Guarda os metadados obrigatórios
+ * do upload (coleção, temporada, mês/ano) e a data de upload usada tanto para
+ * a ordenação (mais recentes no topo) quanto para a retenção de 90 dias.
+ */
+export interface ShowcaseMedia {
+  id: UUID;
+  tab: ShowcaseTab;
+  /** Nome do arquivo/mídia. */
+  title: string;
+  /** URL do arquivo (data URL local; Supabase Storage em produção). */
+  fileUrl: string;
+  /** MIME type do arquivo enviado. */
+  mimeType: string | null;
+  collectionName: string;
+  season: ShowcaseSeason;
+  /** Mês de lançamento (1–12). */
+  releaseMonth: number;
+  /** Ano de lançamento (ex.: 2025). */
+  releaseYear: number;
+  createdAt: ISODateString;
+}
+
 export type NotificationKind = "product_added" | "info";
 
 /** In-app notification surfaced in the bell menu. */

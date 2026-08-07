@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { X, Search, Plus, Package, AlertTriangle, Cloud, LayoutGrid, List, Trash2 } from "lucide-react";
+import { X, Search, Plus, Package, AlertTriangle, Cloud, LayoutGrid, List } from "lucide-react";
 import type { Product } from "@/types/domain";
 import { useInventory } from "@/features/inventory/hooks/use-inventory";
 import { upsertProduct, deleteProduct } from "@/lib/db/product-repository";
@@ -75,7 +75,8 @@ export function InventoryScreen() {
       grade: values.grade ?? editing?.grade ?? [],
       address: editing?.address ?? null,
       imageUrl: values.imageUrl ?? editing?.imageUrl ?? null,
-      active: true,
+      // Produto zerado fica Indisponível (oculto das listagens de catálogo).
+      active: (values.stock ?? 0) > 0,
       createdAt: editing?.createdAt ?? now,
       updatedAt: now,
     };
@@ -190,18 +191,12 @@ export function InventoryScreen() {
         title={editing ? "Editar produto" : "Adicionar novo produto"}
         className="max-w-3xl"
       >
-        <ProductForm product={editing} onSubmit={handleSubmit} onCancel={closeModal} />
-        {editing && canManage && (
-          <div className="mt-md border-t border-outline-variant/40 pt-md">
-            <button
-              onClick={() => handleDelete(editing)}
-              className="flex items-center gap-2 rounded-full border border-error/40 px-5 py-2.5 text-label-md text-error transition-colors hover:bg-error-container hover:text-on-error-container"
-            >
-              <Trash2 className="h-4 w-4" strokeWidth={1.75} />
-              Excluir produto
-            </button>
-          </div>
-        )}
+        <ProductForm
+          product={editing}
+          onSubmit={handleSubmit}
+          onCancel={closeModal}
+          onDelete={editing && canManage ? () => handleDelete(editing) : undefined}
+        />
       </Modal>
 
       {/* Lojista/Vendedora: visualização somente leitura. */}

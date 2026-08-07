@@ -14,4 +14,5 @@ export const queryKeys = {
   notifications: ["notifications"] as const,
   settings: ["settings"] as const,
   customers: ["customers"] as const,
+  showcase: ["showcase"] as const,
 };
