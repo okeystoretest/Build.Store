@@ -33,7 +33,12 @@ export function ProductCard({ product, onOpen, canManage = false }: ProductCardP
       )}
     >
       <div className="relative">
-        <div className="flex aspect-square w-full items-center justify-center overflow-hidden rounded-md bg-surface-container">
+        <div
+          className={cn(
+            "flex aspect-square w-full items-center justify-center overflow-hidden rounded-md",
+            low ? "bg-[#f8b4c4]" : "bg-surface-container",
+          )}
+        >
           {product.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={product.imageUrl} alt={product.name} className="h-full w-full object-cover" />

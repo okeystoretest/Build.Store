@@ -3,6 +3,8 @@
 import { Plus, ImageIcon } from "lucide-react";
 import type { Product } from "@/types/domain";
 import { formatBRL } from "@/lib/utils/money";
+import { stockLevel } from "@/features/inventory/types";
+import { cn } from "@/lib/utils/cn";
 
 interface ProductResultsProps {
   products: Product[];
@@ -36,6 +38,9 @@ export function ProductResults({
       <div className="scrollbar-slim flex gap-sm overflow-x-auto pb-2">
         {products.map((p) => {
           const outOfStock = p.stock <= 0;
+          // Estoque mínimo atingido → destaca o card na cor de alerta,
+          // igual ao estoque. (Só marca peças em baixa, não toda busca.)
+          const low = !outOfStock && stockLevel(p) !== "ok";
           return (
             <button
               key={p.id}
@@ -48,7 +53,12 @@ export function ProductResults({
                   : "hover:bg-primary-fixed/30"
               }`}
             >
-              <div className="relative flex h-24 w-full items-center justify-center overflow-hidden rounded-sm bg-surface-container">
+              <div
+                className={cn(
+                  "relative flex h-24 w-full items-center justify-center overflow-hidden rounded-sm",
+                  low ? "bg-[#f8b4c4]" : "bg-surface-container",
+                )}
+              >
                 {p.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img

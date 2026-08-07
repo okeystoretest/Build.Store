@@ -84,7 +84,7 @@ export function DashboardScreen() {
       className="h-full overflow-y-auto bg-background px-margin py-md"
     >
       <div className="flex flex-wrap items-end justify-between gap-md">
-        <h1 className="font-logo text-headline-lg-mobile text-primary sm:text-headline-lg">Dashboard</h1>
+        <h1 className="font-logo text-headline-lg-mobile text-primary sm:text-headline-lg">Ranking de Vendas</h1>
         <div className="flex flex-wrap items-end gap-md">
           <ToggleGroup
             aria-label="Período"
