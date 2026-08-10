@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type { ShowcaseMedia, ShowcaseSeason, ShowcaseTab } from "@/types/domain";
 import { useShowcase } from "@/features/showcase/hooks/use-showcase";
+import { useAuth } from "@/hooks/use-auth";
 import { deleteShowcaseMedia } from "@/lib/db/showcase-repository";
 import { queryKeys } from "@/lib/db/query-keys";
 import { useToast } from "@/components/ui/toast";
@@ -53,6 +54,7 @@ export function ShowcaseScreen() {
   const [tab, setTab] = useState<ShowcaseTab>("workshop");
   const [uploadOpen, setUploadOpen] = useState(false);
   const sc = useShowcase(tab);
+  const { canUploadShowcase } = useAuth();
   const toast = useToast();
   const queryClient = useQueryClient();
 
@@ -101,10 +103,12 @@ export function ShowcaseScreen() {
             ))}
           </Select>
         </div>
-        <Button size="lg" onClick={() => setUploadOpen(true)} className="shrink-0">
-          <Upload className="h-5 w-5" strokeWidth={2} />
-          Enviar arquivo
-        </Button>
+        {canUploadShowcase && (
+          <Button size="lg" onClick={() => setUploadOpen(true)} className="shrink-0">
+            <Upload className="h-5 w-5" strokeWidth={2} />
+            Enviar arquivo
+          </Button>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto px-margin py-md">

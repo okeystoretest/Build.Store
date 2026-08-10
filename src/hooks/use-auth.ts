@@ -89,6 +89,8 @@ export function useAuth() {
   const canAddProducts = role === "admin"; // só admin adiciona estoque
   const canEditProducts = role === "lojista" || role === "admin";
   const canRefund = role === "lojista" || role === "admin";
+  const isAdmin = role === "admin";
+  const canUploadShowcase = role === "admin"; // só admin envia mídia na Vitrine
 
   const signOut = useCallback(async () => {
     await createClient().auth.signOut();
@@ -102,6 +104,8 @@ export function useAuth() {
     canAddProducts,
     canEditProducts,
     canRefund,
+    isAdmin,
+    canUploadShowcase,
     signOut,
   };
 }

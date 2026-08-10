@@ -12,7 +12,7 @@ import {
   LayoutDashboard,
   Users,
   Contact,
-  Store,
+  Clapperboard,
   Sun,
   Moon,
   LogOut,
@@ -42,7 +42,7 @@ const NAV: NavItem[] = [
   { href: "/reports", label: "Relatórios", icon: BarChart3, gate: "reports" },
   { href: "/orders", label: "Pedidos", icon: History },
   { href: "/customers", label: "Clientes", icon: Contact },
-  { href: "/showcase", label: "Vitrine", icon: Store, gate: "management" },
+  { href: "/showcase", label: "Vitrine", icon: Clapperboard, gate: "management" },
   { href: "/management", label: "Gestão", icon: Users, gate: "management" },
 ];
 
