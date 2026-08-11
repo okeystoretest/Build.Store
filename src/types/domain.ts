@@ -190,6 +190,18 @@ export interface User {
   /** Foto de perfil (data URL local; Supabase Storage em produção). */
   photoUrl: string | null;
   active: boolean;
+  /** Loja à qual o usuário pertence. null = admin global (todas as lojas). */
+  storeId: UUID | null;
+  createdAt: ISODateString;
+}
+
+/** Uma loja (tenant). Isolamento lógico por store_id + RLS. */
+export interface Store {
+  id: UUID;
+  name: string;
+  /** Logo/ícone da loja (URL). */
+  logoUrl: string | null;
+  active: boolean;
   createdAt: ISODateString;
 }
 

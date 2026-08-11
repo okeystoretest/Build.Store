@@ -47,14 +47,18 @@ export function retentionCutoffISO(now = new Date()): string {
  */
 export async function listShowcaseMedia(
   tab: ShowcaseTab,
+  storeId?: string | null,
 ): Promise<ShowcaseMedia[]> {
   const supabase = createClient();
-  const { data, error } = await supabase
+  let q = supabase
     .from("showcase_media")
     .select("*")
     .eq("tab", tab)
-    .gte("created_at", retentionCutoffISO())
-    .order("created_at", { ascending: false });
+    .gte("created_at", retentionCutoffISO());
+  // Admin em "todas as lojas" (storeId null/undefined) vê tudo que a RLS
+  // permitir; com uma loja ativa, filtra por ela.
+  if (storeId) q = q.eq("store_id", storeId);
+  const { data, error } = await q.order("created_at", { ascending: false });
   if (error) throw error;
   return (data ?? []).map(toMedia);
 }
@@ -68,6 +72,8 @@ export interface NewShowcaseMedia {
   season: ShowcaseSeason;
   releaseMonth: number;
   releaseYear: number;
+  /** Loja dona da mídia (a Vitrine é isolada por loja). */
+  storeId: string;
 }
 
 /** Publica uma nova mídia na Vitrine. */
@@ -82,6 +88,7 @@ export async function addShowcaseMedia(input: NewShowcaseMedia): Promise<void> {
     season: input.season,
     release_month: input.releaseMonth,
     release_year: input.releaseYear,
+    store_id: input.storeId,
   });
   if (error) throw error;
 }

@@ -3,12 +3,11 @@ import { PRODUCT_COLUMNS, toProduct, productToRow } from "@/lib/db/mappers";
 import type { Product, StockMovement } from "@/types/domain";
 
 
-export async function listProducts(): Promise<Product[]> {
+export async function listProducts(storeId?: string | null): Promise<Product[]> {
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from("products")
-    .select(PRODUCT_COLUMNS)
-    .order("name", { ascending: true });
+  let q = supabase.from("products").select(PRODUCT_COLUMNS);
+  if (storeId) q = q.eq("store_id", storeId);
+  const { data, error } = await q.order("name", { ascending: true });
   if (error) throw error;
   return (data ?? []).map(toProduct);
 }
@@ -25,10 +24,15 @@ export async function getProduct(id: string): Promise<Product | undefined> {
 }
 
 /** Cria ou atualiza um produto (upsert idempotente pelo id). */
-export async function upsertProduct(product: Product): Promise<void> {
+export async function upsertProduct(
+  product: Product,
+  storeId: string,
+): Promise<void> {
   const supabase = createClient();
   const row = productToRow({ ...product, updatedAt: new Date().toISOString() });
-  const { error } = await supabase.from("products").upsert(row);
+  const { error } = await supabase
+    .from("products")
+    .upsert({ ...row, store_id: storeId });
   if (error) throw error;
 }
 
@@ -50,6 +54,7 @@ export async function applyStockMovement(
     id?: string;
     createdAt?: string;
   },
+  storeId: string,
 ): Promise<void> {
   const supabase = createClient();
   const { error } = await supabase.from("stock_movements").insert({
@@ -58,6 +63,7 @@ export async function applyStockMovement(
     reason: movement.reason,
     order_id: movement.orderId ?? null,
     note: movement.note ?? null,
+    store_id: storeId,
   });
   if (error) throw error;
 }

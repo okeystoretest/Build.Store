@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/toast";
 import { notifyProductAdded } from "@/lib/db/notification-repository";
 import { queryKeys } from "@/lib/db/query-keys";
 import { useAuth } from "@/hooks/use-auth";
+import { useActiveStoreId } from "@/features/stores/store-context";
 import { ProductCard, ProductRow } from "./product-card";
 import { ProductForm } from "./product-form";
 import { ProductDetail } from "./product-detail";
@@ -30,6 +31,7 @@ export function InventoryScreen() {
   const queryClient = useQueryClient();
   // Apenas Admin gerencia o estoque (adicionar/editar/excluir).
   const { canAddProducts } = useAuth();
+  const activeStoreId = useActiveStoreId();
   const canManage = canAddProducts;
   const [editing, setEditing] = useState<Product | null>(null);
   const [viewing, setViewing] = useState<Product | null>(null);
@@ -80,10 +82,16 @@ export function InventoryScreen() {
       createdAt: editing?.createdAt ?? now,
       updatedAt: now,
     };
-    await upsertProduct(product);
+    if (!activeStoreId) {
+      toast.error(
+        "Selecione uma loja específica no seletor para cadastrar produtos.",
+      );
+      return;
+    }
+    await upsertProduct(product, activeStoreId);
     // A new product added by an Admin notifies the other users.
     if (isNew && canAddProducts) {
-      await notifyProductAdded(product);
+      await notifyProductAdded(product, activeStoreId);
       await queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
     }
     await queryClient.invalidateQueries({ queryKey: queryKeys.products });

@@ -21,25 +21,25 @@ export const CAMPAIGN_COMMISSION_RATE = 0.025;
 
 // --- Users -----------------------------------------------------------------
 
-export async function listUsers(): Promise<User[]> {
+export async function listUsers(storeId?: string | null): Promise<User[]> {
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(PROFILE_COLUMNS)
-    .order("full_name", { ascending: true });
+  let q = supabase.from("profiles").select(PROFILE_COLUMNS);
+  if (storeId) q = q.eq("store_id", storeId);
+  const { data, error } = await q.order("full_name", { ascending: true });
   if (error) throw error;
   return (data ?? []).map(toUser);
 }
 
 /** Vendedoras: usuários ativos com papel "vendedora". */
-export async function listSellers(): Promise<User[]> {
+export async function listSellers(storeId?: string | null): Promise<User[]> {
   const supabase = createClient();
-  const { data, error } = await supabase
+  let q = supabase
     .from("profiles")
     .select(PROFILE_COLUMNS)
     .eq("role", "vendedora")
-    .eq("active", true)
-    .order("full_name", { ascending: true });
+    .eq("active", true);
+  if (storeId) q = q.eq("store_id", storeId);
+  const { data, error } = await q.order("full_name", { ascending: true });
   if (error) throw error;
   return (data ?? []).map(toUser);
 }
@@ -73,32 +73,39 @@ export async function deleteUser(id: string): Promise<void> {
 
 // --- Campaigns -------------------------------------------------------------
 
-export async function listCampaigns(): Promise<Campaign[]> {
+export async function listCampaigns(
+  storeId?: string | null,
+): Promise<Campaign[]> {
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from("campaigns")
-    .select(CAMPAIGN_COLUMNS)
-    .order("name", { ascending: true });
+  let q = supabase.from("campaigns").select(CAMPAIGN_COLUMNS);
+  if (storeId) q = q.eq("store_id", storeId);
+  const { data, error } = await q.order("name", { ascending: true });
   if (error) throw error;
   return (data ?? []).map(toCampaign);
 }
 
-export async function listActiveCampaigns(): Promise<Campaign[]> {
+export async function listActiveCampaigns(
+  storeId?: string | null,
+): Promise<Campaign[]> {
   const supabase = createClient();
-  const { data, error } = await supabase
+  let q = supabase
     .from("campaigns")
     .select(CAMPAIGN_COLUMNS)
-    .eq("active", true)
-    .order("name", { ascending: true });
+    .eq("active", true);
+  if (storeId) q = q.eq("store_id", storeId);
+  const { data, error } = await q.order("name", { ascending: true });
   if (error) throw error;
   return (data ?? []).map(toCampaign);
 }
 
-export async function createCampaign(name: string): Promise<Campaign> {
+export async function createCampaign(
+  name: string,
+  storeId: string,
+): Promise<Campaign> {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("campaigns")
-    .insert({ name, active: true })
+    .insert({ name, active: true, store_id: storeId })
     .select(CAMPAIGN_COLUMNS)
     .single();
   if (error) throw error;
@@ -122,9 +129,11 @@ export async function deleteCampaign(id: string): Promise<void> {
 
 // --- Goals -----------------------------------------------------------------
 
-export async function listGoals(): Promise<Goal[]> {
+export async function listGoals(storeId?: string | null): Promise<Goal[]> {
   const supabase = createClient();
-  const { data, error } = await supabase.from("goals").select(GOAL_COLUMNS);
+  let q = supabase.from("goals").select(GOAL_COLUMNS);
+  if (storeId) q = q.eq("store_id", storeId);
+  const { data, error } = await q;
   if (error) throw error;
   return (data ?? []).map(toGoal);
 }
@@ -150,6 +159,7 @@ export async function createGoal(input: {
   campaignId: string | null;
   targetCents: number | null;
   targetQuantity: number | null;
+  storeId: string;
 }): Promise<Goal> {
   const supabase = createClient();
   const { data, error } = await supabase
@@ -160,6 +170,7 @@ export async function createGoal(input: {
       campaign_id: input.type === "campaign" ? input.campaignId : null,
       target_cents: input.type === "general" ? input.targetCents : null,
       target_quantity: input.type === "campaign" ? input.targetQuantity : null,
+      store_id: input.storeId,
     })
     .select(GOAL_COLUMNS)
     .single();

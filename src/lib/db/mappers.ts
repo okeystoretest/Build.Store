@@ -7,6 +7,7 @@ import type {
   Goal,
   AppNotification,
   Customer,
+  Store,
 } from "@/types/domain";
 
 /**
@@ -28,7 +29,9 @@ export const ORDER_ITEM_COLUMNS =
   "id, order_id, product_id, sku, name, image_url, unit_price_cents, quantity, line_discount_cents, color, size";
 
 export const PROFILE_COLUMNS =
-  "id, username, full_name, birth_date, role, photo_url, active, created_at";
+  "id, username, full_name, birth_date, role, photo_url, active, store_id, created_at";
+
+export const STORE_COLUMNS = "id, name, logo_url, active, created_at";
 
 export const CAMPAIGN_COLUMNS = "id, name, active, created_at";
 
@@ -137,6 +140,17 @@ export function toUser(r: Row): User {
     birthDate: (r.birth_date as string | null) ?? null,
     role: r.role as User["role"],
     photoUrl: (r.photo_url as string | null) ?? null,
+    active: (r.active as boolean) ?? true,
+    storeId: (r.store_id as string | null) ?? null,
+    createdAt: r.created_at as string,
+  };
+}
+
+export function toStore(r: Row): Store {
+  return {
+    id: r.id as string,
+    name: (r.name as string) ?? "",
+    logoUrl: (r.logo_url as string | null) ?? null,
     active: (r.active as boolean) ?? true,
     createdAt: r.created_at as string,
   };

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import type { User, Campaign, GoalType } from "@/types/domain";
 import { createGoal } from "@/lib/db/management-repository";
+import { useActiveStoreId } from "@/features/stores/store-context";
+import { useToast } from "@/components/ui/toast";
 import { parseToCents } from "@/lib/utils/money";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,12 +31,18 @@ export function GoalForm({ sellers, campaigns, onCreated }: GoalFormProps) {
   const [quantity, setQuantity] = useState(""); // items for campaign
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const activeStoreId = useActiveStoreId();
+  const toast = useToast();
 
   const submit = async () => {
     setError(null);
     if (!sellerId) return setError("Selecione a vendedora");
     if (type === "campaign" && !campaignId)
       return setError("Selecione a campanha");
+    if (!activeStoreId) {
+      toast.error("Selecione uma loja específica no seletor para criar metas.");
+      return;
+    }
 
     setSaving(true);
     try {
@@ -44,6 +52,7 @@ export function GoalForm({ sellers, campaigns, onCreated }: GoalFormProps) {
         campaignId: type === "campaign" ? campaignId : null,
         targetCents: type === "general" ? parseToCents(amount) : null,
         targetQuantity: type === "campaign" ? Number(quantity) || 0 : null,
+        storeId: activeStoreId,
       });
       setAmount("");
       setQuantity("");

@@ -13,12 +13,13 @@ export function digitsOnly(value: string): string {
   return value.replace(/\D/g, "");
 }
 
-export async function listCustomers(): Promise<Customer[]> {
+export async function listCustomers(
+  storeId?: string | null,
+): Promise<Customer[]> {
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from("customers")
-    .select(CUSTOMER_COLUMNS)
-    .order("name", { ascending: true });
+  let query = supabase.from("customers").select(CUSTOMER_COLUMNS);
+  if (storeId) query = query.eq("store_id", storeId);
+  const { data, error } = await query.order("name", { ascending: true });
   if (error) throw error;
   return (data ?? []).map(toCustomer);
 }
@@ -31,11 +32,13 @@ export async function listCustomers(): Promise<Customer[]> {
 export async function searchCustomers(
   term: string,
   limit = 8,
+  storeId?: string | null,
 ): Promise<Customer[]> {
   const supabase = createClient();
   const q = term.trim();
 
   let query = supabase.from("customers").select(CUSTOMER_COLUMNS);
+  if (storeId) query = query.eq("store_id", storeId);
   if (q.length > 0) {
     // ilike com % dos dois lados; combina nome OU código.
     const like = `%${q}%`;
@@ -54,16 +57,20 @@ export async function searchCustomers(
  * O código também é validado por índice único no banco; uma corrida entre dois
  * cadastros simultâneos é resolvida com uma tentativa extra em createCustomer.
  */
-export async function nextCustomerCode(): Promise<string> {
+export async function nextCustomerCode(
+  storeId?: string | null,
+): Promise<string> {
   const supabase = createClient();
   // Busca todos os códigos e calcula o máximo NUMÉRICO no cliente. Ordenar por
   // string no banco não serve: com códigos antigos ("CLI-0009") e novos
   // ("0010") convivendo, a ordenação textual coloca "C" acima de dígitos e
   // devolveria o código errado. Extrair os dígitos e pegar o max evita isso.
-  const { data, error } = await supabase
+  let codeQuery = supabase
     .from("customers")
     .select("code")
     .not("code", "is", null);
+  if (storeId) codeQuery = codeQuery.eq("store_id", storeId);
+  const { data, error } = await codeQuery;
   if (error) throw error;
 
   let max = 0;
@@ -80,6 +87,8 @@ export interface CustomerInput {
   phone: string | null;
   instagram: string | null;
   email: string | null;
+  /** Loja dona do cliente. */
+  storeId: string;
 }
 
 /**
@@ -98,6 +107,7 @@ export async function createCustomer(input: CustomerInput): Promise<Customer> {
         phone: input.phone ? digitsOnly(input.phone) : null,
         instagram: input.instagram,
         email: input.email,
+        store_id: input.storeId,
       })
       .select(CUSTOMER_COLUMNS)
       .single();
@@ -106,7 +116,7 @@ export async function createCustomer(input: CustomerInput): Promise<Customer> {
 
   // Código duplicado: regenera e tenta mais uma vez.
   if (error && error.code === "23505") {
-    const fresh = await nextCustomerCode();
+    const fresh = await nextCustomerCode(input.storeId);
     ({ data, error } = await attempt(fresh));
   }
   if (error) throw error;

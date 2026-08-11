@@ -13,6 +13,7 @@ import {
   Users,
   Contact,
   Clapperboard,
+  Building2,
   Sun,
   Moon,
   LogOut,
@@ -25,6 +26,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
 import { useStoreName } from "@/hooks/use-store-name";
 import { useStoreLogo } from "@/hooks/use-store-logo";
+import { StoreSelector } from "@/features/stores/components/store-selector";
 
 const SUPPORT_WHATSAPP = "558592178804";
 
@@ -32,7 +34,7 @@ interface NavItem {
   href: string;
   label: string;
   icon: typeof ShoppingCart;
-  gate?: "reports" | "management";
+  gate?: "reports" | "management" | "admin";
 }
 
 const NAV: NavItem[] = [
@@ -44,6 +46,7 @@ const NAV: NavItem[] = [
   { href: "/customers", label: "Clientes", icon: Contact },
   { href: "/showcase", label: "Vitrine", icon: Clapperboard, gate: "management" },
   { href: "/management", label: "Gestão", icon: Users, gate: "management" },
+  { href: "/stores", label: "Lojas", icon: Building2, gate: "admin" },
 ];
 
 interface SidebarProps {
@@ -75,7 +78,9 @@ export function Sidebar({
   onNavigate,
 }: SidebarProps) {
   const pathname = usePathname();
-  const { canSeeReports, canSeeManagement, fullName, signOut } = useAuth();
+  const { canSeeReports, canSeeManagement, role, fullName, signOut } =
+    useAuth();
+  const isAdmin = role === "admin";
   const { theme, toggle } = useTheme();
   const storeName = useStoreName();
   // Imagem de perfil unificada: passa a usar o logotipo da marca.
@@ -84,6 +89,7 @@ export function Sidebar({
   const visible = NAV.filter((item) => {
     if (item.gate === "reports") return canSeeReports;
     if (item.gate === "management") return canSeeManagement;
+    if (item.gate === "admin") return isAdmin;
     return true;
   });
 
@@ -208,6 +214,13 @@ export function Sidebar({
           );
         })}
       </nav>
+
+      {/* Seletor global de loja — admin, só quando expandida */}
+      {isAdmin && !isCollapsed && (
+        <div className="mt-md shrink-0">
+          <StoreSelector />
+        </div>
+      )}
 
       <div className="mt-auto flex shrink-0 flex-col gap-md pt-md">
         <Link href="/pos" onClick={onNavigate}>

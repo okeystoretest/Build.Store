@@ -6,19 +6,22 @@ import type { ShowcaseMedia, ShowcaseTab } from "@/types/domain";
 import { listShowcaseMedia } from "@/lib/db/showcase-repository";
 import { queryKeys } from "@/lib/db/query-keys";
 import { useRealtimeInvalidation } from "@/lib/db/use-realtime-invalidation";
+import { useStoreContext } from "@/features/stores/store-context";
 
 const ALL = "__all__";
 
 /**
  * Estado da Vitrine para uma aba: lista viva (Realtime) já ordenada por data
  * decrescente pelo repositório, mais o filtro por coleção aplicado no cliente.
+ * A lista é escopada pela loja ativa (própria loja, ou a selecionada pelo admin).
  */
 export function useShowcase(tab: ShowcaseTab) {
+  const { activeStoreId } = useStoreContext();
   useRealtimeInvalidation("showcase_media", queryKeys.showcase);
 
   const listQ = useQuery({
-    queryKey: [...queryKeys.showcase, tab],
-    queryFn: () => listShowcaseMedia(tab),
+    queryKey: [...queryKeys.showcase, tab, activeStoreId],
+    queryFn: () => listShowcaseMedia(tab, activeStoreId),
   });
 
   const [collection, setCollection] = useState<string>(ALL);

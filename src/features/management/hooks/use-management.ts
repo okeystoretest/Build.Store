@@ -8,9 +8,11 @@ import {
 } from "@/lib/db/management-repository";
 import { queryKeys } from "@/lib/db/query-keys";
 import { useRealtimeInvalidation } from "@/lib/db/use-realtime-invalidation";
+import { useActiveStoreId } from "@/features/stores/store-context";
 
 /**
- * Usuários, vendedoras, campanhas e metas ao vivo para a Gestão e o Dashboard.
+ * Usuários, vendedoras, campanhas e metas ao vivo para a Gestão e o Dashboard,
+ * escopados pela loja ativa (própria loja, ou a selecionada pelo admin).
  *
  * `loading` é verdadeiro enquanto QUALQUER uma das três consultas ainda está na
  * carga inicial (isPending). Isso evita que telas dependentes (ex.: Dashboard)
@@ -18,16 +20,23 @@ import { useRealtimeInvalidation } from "@/lib/db/use-realtime-invalidation";
  * chegaram — a race condition entre queries paralelas.
  */
 export function useManagement() {
+  const storeId = useActiveStoreId();
   useRealtimeInvalidation("profiles", queryKeys.users);
   useRealtimeInvalidation("campaigns", queryKeys.campaigns);
   useRealtimeInvalidation("goals", queryKeys.goals);
 
-  const usersQ = useQuery({ queryKey: queryKeys.users, queryFn: listUsers });
-  const campaignsQ = useQuery({
-    queryKey: queryKeys.campaigns,
-    queryFn: listCampaigns,
+  const usersQ = useQuery({
+    queryKey: [...queryKeys.users, storeId],
+    queryFn: () => listUsers(storeId),
   });
-  const goalsQ = useQuery({ queryKey: queryKeys.goals, queryFn: listGoals });
+  const campaignsQ = useQuery({
+    queryKey: [...queryKeys.campaigns, storeId],
+    queryFn: () => listCampaigns(storeId),
+  });
+  const goalsQ = useQuery({
+    queryKey: [...queryKeys.goals, storeId],
+    queryFn: () => listGoals(storeId),
+  });
 
   const users = usersQ.data ?? [];
   const campaigns = campaignsQ.data ?? [];

@@ -47,7 +47,7 @@ export function POSScreen() {
   const { campaigns } = useSaleMeta();
   // Vendedora responsável é o usuário logado — capturado automaticamente,
   // sem seleção manual (elimina redundância e erro de escolha).
-  const { userId, fullName } = useAuth();
+  const { userId, fullName, storeId } = useAuth();
 
   const [isCampaign, setIsCampaign] = useState(false);
   const [campaignId, setCampaignId] = useState<string | null>(null);
@@ -101,6 +101,12 @@ export function POSScreen() {
 
   const finalize = async () => {
     if (!canFinalize || saving) return;
+    if (!storeId) {
+      toast.error(
+        "Seu usuário não está vinculado a uma loja. Fale com o administrador.",
+      );
+      return;
+    }
     setSaving(true);
     try {
       await recordSale({
@@ -115,6 +121,7 @@ export function POSScreen() {
         sellerName: fullName,
         campaignId: isCampaign ? campaignId : null,
         invoiceNumber: invoiceNumber.trim(),
+        storeId,
       });
       cart.clear();
       tender.clear();

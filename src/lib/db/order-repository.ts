@@ -35,6 +35,8 @@ export interface RecordSaleInput {
   /** Número da Nota Fiscal informado no checkout. */
   invoiceNumber?: string | null;
   createdBy?: string | null;
+  /** Loja da venda (obrigatória no modelo multi-loja). */
+  storeId: string;
 }
 
 export async function recordSale(input: RecordSaleInput): Promise<Order> {
@@ -43,9 +45,10 @@ export async function recordSale(input: RecordSaleInput): Promise<Order> {
   const orderId = crypto.randomUUID();
   const now = new Date().toISOString();
 
-  // 1) Referência sequencial autoritativa do servidor (#PDD-XXX).
+  // 1) Referência sequencial autoritativa do servidor, por loja (#PDD-XXX).
   const { data: reference, error: refErr } = await supabase.rpc(
     "next_order_reference",
+    { p_store_id: input.storeId },
   );
   if (refErr) throw refErr;
 
@@ -98,6 +101,7 @@ export async function recordSale(input: RecordSaleInput): Promise<Order> {
     invoice_number: order.invoiceNumber,
     created_by: order.createdBy,
     created_at: order.createdAt,
+    store_id: input.storeId,
   });
   if (orderErr) throw orderErr;
 
@@ -116,6 +120,7 @@ export async function recordSale(input: RecordSaleInput): Promise<Order> {
         line_discount_cents: i.lineDiscountCents,
         color: i.color,
         size: i.size,
+        store_id: input.storeId,
       })),
     );
     if (itemsErr) throw itemsErr;
@@ -132,6 +137,7 @@ export async function recordSale(input: RecordSaleInput): Promise<Order> {
         // color+size fazem o gatilho baixar a célula certa da grade (Rosa/38).
         color: i.color,
         size: i.size,
+        store_id: input.storeId,
       })),
     );
     if (moveErr) throw moveErr;

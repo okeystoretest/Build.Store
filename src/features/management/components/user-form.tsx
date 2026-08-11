@@ -7,6 +7,8 @@ import { z } from "zod";
 import { Eye, EyeOff } from "lucide-react";
 import type { Role } from "@/types/domain";
 import { createUserAction } from "@/features/management/actions/create-user";
+import { useAuth } from "@/hooks/use-auth";
+import { useStores } from "@/features/stores/hooks/use-stores";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -21,6 +23,7 @@ const userSchema = z.object({
   birthDate: z.string().optional(),
   password: z.string().min(6, "Mínimo de 6 caracteres"),
   role: z.enum(["vendedora", "lojista", "admin"]),
+  storeId: z.string().optional(),
 });
 type UserValues = z.infer<typeof userSchema>;
 
@@ -38,15 +41,23 @@ const ROLE_LABELS: Record<Role, string> = {
 export function UserForm({ onCreated }: { onCreated: () => void }) {
   const [serverError, setServerError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const { role: callerRole } = useAuth();
+  const isAdmin = callerRole === "admin";
+  const { stores } = useStores();
   const {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<UserValues>({
     resolver: zodResolver(userSchema),
     defaultValues: { role: "vendedora" },
   });
+
+  // Admin escolhe a loja; para role=admin o campo some (usuário global).
+  const selectedRole = watch("role");
+  const showStorePicker = isAdmin && selectedRole !== "admin";
 
   const submit = async (values: UserValues) => {
     setServerError(null);
@@ -59,6 +70,7 @@ export function UserForm({ onCreated }: { onCreated: () => void }) {
         fullName: values.fullName,
         birthDate,
         role: values.role,
+        storeId: values.storeId || null,
       });
       if (!res.ok) {
         setServerError(res.error);
@@ -71,6 +83,7 @@ export function UserForm({ onCreated }: { onCreated: () => void }) {
         fullName: "",
         birthDate: "",
         password: "",
+        storeId: "",
       });
       onCreated();
     } catch (e) {
@@ -112,6 +125,20 @@ export function UserForm({ onCreated }: { onCreated: () => void }) {
           </Select>
         </div>
       </div>
+
+      {showStorePicker && (
+        <div className="space-y-1.5">
+          <Label>Loja</Label>
+          <Select {...register("storeId")} defaultValue="">
+            <option value="">Selecione a loja...</option>
+            {stores.map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
 
       <div className="space-y-1.5">
         <Label>Senha</Label>

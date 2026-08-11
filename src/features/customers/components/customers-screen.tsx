@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { UserPlus, Pencil, Trash2, RefreshCw } from "lucide-react";
 import { useCustomers } from "@/features/customers/hooks/use-customers";
+import { useActiveStoreId } from "@/features/stores/store-context";
 import {
   createCustomer,
   updateCustomer,
@@ -194,6 +195,7 @@ function CustomerForm({
   onSaved: () => void;
 }) {
   const toast = useToast();
+  const activeStoreId = useActiveStoreId();
   const [code, setCode] = useState(initial?.code ?? "");
   const [name, setName] = useState(initial?.name ?? "");
   const [phone, setPhone] = useState(
@@ -208,7 +210,7 @@ function CustomerForm({
   useEffect(() => {
     if (initial) return;
     let active = true;
-    nextCustomerCode()
+    nextCustomerCode(activeStoreId)
       .then((c) => {
         if (active) setCode(c);
       })
@@ -216,7 +218,7 @@ function CustomerForm({
     return () => {
       active = false;
     };
-  }, [initial]);
+  }, [initial, activeStoreId]);
 
   const submit = async () => {
     setError(null);
@@ -242,12 +244,20 @@ function CustomerForm({
           email: emailTrim || null,
         });
       } else {
+        if (!activeStoreId) {
+          setError(
+            "Selecione uma loja específica no seletor para cadastrar clientes.",
+          );
+          setSaving(false);
+          return;
+        }
         await createCustomer({
           code: code.trim(),
           name: name.trim(),
           phone: phone || null,
           instagram: igTrim || null,
           email: emailTrim || null,
+          storeId: activeStoreId,
         });
       }
       onSaved();

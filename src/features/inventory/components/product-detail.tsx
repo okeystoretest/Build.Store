@@ -10,6 +10,7 @@ import { gradeTotal, variationQty } from "@/lib/db/grade";
 import { upsertProduct } from "@/lib/db/product-repository";
 import { queryKeys } from "@/lib/db/query-keys";
 import { useAuth } from "@/hooks/use-auth";
+import { useActiveStoreId } from "@/features/stores/store-context";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ export function ProductDetail({ product }: { product: Product }) {
   const queryClient = useQueryClient();
   const toast = useToast();
   const { role } = useAuth();
+  const activeStoreId = useActiveStoreId();
   // Somente Lojista e Vendedora podem editar o endereço do produto.
   const canEditAddress = role === "lojista" || role === "vendedora";
 
@@ -43,9 +45,16 @@ export function ProductDetail({ product }: { product: Product }) {
   const dirty = (address.trim() || null) !== (product.address ?? null);
 
   const saveAddress = async () => {
+    if (!activeStoreId) {
+      toast.error("Selecione uma loja específica no seletor para editar.");
+      return;
+    }
     setSaving(true);
     try {
-      await upsertProduct({ ...product, address: address.trim() || null });
+      await upsertProduct(
+        { ...product, address: address.trim() || null },
+        activeStoreId,
+      );
       await queryClient.invalidateQueries({ queryKey: queryKeys.products });
       toast.success("Endereço do produto atualizado.");
     } catch {

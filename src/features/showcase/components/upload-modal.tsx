@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Upload, FileVideo, FileImage, File as FileIcon } from "lucide-react";
 import type { ShowcaseSeason, ShowcaseTab } from "@/types/domain";
 import { addShowcaseMedia } from "@/lib/db/showcase-repository";
+import { useStoreContext } from "@/features/stores/store-context";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +50,7 @@ function TabIcon({ tab }: { tab: ShowcaseTab }) {
  */
 export function UploadModal({ open, tab, onClose, onUploaded }: UploadModalProps) {
   const toast = useToast();
+  const { activeStoreId } = useStoreContext();
   const [file, setFile] = useState<{ name: string; url: string; type: string } | null>(null);
   const [collectionName, setCollectionName] = useState("");
   const [season, setSeason] = useState<ShowcaseSeason>("primavera_verao");
@@ -77,6 +79,12 @@ export function UploadModal({ open, tab, onClose, onUploaded }: UploadModalProps
 
   const submit = async () => {
     if (!canSubmit || !file) return;
+    if (!activeStoreId) {
+      toast.error(
+        "Selecione uma loja específica no seletor para publicar mídia.",
+      );
+      return;
+    }
     setSaving(true);
     try {
       await addShowcaseMedia({
@@ -88,6 +96,7 @@ export function UploadModal({ open, tab, onClose, onUploaded }: UploadModalProps
         season,
         releaseMonth: month,
         releaseYear: year,
+        storeId: activeStoreId,
       });
       toast.success("Mídia publicada na Vitrine.");
       reset();

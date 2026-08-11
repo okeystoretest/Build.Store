@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { createCampaign } from "@/lib/db/management-repository";
+import { useActiveStoreId } from "@/features/stores/store-context";
+import { useToast } from "@/components/ui/toast";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -10,13 +12,21 @@ import { Button } from "@/components/ui/button";
 export function CampaignForm({ onCreated }: { onCreated: () => void }) {
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
+  const activeStoreId = useActiveStoreId();
+  const toast = useToast();
 
   const submit = async () => {
     const trimmed = name.trim();
     if (!trimmed) return;
+    if (!activeStoreId) {
+      toast.error(
+        "Selecione uma loja específica no seletor para criar campanhas.",
+      );
+      return;
+    }
     setSaving(true);
     try {
-      await createCampaign(trimmed);
+      await createCampaign(trimmed, activeStoreId);
       setName("");
       onCreated();
     } finally {

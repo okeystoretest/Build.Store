@@ -15,6 +15,8 @@ import {
 import { parseToCents } from "@/lib/utils/money";
 import { queryKeys } from "@/lib/db/query-keys";
 import { setStoreName, setStoreLogo } from "@/lib/db/settings-repository";
+import { useStoreContext } from "@/features/stores/store-context";
+import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/components/ui/toast";
 import { useStoreName } from "@/hooks/use-store-name";
 import { useStoreLogo } from "@/hooks/use-store-logo";
@@ -42,6 +44,8 @@ type Tool = "users" | "campaigns" | "goals" | "store";
  */
 export function ManagementScreen() {
   const m = useManagement();
+  const { role } = useAuth();
+  const isAdmin = role === "admin";
   const [tool, setTool] = useState<Tool>("users");
 
   // Invalidação por área após escritas; o Realtime também converge entre
@@ -87,14 +91,17 @@ export function ManagementScreen() {
               { value: "users", label: "Usuários", icon: <UserPlus className="h-4 w-4" strokeWidth={1.75} /> },
               { value: "campaigns", label: "Campanhas", icon: <Megaphone className="h-4 w-4" strokeWidth={1.75} /> },
               { value: "goals", label: "Metas", icon: <Target className="h-4 w-4" strokeWidth={1.75} /> },
-              { value: "store", label: "Loja", icon: <Store className="h-4 w-4" strokeWidth={1.75} /> },
+              // "Loja" (nome/logo da loja) é exclusivo do Admin (requisito 5).
+              ...(isAdmin
+                ? [{ value: "store" as const, label: "Loja", icon: <Store className="h-4 w-4" strokeWidth={1.75} /> }]
+                : []),
             ]}
           />
         </div>
       </header>
 
       <div className="flex-1 overflow-y-auto px-margin py-md">
-        {tool === "store" ? (
+        {tool === "store" && isAdmin ? (
           <StoreSettings />
         ) : (
           <div className="grid grid-cols-1 gap-md lg:grid-cols-[minmax(360px,440px)_1fr]">
@@ -132,7 +139,7 @@ export function ManagementScreen() {
 
           {/* List column */}
           <div className="rounded-lg bg-surface-container-lowest p-md shadow-level-1">
-            {tool === "users" && <UsersList users={m.users} />}
+            {tool === "users" && <UsersList users={m.users} isAdmin={isAdmin} />}
             {tool === "campaigns" && <CampaignsList campaigns={m.campaigns} />}
             {tool === "goals" && (
               <GoalsList
@@ -178,7 +185,13 @@ function ActionButtons({
   );
 }
 
-function UsersList({ users }: { users: ReturnType<typeof useManagement>["users"] }) {
+function UsersList({
+  users,
+  isAdmin,
+}: {
+  users: ReturnType<typeof useManagement>["users"];
+  isAdmin: boolean;
+}) {
   const toast = useToast();
   const storeLogo = useStoreLogo();
   const [editing, setEditing] = useState<User | null>(null);
@@ -187,14 +200,17 @@ function UsersList({ users }: { users: ReturnType<typeof useManagement>["users"]
   const invalidateUsers = () =>
     queryClient.invalidateQueries({ queryKey: queryKeys.users });
 
+  // Defesa em profundidade: além da RLS, um não-admin nunca vê linhas de admin.
+  const visibleUsers = isAdmin ? users : users.filter((u) => u.role !== "admin");
+
   return (
     <>
       <h3 className="mb-md text-headline-md text-on-surface">Usuários</h3>
-      {users.length === 0 ? (
+      {visibleUsers.length === 0 ? (
         <Empty text="Nenhum usuário cadastrado." />
       ) : (
         <ul className="space-y-sm">
-          {users.map((u) => (
+          {visibleUsers.map((u) => (
             <li
               key={u.id}
               className="flex items-center justify-between gap-3 rounded-md bg-surface-container-low px-3 py-sm sm:gap-md sm:px-md"
@@ -565,6 +581,7 @@ function Empty({ text }: { text: string }) {
  */
 function StoreSettings() {
   const toastStore = useToast();
+  const { activeStoreId } = useStoreContext();
   const currentName = useStoreName();
   const currentLogo = useStoreLogo();
   const queryClient = useQueryClient();
@@ -594,11 +611,17 @@ function StoreSettings() {
 
   const save = async () => {
     if (!name.trim()) return;
+    if (!activeStoreId) {
+      toastStore.error(
+        "Selecione uma loja específica no seletor para editar nome e logo.",
+      );
+      return;
+    }
     setSaving(true);
     setSaved(false);
     try {
-      await setStoreName(name.trim());
-      await setStoreLogo(logo);
+      await setStoreName(activeStoreId, name.trim());
+      await setStoreLogo(activeStoreId, logo);
       toastStore.success("Dados da loja atualizados.");
       await queryClient.invalidateQueries({ queryKey: queryKeys.settings });
       setSaved(true);

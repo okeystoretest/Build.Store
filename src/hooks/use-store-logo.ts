@@ -2,18 +2,19 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { getStoreLogo } from "@/lib/db/settings-repository";
-import { queryKeys } from "@/lib/db/query-keys";
 import { useRealtimeInvalidation } from "@/lib/db/use-realtime-invalidation";
+import { useStoreContext } from "@/features/stores/store-context";
 
 /**
- * Logotipo da loja (global). Realtime na tabela `settings` propaga a alteração
- * feita na Gestão para todos os dispositivos. Retorna null quando não há logo.
+ * Logotipo da loja ATIVA. Segue a mesma resolução de loja do useStoreName.
+ * Retorna null quando não há logo (ou admin em "todas as lojas").
  */
 export function useStoreLogo(): string | null {
-  useRealtimeInvalidation("settings", queryKeys.settings);
+  const { activeStoreId } = useStoreContext();
+  useRealtimeInvalidation("settings", ["settings"]);
   const { data } = useQuery({
-    queryKey: [...queryKeys.settings, "logo"],
-    queryFn: getStoreLogo,
+    queryKey: ["settings", "logo", activeStoreId],
+    queryFn: () => getStoreLogo(activeStoreId),
   });
   return data ?? null;
 }

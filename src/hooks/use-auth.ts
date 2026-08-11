@@ -11,6 +11,8 @@ export interface AuthState {
   fullName: string | null;
   photoUrl: string | null;
   role: Role;
+  /** Loja do usuário. null = admin global (todas as lojas). */
+  storeId: string | null;
 }
 
 /**
@@ -31,6 +33,7 @@ export function useAuth() {
     fullName: null,
     photoUrl: null,
     role: "vendedora",
+    storeId: null,
   });
 
   useEffect(() => {
@@ -49,7 +52,7 @@ export function useAuth() {
 
       const { data: profile, error } = await supabase
         .from("profiles")
-        .select("full_name, role, photo_url")
+        .select("full_name, role, photo_url, store_id")
         .eq("id", user.id)
         .maybeSingle();
 
@@ -72,6 +75,7 @@ export function useAuth() {
           fullName: profile?.full_name ?? null,
           photoUrl: (profile?.photo_url as string | null) ?? null,
           role: (profile?.role as Role) ?? "vendedora",
+          storeId: (profile?.store_id as string | null) ?? null,
         });
       }
     })();
