@@ -5,7 +5,7 @@
   "engines": { "node": "20.x" },
   "scripts": {
     "dev": "next dev",
-    "build": "echo DEBUG_START; pwd; ls -la src/components/ui/ 2>&1; ls -la src/features/auth/actions/ 2>&1; find src -iname 'button.tsx' 2>&1; find src -iname 'auth.ts' 2>&1; cat tsconfig.json; echo DEBUG_END; next build",
+    "build": "rm -rf .next/cache node_modules/.cache && next build",
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit"
