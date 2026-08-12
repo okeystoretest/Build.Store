@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { listOrders } from "@/lib/db/order-repository";
+import { listOrdersAction } from "@/features/orders/actions/orders";
 import { queryKeys } from "@/lib/db/query-keys";
 import { useRealtimeInvalidation } from "@/lib/db/use-realtime-invalidation";
 import type { Order } from "@/types/domain";
@@ -17,7 +17,7 @@ export function useLiveOrdersQuery() {
   useRealtimeInvalidation("orders", queryKeys.orders);
   return useQuery({
     queryKey: queryKeys.orders,
-    queryFn: listOrders,
+    queryFn: listOrdersAction,
   });
 }
 

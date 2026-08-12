@@ -5,16 +5,16 @@ import { useQueryClient } from "@tanstack/react-query";
 import { UserPlus, Megaphone, Target, Pencil, Trash2 } from "lucide-react";
 import { useManagement } from "@/features/management/hooks/use-management";
 import {
-  updateUser,
-  deleteUser,
-  updateCampaign,
-  deleteCampaign,
-  updateGoal,
-  deleteGoal,
-} from "@/lib/db/management-repository";
+  updateUserAction,
+  deleteUserAction,
+  updateCampaignAction,
+  deleteCampaignAction,
+  updateGoalAction,
+  deleteGoalAction,
+} from "@/features/management/actions/management";
 import { parseToCents } from "@/lib/utils/money";
 import { queryKeys } from "@/lib/db/query-keys";
-import { setStoreName, setStoreLogo } from "@/lib/db/settings-repository";
+import { setStoreNameAction, setStoreLogoAction } from "@/features/settings/actions/settings";
 import { useStoreContext } from "@/features/stores/store-context";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/components/ui/toast";
@@ -254,7 +254,7 @@ function UsersList({
         label={confirm?.fullName ?? ""}
         onCancel={() => setConfirm(null)}
         onConfirm={async () => {
-          if (confirm) { await deleteUser(confirm.id); void invalidateUsers(); toast.success("Usuário removido."); }
+          if (confirm) { await deleteUserAction(confirm.id); void invalidateUsers(); toast.success("Usuário removido."); }
           setConfirm(null);
         }}
       />
@@ -269,7 +269,7 @@ function UserEditForm({ user, onDone }: { user: User; onDone: () => void }) {
   const [role, setRole] = useState<Role>(user.role);
 
   const save = async () => {
-    await updateUser(user.id, {
+    await updateUserAction(user.id, {
       fullName: fullName.trim(),
       birthDate: birthDate || null,
       role,
@@ -382,7 +382,7 @@ function CampaignsList({
               </Button>
               <Button
                 onClick={async () => {
-                  await updateCampaign(editing.id, {
+                  await updateCampaignAction(editing.id, {
                     name: name.trim(),
                     active: editing.active,
                   });
@@ -403,7 +403,7 @@ function CampaignsList({
         label={confirm?.name ?? ""}
         onCancel={() => setConfirm(null)}
         onConfirm={async () => {
-          if (confirm) { await deleteCampaign(confirm.id); void invalidateCampaigns(); toast.success("Campanha removida."); }
+          if (confirm) { await deleteCampaignAction(confirm.id); void invalidateCampaigns(); toast.success("Campanha removida."); }
           setConfirm(null);
         }}
       />
@@ -506,7 +506,7 @@ function GoalsList({
               </Button>
               <Button
                 onClick={async () => {
-                  await updateGoal(editing.id, {
+                  await updateGoalAction(editing.id, {
                     targetCents:
                       editing.type === "general" ? parseToCents(amount) : null,
                     targetQuantity:
@@ -528,7 +528,7 @@ function GoalsList({
         label={confirm ? `meta de ${sellerName(confirm.sellerId)}` : ""}
         onCancel={() => setConfirm(null)}
         onConfirm={async () => {
-          if (confirm) { await deleteGoal(confirm.id); void invalidateGoals(); toast.success("Meta removida."); }
+          if (confirm) { await deleteGoalAction(confirm.id); void invalidateGoals(); toast.success("Meta removida."); }
           setConfirm(null);
         }}
       />
@@ -620,8 +620,8 @@ function StoreSettings() {
     setSaving(true);
     setSaved(false);
     try {
-      await setStoreName(activeStoreId, name.trim());
-      await setStoreLogo(activeStoreId, logo);
+      await setStoreNameAction(activeStoreId, name.trim());
+      await setStoreLogoAction(activeStoreId, logo);
       toastStore.success("Dados da loja atualizados.");
       await queryClient.invalidateQueries({ queryKey: queryKeys.settings });
       setSaved(true);

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ShowcaseMedia, ShowcaseTab } from "@/types/domain";
-import { listShowcaseMedia } from "@/lib/db/showcase-repository";
+import { listShowcaseMediaAction } from "@/features/showcase/actions/showcase";
 import { queryKeys } from "@/lib/db/query-keys";
 import { useRealtimeInvalidation } from "@/lib/db/use-realtime-invalidation";
 import { useStoreContext } from "@/features/stores/store-context";
@@ -21,7 +21,7 @@ export function useShowcase(tab: ShowcaseTab) {
 
   const listQ = useQuery({
     queryKey: [...queryKeys.showcase, tab, activeStoreId],
-    queryFn: () => listShowcaseMedia(tab, activeStoreId),
+    queryFn: () => listShowcaseMediaAction(tab, activeStoreId),
   });
 
   const [collection, setCollection] = useState<string>(ALL);

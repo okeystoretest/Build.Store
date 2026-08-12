@@ -2,9 +2,9 @@
 
 import { useQuery } from "@tanstack/react-query";
 import {
-  listSellers,
-  listActiveCampaigns,
-} from "@/lib/db/management-repository";
+  listSellersAction,
+  listActiveCampaignsAction,
+} from "@/features/management/actions/management";
 import { queryKeys } from "@/lib/db/query-keys";
 import { useRealtimeInvalidation } from "@/lib/db/use-realtime-invalidation";
 import { useActiveStoreId } from "@/features/stores/store-context";
@@ -20,11 +20,11 @@ export function useSaleMeta() {
 
   const sellersQ = useQuery({
     queryKey: [...queryKeys.users, "sellers", storeId],
-    queryFn: () => listSellers(storeId),
+    queryFn: () => listSellersAction(storeId),
   });
   const campaignsQ = useQuery({
     queryKey: [...queryKeys.campaigns, "active", storeId],
-    queryFn: () => listActiveCampaigns(storeId),
+    queryFn: () => listActiveCampaignsAction(storeId),
   });
 
   return {

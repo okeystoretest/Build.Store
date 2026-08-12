@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { User, Campaign, GoalType } from "@/types/domain";
-import { createGoal } from "@/lib/db/management-repository";
+import { createGoalAction } from "@/features/management/actions/management";
 import { useActiveStoreId } from "@/features/stores/store-context";
 import { useToast } from "@/components/ui/toast";
 import { parseToCents } from "@/lib/utils/money";
@@ -46,7 +46,7 @@ export function GoalForm({ sellers, campaigns, onCreated }: GoalFormProps) {
 
     setSaving(true);
     try {
-      await createGoal({
+      await createGoalAction({
         sellerId,
         type,
         campaignId: type === "campaign" ? campaignId : null,

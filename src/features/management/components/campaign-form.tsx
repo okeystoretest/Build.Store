@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createCampaign } from "@/lib/db/management-repository";
+import { createCampaignAction } from "@/features/management/actions/management";
 import { useActiveStoreId } from "@/features/stores/store-context";
 import { useToast } from "@/components/ui/toast";
 import { Input } from "@/components/ui/input";
@@ -26,7 +26,7 @@ export function CampaignForm({ onCreated }: { onCreated: () => void }) {
     }
     setSaving(true);
     try {
-      await createCampaign(trimmed, activeStoreId);
+      await createCampaignAction(trimmed, activeStoreId);
       setName("");
       onCreated();
     } finally {

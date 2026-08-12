@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { listProducts } from "@/lib/db/product-repository";
+import { listProductsAction } from "@/features/inventory/actions/products";
 import { queryKeys } from "@/lib/db/query-keys";
 import { useRealtimeInvalidation } from "@/lib/db/use-realtime-invalidation";
 import { useActiveStoreId } from "@/features/stores/store-context";
@@ -17,7 +17,7 @@ export function useLiveProductsQuery() {
   useRealtimeInvalidation("products", queryKeys.products);
   return useQuery({
     queryKey: [...queryKeys.products, storeId],
-    queryFn: () => listProducts(storeId),
+    queryFn: () => listProductsAction(storeId),
   });
 }
 

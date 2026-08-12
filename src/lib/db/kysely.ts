@@ -31,9 +31,29 @@ function getPool(): Pool {
   return global.__pgPool;
 }
 
-/** Instância Kysely global (para consultas sem escopo de usuário, ex.: login). */
-export const db = new Kysely<Database>({
-  dialect: new PostgresDialect({ pool: getPool() }),
+/** Instância Kysely global (lazy — só conecta no primeiro uso, não no build). */
+let _db: Kysely<Database> | undefined;
+
+export function getDb(): Kysely<Database> {
+  if (!_db) {
+    _db = new Kysely<Database>({
+      dialect: new PostgresDialect({ pool: getPool() }),
+    });
+  }
+  return _db;
+}
+
+/**
+ * Proxy que resolve para a instância real no primeiro acesso. Mantém a API
+ * `db.selectFrom(...)` nos chamadores sem construir o Pool no import (o build do
+ * Next coleta dados das rotas sem DATABASE_URL, e a construção ansiosa quebrava).
+ */
+export const db: Kysely<Database> = new Proxy({} as Kysely<Database>, {
+  get(_target, prop, receiver) {
+    const real = getDb();
+    const value = Reflect.get(real as object, prop, receiver);
+    return typeof value === "function" ? value.bind(real) : value;
+  },
 });
 
 /**

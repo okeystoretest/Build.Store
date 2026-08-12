@@ -1,0 +1,74 @@
+"use server";
+
+import { randomUUID } from "crypto";
+import { withCurrentUser } from "@/lib/db/with-current-user";
+import { toMedia, retentionCutoffISO } from "@/features/showcase/lib/showcase";
+import type {
+  ShowcaseMedia,
+  ShowcaseSeason,
+  ShowcaseTab,
+} from "@/types/domain";
+
+/**
+ * Server Actions da Vitrine — Kysely + RLS por sessão. Corte de 90 dias aplicado
+ * na leitura (defensivo contra atraso do cron de limpeza). Insert só admin
+ * (RLS 0004) e sempre carimbando a loja ativa.
+ */
+
+export async function listShowcaseMediaAction(
+  tab: ShowcaseTab,
+  storeId?: string | null,
+): Promise<ShowcaseMedia[]> {
+  const cutoff = retentionCutoffISO();
+  return withCurrentUser(async (trx) => {
+    let q = trx
+      .selectFrom("showcase_media")
+      .selectAll()
+      .where("tab", "=", tab)
+      .where("created_at", ">=", cutoff);
+    if (storeId) q = q.where("store_id", "=", storeId);
+    const rows = await q.orderBy("created_at", "desc").execute();
+    return rows.map((r) => toMedia(r as Record<string, unknown>));
+  });
+}
+
+export interface NewShowcaseMedia {
+  tab: ShowcaseTab;
+  title: string;
+  fileUrl: string;
+  mimeType: string | null;
+  collectionName: string;
+  season: ShowcaseSeason;
+  releaseMonth: number;
+  releaseYear: number;
+  storeId: string;
+}
+
+export async function addShowcaseMediaAction(
+  input: NewShowcaseMedia,
+): Promise<void> {
+  await withCurrentUser(async (trx) => {
+    await trx
+      .insertInto("showcase_media")
+      .values({
+        id: randomUUID(),
+        tab: input.tab,
+        title: input.title,
+        file_url: input.fileUrl,
+        mime_type: input.mimeType,
+        collection_name: input.collectionName,
+        season: input.season,
+        release_month: input.releaseMonth,
+        release_year: input.releaseYear,
+        store_id: input.storeId,
+        created_at: new Date().toISOString(),
+      } as never)
+      .execute();
+  });
+}
+
+export async function deleteShowcaseMediaAction(id: string): Promise<void> {
+  await withCurrentUser(async (trx) => {
+    await trx.deleteFrom("showcase_media").where("id", "=", id).execute();
+  });
+}

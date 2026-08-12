@@ -7,7 +7,7 @@ import type { Product } from "@/types/domain";
 import { GRADE_SIZES } from "@/types/domain";
 import { formatBRL } from "@/lib/utils/money";
 import { gradeTotal, variationQty } from "@/lib/db/grade";
-import { upsertProduct } from "@/lib/db/product-repository";
+import { upsertProductAction } from "@/features/inventory/actions/products";
 import { queryKeys } from "@/lib/db/query-keys";
 import { useAuth } from "@/hooks/use-auth";
 import { useActiveStoreId } from "@/features/stores/store-context";
@@ -51,7 +51,7 @@ export function ProductDetail({ product }: { product: Product }) {
     }
     setSaving(true);
     try {
-      await upsertProduct(
+      await upsertProductAction(
         { ...product, address: address.trim() || null },
         activeStoreId,
       );

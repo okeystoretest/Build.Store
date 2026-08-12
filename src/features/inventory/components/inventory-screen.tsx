@@ -5,9 +5,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { X, Search, Plus, Package, AlertTriangle, Cloud, LayoutGrid, List } from "lucide-react";
 import type { Product } from "@/types/domain";
 import { useInventory } from "@/features/inventory/hooks/use-inventory";
-import { upsertProduct, deleteProduct } from "@/lib/db/product-repository";
+import { upsertProductAction, deleteProductAction } from "@/features/inventory/actions/products";
 import { useToast } from "@/components/ui/toast";
-import { notifyProductAdded } from "@/lib/db/notification-repository";
+import { notifyProductAddedAction } from "@/features/notifications/actions/notifications";
 import { queryKeys } from "@/lib/db/query-keys";
 import { useAuth } from "@/hooks/use-auth";
 import { useActiveStoreId } from "@/features/stores/store-context";
@@ -51,7 +51,7 @@ export function InventoryScreen() {
 
   const handleDelete = async (product: Product) => {
     if (!canManage) return;
-    await deleteProduct(product.id);
+    await deleteProductAction(product.id);
     await queryClient.invalidateQueries({ queryKey: queryKeys.products });
     toast.success("Produto removido do estoque.");
     closeModal();
@@ -88,10 +88,10 @@ export function InventoryScreen() {
       );
       return;
     }
-    await upsertProduct(product, activeStoreId);
+    await upsertProductAction(product, activeStoreId);
     // A new product added by an Admin notifies the other users.
     if (isNew && canAddProducts) {
-      await notifyProductAdded(product, activeStoreId);
+      await notifyProductAddedAction(product, activeStoreId);
       await queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
     }
     await queryClient.invalidateQueries({ queryKey: queryKeys.products });

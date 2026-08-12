@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { createClient } from "@/lib/supabase/client";
+import { me, logoutAction } from "@/features/auth/actions/auth";
 import type { Role } from "@/types/domain";
 
 export interface AuthState {
   loading: boolean;
   userId: string | null;
-  email: string | null;
   fullName: string | null;
   photoUrl: string | null;
   role: Role;
@@ -16,9 +15,9 @@ export interface AuthState {
 }
 
 /**
- * Sessão atual + papel, lidos do Supabase (online-only). O middleware já
- * protege as rotas por cookie; aqui resolvemos o profile para papel, nome e
- * foto.
+ * Sessão atual + papel, resolvidos pela auth própria (Lucia) via a server action
+ * me(). O middleware protege as rotas por cookie; aqui buscamos o profile para
+ * papel, nome e foto.
  *
  * Regras de acesso (por spec):
  * - vendedora: sem Relatórios, sem Gestão.
@@ -29,7 +28,6 @@ export function useAuth() {
   const [state, setState] = useState<AuthState>({
     loading: true,
     userId: null,
-    email: null,
     fullName: null,
     photoUrl: null,
     role: "vendedora",
@@ -37,49 +35,23 @@ export function useAuth() {
   });
 
   useEffect(() => {
-    const supabase = createClient();
     let active = true;
-
     (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        if (active) setState((s) => ({ ...s, loading: false }));
-        return;
-      }
-
-      const { data: profile, error } = await supabase
-        .from("profiles")
-        .select("full_name, role, photo_url, store_id")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (error) {
-        console.error("[useAuth] Falha ao ler profile:", error.message);
-      }
-      if (!profile) {
-        console.warn(
-          "[useAuth] Profile não encontrado para o usuário",
-          user.id,
-          "— verifique se o trigger handle_new_user criou a linha em profiles.",
-        );
-      }
-
-      if (active) {
+      try {
+        const res = await me();
+        if (!active) return;
         setState({
           loading: false,
-          userId: user.id,
-          email: user.email ?? null,
-          fullName: profile?.full_name ?? null,
-          photoUrl: (profile?.photo_url as string | null) ?? null,
-          role: (profile?.role as Role) ?? "vendedora",
-          storeId: (profile?.store_id as string | null) ?? null,
+          userId: res.userId,
+          fullName: res.fullName,
+          photoUrl: res.photoUrl,
+          role: res.role,
+          storeId: res.storeId,
         });
+      } catch {
+        if (active) setState((s) => ({ ...s, loading: false }));
       }
     })();
-
     return () => {
       active = false;
     };
@@ -97,7 +69,8 @@ export function useAuth() {
   const canUploadShowcase = role === "admin"; // só admin envia mídia na Vitrine
 
   const signOut = useCallback(async () => {
-    await createClient().auth.signOut();
+    await logoutAction();
+    // logoutAction faz redirect no servidor; fallback client:
     window.location.href = "/login";
   }, []);
 

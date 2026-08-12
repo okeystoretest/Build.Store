@@ -2,10 +2,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 import {
-  listUsers,
-  listCampaigns,
-  listGoals,
-} from "@/lib/db/management-repository";
+  listUsersAction,
+  listCampaignsAction,
+  listGoalsAction,
+} from "@/features/management/actions/management";
 import { queryKeys } from "@/lib/db/query-keys";
 import { useRealtimeInvalidation } from "@/lib/db/use-realtime-invalidation";
 import { useActiveStoreId } from "@/features/stores/store-context";
@@ -27,15 +27,15 @@ export function useManagement() {
 
   const usersQ = useQuery({
     queryKey: [...queryKeys.users, storeId],
-    queryFn: () => listUsers(storeId),
+    queryFn: () => listUsersAction(storeId),
   });
   const campaignsQ = useQuery({
     queryKey: [...queryKeys.campaigns, storeId],
-    queryFn: () => listCampaigns(storeId),
+    queryFn: () => listCampaignsAction(storeId),
   });
   const goalsQ = useQuery({
     queryKey: [...queryKeys.goals, storeId],
-    queryFn: () => listGoals(storeId),
+    queryFn: () => listGoalsAction(storeId),
   });
 
   const users = usersQ.data ?? [];

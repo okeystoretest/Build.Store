@@ -4,7 +4,7 @@ import { Search, Cloud, ChevronLeft, ChevronRight } from "lucide-react";
 import { useOrders, type StatusFilter } from "@/features/orders/hooks/use-orders";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
-import { deleteOrder } from "@/lib/db/order-repository";
+import { deleteOrderAction } from "@/features/orders/actions/orders";
 import { queryKeys } from "@/lib/db/query-keys";
 import { useAuth } from "@/hooks/use-auth";
 import { OrdersTable } from "./orders-table";
@@ -48,7 +48,7 @@ export function OrdersScreen() {
     );
     if (!ok) return;
     // Repõe o estoque e apaga o pedido; invalida para refletir na hora.
-    await deleteOrder(order.id);
+    await deleteOrderAction(order.id);
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: queryKeys.orders }),
       queryClient.invalidateQueries({ queryKey: queryKeys.products }),

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Upload, FileVideo, FileImage, File as FileIcon } from "lucide-react";
 import type { ShowcaseSeason, ShowcaseTab } from "@/types/domain";
-import { addShowcaseMedia } from "@/lib/db/showcase-repository";
+import { addShowcaseMediaAction } from "@/features/showcase/actions/showcase";
 import { useStoreContext } from "@/features/stores/store-context";
 import { Modal } from "@/components/ui/modal";
 import { Input } from "@/components/ui/input";
@@ -87,7 +87,7 @@ export function UploadModal({ open, tab, onClose, onUploaded }: UploadModalProps
     }
     setSaving(true);
     try {
-      await addShowcaseMedia({
+      await addShowcaseMediaAction({
         tab,
         title: file.name,
         fileUrl: file.url,

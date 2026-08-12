@@ -10,7 +10,7 @@ import { useTender } from "@/features/pos/hooks/use-tender";
 import { useLiveProductsQuery } from "@/features/inventory/hooks/use-live-products";
 import { useSaleMeta } from "@/features/pos/hooks/use-sale-meta";
 import { useAuth } from "@/hooks/use-auth";
-import { recordSale } from "@/lib/db/order-repository";
+import { recordSaleAction } from "@/features/orders/actions/orders";
 import { queryKeys } from "@/lib/db/query-keys";
 import { cn } from "@/lib/utils/cn";
 import { TopBar } from "./top-bar";
@@ -109,7 +109,7 @@ export function POSScreen() {
     }
     setSaving(true);
     try {
-      await recordSale({
+      await recordSaleAction({
         items: cart.items,
         globalDiscountCents: cart.globalDiscountCents,
         paymentMethod: method,

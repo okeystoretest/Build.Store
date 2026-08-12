@@ -14,7 +14,7 @@ import {
 import type { ShowcaseMedia, ShowcaseSeason, ShowcaseTab } from "@/types/domain";
 import { useShowcase } from "@/features/showcase/hooks/use-showcase";
 import { useAuth } from "@/hooks/use-auth";
-import { deleteShowcaseMedia } from "@/lib/db/showcase-repository";
+import { deleteShowcaseMediaAction } from "@/features/showcase/actions/showcase";
 import { queryKeys } from "@/lib/db/query-keys";
 import { useToast } from "@/components/ui/toast";
 import { ToggleGroup } from "@/components/ui/toggle-group";
@@ -62,7 +62,7 @@ export function ShowcaseScreen() {
     void queryClient.invalidateQueries({ queryKey: queryKeys.showcase });
 
   const handleDelete = async (m: ShowcaseMedia) => {
-    await deleteShowcaseMedia(m.id);
+    await deleteShowcaseMediaAction(m.id);
     refresh();
     toast.success("Mídia removida.");
   };

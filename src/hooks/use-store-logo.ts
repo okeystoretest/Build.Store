@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { getStoreLogo } from "@/lib/db/settings-repository";
+import { getStoreLogoAction } from "@/features/settings/actions/settings";
 import { useRealtimeInvalidation } from "@/lib/db/use-realtime-invalidation";
 import { useStoreContext } from "@/features/stores/store-context";
 
@@ -14,7 +14,7 @@ export function useStoreLogo(): string | null {
   useRealtimeInvalidation("settings", ["settings"]);
   const { data } = useQuery({
     queryKey: ["settings", "logo", activeStoreId],
-    queryFn: () => getStoreLogo(activeStoreId),
+    queryFn: () => getStoreLogoAction(activeStoreId),
   });
   return data ?? null;
 }

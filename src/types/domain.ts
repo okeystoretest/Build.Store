@@ -1,7 +1,7 @@
 /**
  * Build.Store — Domain model.
  * Single source of truth for entities shared across features.
- * These types mirror the Supabase schema (see supabase/schema.sql). The app is
+ * These types mirror the Postgres schema (see supabase/migrations/). The app is
  * online-only: every read and write goes straight to Supabase.
  */
 

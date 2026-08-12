@@ -6,11 +6,11 @@ import { UserPlus, Pencil, Trash2, RefreshCw } from "lucide-react";
 import { useCustomers } from "@/features/customers/hooks/use-customers";
 import { useActiveStoreId } from "@/features/stores/store-context";
 import {
-  createCustomer,
-  updateCustomer,
-  deleteCustomer,
-  nextCustomerCode,
-} from "@/lib/db/customer-repository";
+  createCustomerAction,
+  updateCustomerAction,
+  deleteCustomerAction,
+  nextCustomerCodeAction,
+} from "@/features/customers/actions/customers";
 import { queryKeys } from "@/lib/db/query-keys";
 import { formatPhone } from "@/lib/utils/phone";
 import type { Customer } from "@/types/domain";
@@ -165,7 +165,7 @@ export function CustomersScreen() {
               onClick={async () => {
                 if (!confirm) return;
                 try {
-                  await deleteCustomer(confirm.id);
+                  await deleteCustomerAction(confirm.id);
                   refresh();
                   toast.success("Cliente removido.");
                 } catch {
@@ -210,7 +210,7 @@ function CustomerForm({
   useEffect(() => {
     if (initial) return;
     let active = true;
-    nextCustomerCode(activeStoreId)
+    nextCustomerCodeAction(activeStoreId)
       .then((c) => {
         if (active) setCode(c);
       })
@@ -236,7 +236,7 @@ function CustomerForm({
     setSaving(true);
     try {
       if (initial) {
-        await updateCustomer(initial.id, {
+        await updateCustomerAction(initial.id, {
           code: code.trim() || null,
           name: name.trim(),
           phone: phone || null,
@@ -251,7 +251,7 @@ function CustomerForm({
           setSaving(false);
           return;
         }
-        await createCustomer({
+        await createCustomerAction({
           code: code.trim(),
           name: name.trim(),
           phone: phone || null,

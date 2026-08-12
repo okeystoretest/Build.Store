@@ -3,10 +3,10 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
 import {
-  listNotifications,
-  markAllRead as markAllReadRepo,
-  clearNotifications as clearNotificationsRepo,
-} from "@/lib/db/notification-repository";
+  listNotificationsAction,
+  markAllReadAction as markAllReadRepo,
+  clearNotificationsAction as clearNotificationsRepo,
+} from "@/features/notifications/actions/notifications";
 import { queryKeys } from "@/lib/db/query-keys";
 import { useRealtimeInvalidation } from "@/lib/db/use-realtime-invalidation";
 import { useActiveStoreId } from "@/features/stores/store-context";
@@ -19,7 +19,7 @@ export function useNotifications() {
 
   const { data } = useQuery({
     queryKey: [...queryKeys.notifications, storeId],
-    queryFn: () => listNotifications(storeId),
+    queryFn: () => listNotificationsAction(storeId),
   });
 
   const list = data ?? [];

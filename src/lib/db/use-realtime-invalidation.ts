@@ -1,49 +1,53 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { createClient } from "@/lib/supabase/client";
 
 /**
- * Assina o Realtime do Supabase para uma tabela e invalida a query key
- * correspondente quando QUALQUER mudança (insert/update/delete) chega — de
- * qualquer dispositivo. Substitui o antigo useLiveQuery do Dexie: as telas
- * convergem ao vivo entre aparelhos sem polling.
+ * Atualização "ao vivo" por POLLING (sem Supabase).
  *
- * IMPORTANTE: cada assinatura recebe um nome de canal ÚNICO. Se dois
- * componentes montados ao mesmo tempo assinam a mesma tabela (ex.: sidebar e
- * Gestão ambas ouvindo `settings`, ou vários hooks ouvindo `profiles`), usar um
- * nome fixo por tabela faz o Supabase recusar o segundo com
- * "cannot add postgres_changes callbacks ... after subscribe()". O id aleatório
- * por montagem evita a colisão.
+ * Substitui o antigo realtime do Supabase mantendo a MESMA assinatura
+ * (table, queryKey), então nenhum hook chamador muda. Em vez de assinar
+ * postgres_changes, revalida a queryKey em intervalo fixo — simples, sem
+ * serviço extra, e adequado à operação (5 lojas). O atraso é de poucos
+ * segundos; se algum dia precisar de tempo real de verdade, dá para evoluir
+ * para SSE/WebSocket com LISTEN/NOTIFY do Postgres sem mexer nos chamadores.
+ *
+ * O parâmetro `table` é mantido só por compatibilidade de assinatura (não é
+ * mais usado); o polling age sobre a queryKey.
  */
+
+const POLL_INTERVAL_MS = Number(
+  process.env.NEXT_PUBLIC_POLL_INTERVAL_MS ?? 8000,
+);
+
 export function useRealtimeInvalidation(
-  table: string,
+  _table: string,
   queryKey: readonly unknown[],
 ): void {
   const queryClient = useQueryClient();
-  // Nome de canal único e estável durante o ciclo de vida deste hook.
-  const channelName = useRef(
-    `realtime:${table}:${Math.random().toString(36).slice(2)}`,
-  );
 
   useEffect(() => {
-    const supabase = createClient();
-    const channel = supabase
-      .channel(channelName.current)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table },
-        () => {
-          void queryClient.invalidateQueries({ queryKey });
-        },
-      )
-      .subscribe();
+    // Revalida periodicamente enquanto a aba está visível. Ao voltar o foco,
+    // revalida na hora (pega mudanças feitas em outro dispositivo).
+    const tick = () => {
+      if (document.visibilityState === "visible") {
+        void queryClient.invalidateQueries({ queryKey });
+      }
+    };
+    const id = setInterval(tick, POLL_INTERVAL_MS);
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") tick();
+    };
+    document.addEventListener("visibilitychange", onVisible);
 
     return () => {
-      void supabase.removeChannel(channel);
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
     };
-    // queryKey é estável (constante do módulo query-keys); table é string fixa.
+    // queryKey vem de constantes estáveis (query-keys) + storeId; o array muda
+    // quando a loja ativa muda, reiniciando o polling no escopo novo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [table]);
+  }, [JSON.stringify(queryKey)]);
 }

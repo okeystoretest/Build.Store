@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { listCustomers } from "@/lib/db/customer-repository";
+import { listCustomersAction } from "@/features/customers/actions/customers";
 import { queryKeys } from "@/lib/db/query-keys";
 import { useRealtimeInvalidation } from "@/lib/db/use-realtime-invalidation";
 import { useActiveStoreId } from "@/features/stores/store-context";
@@ -15,7 +15,7 @@ export function useCustomers() {
   useRealtimeInvalidation("customers", queryKeys.customers);
   const query = useQuery({
     queryKey: [...queryKeys.customers, storeId],
-    queryFn: () => listCustomers(storeId),
+    queryFn: () => listCustomersAction(storeId),
   });
   return {
     customers: query.data ?? [],

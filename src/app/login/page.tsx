@@ -5,8 +5,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Eye, EyeOff } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
-import { usernameToEmail } from "@/lib/auth/username";
+import { loginAction } from "@/features/auth/actions/auth";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -18,9 +17,9 @@ const loginSchema = z.object({
 type LoginValues = z.infer<typeof loginSchema>;
 
 /**
- * Tela de login (online-only). Autentica por usuário + senha: o nome de usuário
- * é mapeado para um e-mail interno (usernameToEmail) antes da chamada ao
- * Supabase Auth. Após entrar, o middleware assume a proteção de rota.
+ * Tela de login (online-only). Autentica por usuário + senha direto contra o
+ * Postgres (auth própria com Lucia). Sem e-mail interno: o username é a
+ * credencial. Após entrar, o middleware assume a proteção de rota.
  *
  * UX de teclado: Enter no campo Usuário move o foco para Senha (em vez de
  * submeter). O campo Senha tem um botão de olho para mostrar/ocultar o texto.
@@ -41,16 +40,14 @@ export default function LoginPage() {
 
   const onSubmit = async (values: LoginValues) => {
     setError(null);
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({
-      email: usernameToEmail(values.username),
-      password: values.password,
-    });
-    if (error) {
-      setError("Não foi possível entrar. Verifique usuário e senha.");
-      return;
+    const fd = new FormData();
+    fd.set("username", values.username);
+    fd.set("password", values.password);
+    const res = await loginAction(null, fd);
+    // loginAction faz redirect em caso de sucesso; só retorna em caso de erro.
+    if (res && "error" in res) {
+      setError(res.error);
     }
-    window.location.href = "/pos";
   };
 
   return (

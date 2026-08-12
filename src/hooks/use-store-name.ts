@@ -1,7 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { getStoreName, DEFAULT_STORE_NAME } from "@/lib/db/settings-repository";
+import { getStoreNameAction } from "@/features/settings/actions/settings";
+import { DEFAULT_STORE_NAME } from "@/features/settings/constants";
 import { useRealtimeInvalidation } from "@/lib/db/use-realtime-invalidation";
 import { useStoreContext } from "@/features/stores/store-context";
 
@@ -15,7 +16,7 @@ export function useStoreName(): string {
   useRealtimeInvalidation("settings", ["settings"]);
   const { data } = useQuery({
     queryKey: ["settings", "name", activeStoreId],
-    queryFn: () => getStoreName(activeStoreId),
+    queryFn: () => getStoreNameAction(activeStoreId),
   });
   return data ?? DEFAULT_STORE_NAME;
 }
