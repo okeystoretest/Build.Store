@@ -34,6 +34,7 @@ import { Button } from "@/components/ui/button";
 import { ToggleGroup } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
 import { formatBRL } from "@/lib/utils/money";
+import { uploadFile } from "@/lib/utils/upload-file";
 
 type Tool = "users" | "campaigns" | "goals" | "store";
 
@@ -601,6 +602,7 @@ function StoreSettings() {
   const [logo, setLogo] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   // Sincroniza o campo com o valor atual quando ele chega/muda.
   useEffect(() => {
@@ -611,14 +613,21 @@ function StoreSettings() {
     setLogo(currentLogo);
   }, [currentLogo]);
 
-  const handleLogo = (file: File | undefined) => {
+  /** Sobe o logotipo para o disco (/api/upload); o setting guarda só a URL. */
+  const handleLogo = async (file: File | undefined) => {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      setLogo(reader.result as string);
+    setUploading(true);
+    try {
+      const { url } = await uploadFile(file, "logos");
+      setLogo(url);
       setSaved(false);
-    };
-    reader.readAsDataURL(file);
+    } catch (e) {
+      toastStore.error(
+        e instanceof Error ? e.message : "Falha ao enviar o logotipo.",
+      );
+    } finally {
+      setUploading(false);
+    }
   };
 
   const save = async () => {
@@ -673,14 +682,21 @@ function StoreSettings() {
             )}
           </div>
           <div className="flex flex-col gap-2">
-            <label className="flex w-max cursor-pointer items-center gap-2 rounded-full border border-primary-container px-4 py-2.5 text-label-md text-primary transition-colors hover:bg-primary-fixed/40">
+            <label
+              className="flex w-max cursor-pointer items-center gap-2 rounded-full border border-primary-container px-4 py-2.5 text-label-md text-primary transition-colors hover:bg-primary-fixed/40 aria-disabled:pointer-events-none aria-disabled:opacity-60"
+              aria-disabled={uploading}
+            >
               <ImageIcon className="h-4 w-4" strokeWidth={1.75} />
-              Enviar logotipo
+              {uploading ? "Enviando..." : "Enviar logotipo"}
               <input
                 type="file"
                 accept="image/*"
                 className="hidden"
-                onChange={(e) => handleLogo(e.target.files?.[0])}
+                disabled={uploading}
+                onChange={(e) => {
+                  void handleLogo(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
               />
             </label>
             {logo && (
@@ -704,7 +720,7 @@ function StoreSettings() {
       </div>
 
       <div className="mt-md flex items-center gap-md">
-        <Button onClick={save} disabled={saving || !name.trim()}>
+        <Button onClick={save} disabled={saving || uploading || !name.trim()}>
           {saving ? "Salvando..." : "Salvar"}
         </Button>
         {saved && (

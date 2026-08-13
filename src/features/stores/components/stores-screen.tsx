@@ -11,10 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { uploadFile } from "@/lib/utils/upload-file";
 import type { Store } from "@/types/domain";
-
-/** Teto da foto da loja (2 MB) — ela é gravada como data URL na própria coluna. */
-const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
 
 /**
  * Gestão › Lojas — CRUD de lojas (tenants). Admin apenas.
@@ -196,29 +194,31 @@ function StoreFormModal({
   const [name, setName] = useState(store?.name ?? "");
   const [logoUrl, setLogoUrl] = useState<string | null>(store?.logoUrl ?? null);
   const [active, setActive] = useState(store?.active ?? true);
+  const [uploading, setUploading] = useState(false);
 
-  const canSave = name.trim().length > 0 && !saving;
+  const canSave = name.trim().length > 0 && !saving && !uploading;
 
   /**
-   * Upload da foto: lê o arquivo como data URL e guarda direto na coluna
-   * `logo_url` — mesmo padrão do logotipo em Gestão e da imagem do produto
-   * (o projeto não tem bucket de storage; a imagem viaja embutida).
-   * Limite de 2 MB para não estourar o payload da Server Action.
+   * Upload da foto: o arquivo vai para o disco via /api/upload e a coluna
+   * `logo_url` guarda só a URL.
    */
-  const handlePhoto = (file: File | undefined) => {
+  const handlePhoto = async (file: File | undefined) => {
     if (!file) return;
     if (!file.type.startsWith("image/")) {
       toast.error("Selecione um arquivo de imagem.");
       return;
     }
-    if (file.size > MAX_PHOTO_BYTES) {
-      toast.error("A imagem deve ter no máximo 2 MB.");
-      return;
+    setUploading(true);
+    try {
+      const { url } = await uploadFile(file, "stores");
+      setLogoUrl(url);
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Falha ao enviar a imagem.",
+      );
+    } finally {
+      setUploading(false);
     }
-    const reader = new FileReader();
-    reader.onload = () => setLogoUrl(reader.result as string);
-    reader.onerror = () => toast.error("Não foi possível ler o arquivo.");
-    reader.readAsDataURL(file);
   };
 
   return (
@@ -252,15 +252,16 @@ function StoreFormModal({
               )}
             </div>
             <div className="flex flex-col gap-2">
-              <label className="flex w-max cursor-pointer items-center gap-2 rounded-full border border-primary-container px-4 py-2.5 text-label-md text-primary transition-colors hover:bg-primary-fixed/40">
+              <label className="flex w-max cursor-pointer items-center gap-2 rounded-full border border-primary-container px-4 py-2.5 text-label-md text-primary transition-colors hover:bg-primary-fixed/40 aria-disabled:pointer-events-none aria-disabled:opacity-60" aria-disabled={uploading}>
                 <Upload className="h-4 w-4" strokeWidth={1.75} />
-                {logoUrl ? "Trocar foto" : "Enviar foto"}
+                {uploading ? "Enviando..." : logoUrl ? "Trocar foto" : "Enviar foto"}
                 <input
                   type="file"
                   accept="image/*"
                   className="hidden"
+                  disabled={uploading}
                   onChange={(e) => {
-                    handlePhoto(e.target.files?.[0]);
+                    void handlePhoto(e.target.files?.[0]);
                     // Permite reenviar o mesmo arquivo depois de remover.
                     e.target.value = "";
                   }}
@@ -278,7 +279,7 @@ function StoreFormModal({
             </div>
           </div>
           <p className="px-1 text-label-sm text-on-surface-variant">
-            JPG ou PNG, até 2 MB.
+            JPG, PNG ou WebP, até 8 MB.
           </p>
         </div>
         {store && (

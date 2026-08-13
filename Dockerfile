@@ -36,6 +36,11 @@ RUN npm run build
 # Só agora marca produção — vale pro runtime, não atrapalha o build acima.
 ENV NODE_ENV=production
 
+# Storage de mídia (vitrine, fotos de produto, logos). PRECISA ser um VOLUME
+# no Easypanel montado em /app/data — sem isso as imagens somem a cada deploy.
+ENV MEDIA_DIR=/app/data/media
+RUN mkdir -p /app/data/media
+
 EXPOSE 3000
 
 CMD ["npm", "start"]

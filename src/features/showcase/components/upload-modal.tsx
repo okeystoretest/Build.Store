@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import { uploadFile } from "@/lib/utils/upload-file";
 
 interface UploadModalProps {
   open: boolean;
@@ -57,6 +58,7 @@ export function UploadModal({ open, tab, onClose, onUploaded }: UploadModalProps
   const [month, setMonth] = useState<number>(new Date().getMonth() + 1);
   const [year, setYear] = useState<number>(CURRENT_YEAR);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   const reset = () => {
     setFile(null);
@@ -66,16 +68,30 @@ export function UploadModal({ open, tab, onClose, onUploaded }: UploadModalProps
     setYear(CURRENT_YEAR);
   };
 
-  const pickFile = (f: File | undefined) => {
+  /**
+   * Envia o arquivo para /api/upload assim que é escolhido. Antes ele virava
+   * data URL e ia embutido na Server Action — inviável para vídeo de coleção.
+   * A prévia usa a própria URL retornada.
+   */
+  const pickFile = async (f: File | undefined) => {
     if (!f) return;
-    const reader = new FileReader();
-    reader.onload = () =>
-      setFile({ name: f.name, url: reader.result as string, type: f.type });
-    reader.readAsDataURL(f);
+    setUploading(true);
+    try {
+      const up = await uploadFile(f, "showcase");
+      setFile({ name: up.fileName, url: up.url, type: up.mimeType });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao enviar o arquivo.");
+    } finally {
+      setUploading(false);
+    }
   };
 
   const canSubmit =
-    !!file && collectionName.trim().length > 0 && !!month && !!year;
+    !!file &&
+    !uploading &&
+    collectionName.trim().length > 0 &&
+    !!month &&
+    !!year;
 
   const submit = async () => {
     if (!canSubmit || !file) return;
@@ -130,14 +146,25 @@ export function UploadModal({ open, tab, onClose, onUploaded }: UploadModalProps
                 <TabIcon tab={tab} />
               )}
             </div>
-            <label className="flex cursor-pointer items-center gap-2 rounded-full border border-primary-container px-4 py-2.5 text-label-md text-primary transition-colors hover:bg-primary-fixed/40">
+            <label
+              className="flex cursor-pointer items-center gap-2 rounded-full border border-primary-container px-4 py-2.5 text-label-md text-primary transition-colors hover:bg-primary-fixed/40 aria-disabled:pointer-events-none aria-disabled:opacity-60"
+              aria-disabled={uploading}
+            >
               <Upload className="h-4 w-4" strokeWidth={1.75} />
-              {file ? "Trocar arquivo" : "Escolher arquivo"}
+              {uploading
+                ? "Enviando..."
+                : file
+                  ? "Trocar arquivo"
+                  : "Escolher arquivo"}
               <input
                 type="file"
                 accept={accept}
                 className="hidden"
-                onChange={(e) => pickFile(e.target.files?.[0])}
+                disabled={uploading}
+                onChange={(e) => {
+                  void pickFile(e.target.files?.[0]);
+                  e.target.value = "";
+                }}
               />
             </label>
           </div>

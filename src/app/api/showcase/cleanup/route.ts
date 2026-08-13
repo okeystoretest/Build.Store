@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { sql } from "kysely";
 import { db } from "@/lib/db/kysely";
+import { deleteMediaByUrl } from "@/lib/storage/media";
 
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
@@ -33,11 +35,23 @@ export async function GET(request: Request) {
   }
 
   try {
-    const res = await sql<{ cleanup_showcase: number }>`
-      select public.cleanup_showcase(90) as cleanup_showcase
+    // cleanup_showcase_files (migração 0007) apaga as linhas e devolve o
+    // file_url de cada uma, para removermos também o arquivo do volume.
+    const res = await sql<{ file_url: string | null }>`
+      select public.cleanup_showcase_files(90) as file_url
     `.execute(db);
-    const deleted = res.rows[0]?.cleanup_showcase ?? 0;
-    return NextResponse.json({ ok: true, deleted });
+
+    const urls = res.rows.map((r) => r.file_url);
+    let filesDeleted = 0;
+    for (const url of urls) {
+      if (await deleteMediaByUrl(url)) filesDeleted += 1;
+    }
+
+    return NextResponse.json({
+      ok: true,
+      deleted: urls.length,
+      filesDeleted,
+    });
   } catch (e) {
     return NextResponse.json(
       { ok: false, error: e instanceof Error ? e.message : "Erro na limpeza." },

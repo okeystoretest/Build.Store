@@ -15,6 +15,7 @@ import { gradeTotal, normalizeGrade } from "@/lib/db/grade";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { uploadFile } from "@/lib/utils/upload-file";
 
 interface ProductFormProps {
   product?: Product | null;
@@ -58,6 +59,8 @@ export function ProductForm({ product, onSubmit, onCancel, onDelete }: ProductFo
   const [imageUrl, setImageUrl] = useState<string | null>(
     product?.imageUrl ?? null,
   );
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const {
     register,
@@ -94,11 +97,21 @@ export function ProductForm({ product, onSubmit, onCancel, onDelete }: ProductFo
     })),
   );
 
-  const handleImage = (file: File | undefined) => {
+  /** Sobe a imagem para o disco (/api/upload) e guarda só a URL no produto. */
+  const handleImage = async (file: File | undefined) => {
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setImageUrl(reader.result as string);
-    reader.readAsDataURL(file);
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const { url } = await uploadFile(file, "products");
+      setImageUrl(url);
+    } catch (e) {
+      setUploadError(
+        e instanceof Error ? e.message : "Falha ao enviar a imagem.",
+      );
+    } finally {
+      setUploading(false);
+    }
   };
 
   const submit = (values: ProductFormValues) => {
@@ -140,16 +153,28 @@ export function ProductForm({ product, onSubmit, onCancel, onDelete }: ProductFo
               <ImageIcon className="h-7 w-7 text-on-surface-variant/40" strokeWidth={1.5} />
             )}
           </div>
-          <label className="flex cursor-pointer items-center gap-1.5 rounded-full border border-primary-container px-3 py-1.5 text-label-sm text-primary transition-colors hover:bg-primary-fixed/40">
+          <label
+            className="flex cursor-pointer items-center gap-1.5 rounded-full border border-primary-container px-3 py-1.5 text-label-sm text-primary transition-colors hover:bg-primary-fixed/40 aria-disabled:pointer-events-none aria-disabled:opacity-60"
+            aria-disabled={uploading}
+          >
             <Upload className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Imagem
+            {uploading ? "Enviando..." : "Imagem"}
             <input
               type="file"
               accept="image/*"
               className="hidden"
-              onChange={(e) => handleImage(e.target.files?.[0])}
+              disabled={uploading}
+              onChange={(e) => {
+                void handleImage(e.target.files?.[0]);
+                e.target.value = "";
+              }}
             />
           </label>
+          {uploadError && (
+            <p className="max-w-[6rem] text-center text-label-sm text-error">
+              {uploadError}
+            </p>
+          )}
         </div>
 
         <div className="min-w-0 flex-1 space-y-sm">

@@ -3,6 +3,7 @@
 import { randomUUID } from "crypto";
 import { withCurrentUser } from "@/lib/db/with-current-user";
 import { toMedia, retentionCutoffISO } from "@/features/showcase/lib/showcase";
+import { deleteMediaByUrl } from "@/lib/storage/media";
 import type {
   ShowcaseMedia,
   ShowcaseSeason,
@@ -67,8 +68,21 @@ export async function addShowcaseMediaAction(
   });
 }
 
+/**
+ * Remove a mídia do banco E o arquivo do disco. Sem o unlink, cada exclusão
+ * deixaria um órfão ocupando o volume para sempre.
+ * (Mídia antiga em data URL não tem arquivo — deleteMediaByUrl ignora.)
+ */
 export async function deleteShowcaseMediaAction(id: string): Promise<void> {
-  await withCurrentUser(async (trx) => {
+  const fileUrl = await withCurrentUser(async (trx) => {
+    const row = await trx
+      .selectFrom("showcase_media")
+      .select("file_url")
+      .where("id", "=", id)
+      .executeTakeFirst();
     await trx.deleteFrom("showcase_media").where("id", "=", id).execute();
+    return (row?.file_url as string | null) ?? null;
   });
+
+  await deleteMediaByUrl(fileUrl);
 }
