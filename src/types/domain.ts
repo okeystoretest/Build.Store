@@ -1,8 +1,8 @@
 /**
  * Build.Store — Domain model.
  * Single source of truth for entities shared across features.
- * These types mirror the Postgres schema (see supabase/migrations/). The app is
- * online-only: every read and write goes straight to Supabase.
+ * Espelham o schema do Postgres (ver db/migrations/). A app é online-only:
+ * toda leitura e escrita passa por Server Actions/Route Handlers → Kysely.
  */
 
 export type UUID = string;
@@ -183,7 +183,7 @@ export interface StockMovement {
  */
 export interface User {
   id: UUID;
-  username: string; // login handle; maps to auth email via usernameToEmail()
+  username: string; // login: auth própria (Lucia + Argon2), sem e-mail interno
   fullName: string;
   birthDate: string | null; // YYYY-MM-DD
   role: Role;
