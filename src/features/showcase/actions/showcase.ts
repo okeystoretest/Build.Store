@@ -73,6 +73,31 @@ export async function addShowcaseMediaAction(
  * deixaria um órfão ocupando o volume para sempre.
  * (Mídia antiga em data URL não tem arquivo — deleteMediaByUrl ignora.)
  */
+/**
+ * Descarta um arquivo que subiu mas não chegou a ser publicado — o caso de
+ * fechar o modal de envio no meio, ou remover um item do lote.
+ *
+ * Sem isto, cada envio abandonado deixaria um arquivo órfão no volume; com
+ * lotes de até 15 vídeos, isso vira lixo de verdade rápido.
+ *
+ * Só apaga se NENHUMA linha da Vitrine referenciar a URL, para nunca destruir
+ * mídia já publicada.
+ */
+export async function discardUploadedMediaAction(url: string): Promise<void> {
+  if (!url.startsWith("/api/media/showcase/")) return;
+
+  const emUso = await withCurrentUser(async (trx) => {
+    const row = await trx
+      .selectFrom("showcase_media")
+      .select("id")
+      .where("file_url", "=", url)
+      .executeTakeFirst();
+    return Boolean(row);
+  });
+
+  if (!emUso) await deleteMediaByUrl(url);
+}
+
 export async function deleteShowcaseMediaAction(id: string): Promise<void> {
   const fileUrl = await withCurrentUser(async (trx) => {
     const row = await trx
