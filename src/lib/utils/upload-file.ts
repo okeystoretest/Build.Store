@@ -51,12 +51,28 @@ export function uploadFile(
       return;
     }
 
-    const form = new FormData();
-    form.append("file", file);
-    form.append("scope", scope);
+    // Corta antes de subir: não faz sentido gastar 10 minutos de upload para o
+    // servidor recusar no fim por tamanho.
+    const max = maxBytesFor(file.type);
+    if (file.size > max) {
+      reject(
+        new Error(
+          `Arquivo acima do limite de ${Math.floor(max / (1024 * 1024))} MB.`,
+        ),
+      );
+      return;
+    }
 
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/api/upload");
+    xhr.open("POST", `/api/upload?scope=${encodeURIComponent(scope)}`);
+    // O corpo é o arquivo puro, em streaming no servidor. Multipart obrigaria
+    // o servidor a bufferizar tudo em memória — foi o que causava 502 com
+    // vídeos grandes.
+    xhr.setRequestHeader(
+      "Content-Type",
+      file.type || "application/octet-stream",
+    );
+    xhr.setRequestHeader("X-File-Name", encodeURIComponent(file.name));
 
     xhr.upload.onprogress = (e) => {
       if (!onProgress) return;
@@ -125,8 +141,18 @@ export function uploadFile(
       signal.addEventListener("abort", () => xhr.abort(), { once: true });
     }
 
-    xhr.send(form);
+    xhr.send(file);
   });
+}
+
+/** Espelha os limites do servidor (ver lib/storage/media.ts). */
+export const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+export const MAX_VIDEO_BYTES = 300 * 1024 * 1024;
+
+function maxBytesFor(mime: string): number {
+  return mime.toLowerCase().startsWith("video/")
+    ? MAX_VIDEO_BYTES
+    : MAX_IMAGE_BYTES;
 }
 
 /** "12,4 MB" — para mostrar ao lado da barra. */

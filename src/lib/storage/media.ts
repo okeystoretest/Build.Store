@@ -1,7 +1,9 @@
 import "server-only";
 import { randomUUID } from "crypto";
-import { createReadStream } from "fs";
+import { createReadStream, createWriteStream } from "fs";
 import { mkdir, stat, unlink, writeFile } from "fs/promises";
+import { Transform } from "stream";
+import { pipeline } from "stream/promises";
 import path from "path";
 
 /**
@@ -107,7 +109,19 @@ export interface SavedMedia {
   bytes: number;
 }
 
-/** Grava o arquivo e devolve a URL pública. */
+/** Caminho de destino para um novo arquivo do escopo. */
+async function prepararDestino(scope: MediaScope, ext: string) {
+  const relativeDir = path.posix.join(scope, currentBucket());
+  const fileName = `${randomUUID()}.${ext}`;
+  const relativePath = path.posix.join(relativeDir, fileName);
+
+  const absDir = path.resolve(MEDIA_ROOT, relativeDir);
+  await mkdir(absDir, { recursive: true });
+
+  return { relativePath, abs: path.join(absDir, fileName) };
+}
+
+/** Grava o arquivo a partir de um Buffer. Use só para conteúdo pequeno. */
 export async function saveMedia(
   scope: MediaScope,
   data: Buffer,
@@ -116,18 +130,79 @@ export async function saveMedia(
   const ext = extForMime(mime);
   if (!ext) throw new Error(`Tipo de arquivo não suportado: ${mime}`);
 
-  const relativeDir = path.posix.join(scope, currentBucket());
-  const fileName = `${randomUUID()}.${ext}`;
-  const relativePath = path.posix.join(relativeDir, fileName);
-
-  const absDir = path.resolve(MEDIA_ROOT, relativeDir);
-  await mkdir(absDir, { recursive: true });
-  await writeFile(path.join(absDir, fileName), data);
+  const { relativePath, abs } = await prepararDestino(scope, ext);
+  await writeFile(abs, data);
 
   return {
     relativePath,
     url: `${MEDIA_URL_PREFIX}/${relativePath}`,
     bytes: data.byteLength,
+  };
+}
+
+/**
+ * Grava o arquivo em STREAMING, sem nunca ter o conteúdo inteiro na memória.
+ *
+ * É o caminho usado pelo upload. A versão anterior fazia
+ * `Buffer.from(await file.arrayBuffer())` depois de um `request.formData()` —
+ * ou seja, o vídeo inteiro ia para a RAM DUAS vezes (o parse do multipart e a
+ * cópia em Buffer). Com um .mov de algumas centenas de MB e três envios
+ * simultâneos, o processo Node era morto por falta de memória e o proxy
+ * devolvia 502.
+ *
+ * Aqui os bytes vão do socket direto para o disco, com pico de memória de
+ * alguns KB por envio, independentemente do tamanho do arquivo.
+ *
+ * `maxBytes` corta no meio do caminho: sem isso, um cliente poderia encher o
+ * volume ignorando o Content-Length declarado. O arquivo parcial é removido.
+ */
+export async function saveMediaStream(
+  scope: MediaScope,
+  stream: NodeJS.ReadableStream,
+  mime: string,
+  maxBytes: number,
+): Promise<SavedMedia> {
+  const ext = extForMime(mime);
+  if (!ext) throw new Error(`Tipo de arquivo não suportado: ${mime}`);
+
+  const { relativePath, abs } = await prepararDestino(scope, ext);
+
+  let bytes = 0;
+  let estourou = false;
+
+  const contador = new Transform({
+    transform(chunk, _enc, cb) {
+      bytes += chunk.length;
+      if (bytes > maxBytes) {
+        estourou = true;
+        cb(new Error("LIMITE_EXCEDIDO"));
+        return;
+      }
+      cb(null, chunk);
+    },
+  });
+
+  try {
+    await pipeline(stream, contador, createWriteStream(abs));
+  } catch (e) {
+    // Não deixa arquivo parcial no volume.
+    await unlink(abs).catch(() => {});
+    if (estourou) {
+      const mb = Math.floor(maxBytes / (1024 * 1024));
+      throw new Error(`Arquivo acima do limite de ${mb} MB.`);
+    }
+    throw e;
+  }
+
+  if (bytes === 0) {
+    await unlink(abs).catch(() => {});
+    throw new Error("Arquivo vazio.");
+  }
+
+  return {
+    relativePath,
+    url: `${MEDIA_URL_PREFIX}/${relativePath}`,
+    bytes,
   };
 }
 
