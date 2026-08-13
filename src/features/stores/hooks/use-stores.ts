@@ -15,7 +15,13 @@ const STORES_KEY = ["stores"] as const;
 export function useStores() {
   const query = useQuery<Store[]>({
     queryKey: STORES_KEY,
-    queryFn: listStoresAction,
+    // IMPORTANTE: tem que ser arrow function. Passar a Server Action direto faz
+    // o React Query chamá-la com o QueryFunctionContext ({ queryKey, signal,
+    // client, ... }), que contém instâncias de classe (AbortSignal, QueryClient).
+    // Server Action só aceita objeto simples como argumento, então isso dispara
+    // "Only plain objects, and a few built-ins, can be passed to Server Actions"
+    // e a query falha (a lista fica sempre vazia).
+    queryFn: () => listStoresAction(),
   });
 
   const queryClient = useQueryClient();
@@ -23,7 +29,9 @@ export function useStores() {
     queryClient.invalidateQueries({ queryKey: STORES_KEY });
 
   const create = useMutation({
-    mutationFn: createStoreAction,
+    // Mesmo motivo do queryFn acima: sempre envolver em arrow function.
+    mutationFn: (vars: { name: string; logoUrl?: string | null }) =>
+      createStoreAction(vars),
     onSuccess: invalidate,
   });
 

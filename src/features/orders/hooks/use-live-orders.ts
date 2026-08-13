@@ -17,7 +17,10 @@ export function useLiveOrdersQuery() {
   useRealtimeInvalidation("orders", queryKeys.orders);
   return useQuery({
     queryKey: queryKeys.orders,
-    queryFn: listOrdersAction,
+    // Arrow function obrigatória: passar a Server Action direto faz o React
+    // Query chamá-la com o QueryFunctionContext (AbortSignal, QueryClient),
+    // que não é serializável — a query quebraria com "Only plain objects...".
+    queryFn: () => listOrdersAction(),
   });
 }
 
