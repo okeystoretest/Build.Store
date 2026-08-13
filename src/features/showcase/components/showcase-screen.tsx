@@ -22,6 +22,7 @@ import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { LoadingArea } from "@/components/ui/spinner";
 import { UploadModal } from "./upload-modal";
+import { MediaViewer } from "./media-viewer";
 
 const SEASON_LABEL: Record<ShowcaseSeason, string> = {
   primavera_verao: "Primavera/Verão",
@@ -53,6 +54,8 @@ const MONTHS_SHORT = [
 export function ShowcaseScreen() {
   const [tab, setTab] = useState<ShowcaseTab>("workshop");
   const [uploadOpen, setUploadOpen] = useState(false);
+  // Índice da mídia aberta no visualizador; null = fechado.
+  const [viewerIndex, setViewerIndex] = useState<number | null>(null);
   const sc = useShowcase(tab);
   const { canUploadShowcase } = useAuth();
   const toast = useToast();
@@ -118,8 +121,13 @@ export function ShowcaseScreen() {
           <EmptyState />
         ) : (
           <div className="grid grid-cols-2 gap-md sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
-            {sc.media.map((m) => (
-              <MediaCard key={m.id} media={m} onDelete={() => handleDelete(m)} />
+            {sc.media.map((m, i) => (
+              <MediaCard
+                key={m.id}
+                media={m}
+                onOpen={() => setViewerIndex(i)}
+                onDelete={() => handleDelete(m)}
+              />
             ))}
           </div>
         )}
@@ -131,15 +139,30 @@ export function ShowcaseScreen() {
         onClose={() => setUploadOpen(false)}
         onUploaded={refresh}
       />
+
+      <MediaViewer
+        media={viewerIndex !== null ? (sc.media[viewerIndex] ?? null) : null}
+        onClose={() => setViewerIndex(null)}
+        hasPrev={viewerIndex !== null && viewerIndex > 0}
+        hasNext={viewerIndex !== null && viewerIndex < sc.media.length - 1}
+        onPrev={() => setViewerIndex((i) => (i === null ? null : Math.max(0, i - 1)))}
+        onNext={() =>
+          setViewerIndex((i) =>
+            i === null ? null : Math.min(sc.media.length - 1, i + 1),
+          )
+        }
+      />
     </div>
   );
 }
 
 function MediaCard({
   media,
+  onOpen,
   onDelete,
 }: {
   media: ShowcaseMedia;
+  onOpen: () => void;
   onDelete: () => void;
 }) {
   const isImage = (media.mimeType ?? "").startsWith("image/");
@@ -157,17 +180,17 @@ function MediaCard({
           <FileVideo className="h-8 w-8 text-on-surface-variant/40" strokeWidth={1.5} />
         )}
 
-        <a
-          href={media.fileUrl}
-          target="_blank"
-          rel="noopener noreferrer"
+        {/* Abre o visualizador interno — sem nova aba nem sair do app. */}
+        <button
+          type="button"
+          onClick={onOpen}
           aria-label={`Abrir ${media.title}`}
-          className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all group-hover:bg-black/30 group-hover:opacity-100"
+          className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-all hover:bg-black/30 hover:opacity-100 focus-visible:bg-black/30 focus-visible:opacity-100 group-hover:bg-black/30 group-hover:opacity-100"
         >
           <span className="flex h-10 w-10 items-center justify-center rounded-full bg-surface/90 text-primary">
             <Play className="h-5 w-5" strokeWidth={2} />
           </span>
-        </a>
+        </button>
 
         <button
           type="button"

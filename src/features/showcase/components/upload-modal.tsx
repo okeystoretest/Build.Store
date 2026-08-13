@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Upload, FileVideo, FileImage, File as FileIcon } from "lucide-react";
 import type { ShowcaseSeason, ShowcaseTab } from "@/types/domain";
 import { addShowcaseMediaAction } from "@/features/showcase/actions/showcase";
@@ -11,7 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
-import { uploadFile } from "@/lib/utils/upload-file";
+import { uploadFile, type UploadProgress } from "@/lib/utils/upload-file";
+import { UploadProgressBar } from "@/components/ui/upload-progress";
 
 interface UploadModalProps {
   open: boolean;
@@ -59,6 +60,10 @@ export function UploadModal({ open, tab, onClose, onUploaded }: UploadModalProps
   const [year, setYear] = useState<number>(CURRENT_YEAR);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState<UploadProgress | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  // Guarda o envio em andamento para poder cancelar ao fechar o modal.
+  const abortRef = useRef<AbortController | null>(null);
 
   const reset = () => {
     setFile(null);
@@ -66,23 +71,54 @@ export function UploadModal({ open, tab, onClose, onUploaded }: UploadModalProps
     setSeason("primavera_verao");
     setMonth(new Date().getMonth() + 1);
     setYear(CURRENT_YEAR);
+    setProgress(null);
+    setUploadError(null);
+  };
+
+  /** Cancela um envio em curso e limpa o formulário. */
+  const handleClose = () => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setUploading(false);
+    setProgress(null);
+    setUploadError(null);
+    onClose();
   };
 
   /**
-   * Envia o arquivo para /api/upload assim que é escolhido. Antes ele virava
-   * data URL e ia embutido na Server Action — inviável para vídeo de coleção.
-   * A prévia usa a própria URL retornada.
+   * Envia o arquivo para /api/upload assim que é escolhido, com barra de
+   * progresso. Antes ele virava data URL e ia embutido na Server Action —
+   * inviável para vídeo de coleção. A prévia usa a própria URL retornada.
    */
   const pickFile = async (f: File | undefined) => {
     if (!f) return;
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setUploading(true);
+    setUploadError(null);
+    setFile(null);
+    setProgress({ loaded: 0, total: f.size, percent: 0, phase: "enviando" });
+
     try {
-      const up = await uploadFile(f, "showcase");
+      const up = await uploadFile(f, "showcase", {
+        signal: controller.signal,
+        onProgress: setProgress,
+      });
       setFile({ name: up.fileName, url: up.url, type: up.mimeType });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Falha ao enviar o arquivo.");
+      const msg = e instanceof Error ? e.message : "Falha ao enviar o arquivo.";
+      // Cancelamento é ação do usuário — não merece alarde.
+      if (msg !== "Envio cancelado.") {
+        setUploadError(msg);
+        toast.error(msg);
+      }
+      setProgress(null);
     } finally {
       setUploading(false);
+      abortRef.current = null;
     }
   };
 
@@ -133,7 +169,7 @@ export function UploadModal({ open, tab, onClose, onUploaded }: UploadModalProps
         : undefined;
 
   return (
-    <Modal open={open} onClose={onClose} title="Enviar mídia">
+    <Modal open={open} onClose={handleClose} title="Enviar mídia">
       <div className="space-y-md">
         <div className="space-y-1.5">
           <Label>Arquivo</Label>
@@ -168,11 +204,17 @@ export function UploadModal({ open, tab, onClose, onUploaded }: UploadModalProps
               />
             </label>
           </div>
-          {file && (
+          {file && !uploading && (
             <p className="truncate px-1 text-label-sm text-on-surface-variant">
               {file.name}
             </p>
           )}
+
+          <UploadProgressBar
+            progress={progress}
+            error={uploadError}
+            className="px-1 pt-1"
+          />
         </div>
 
         <div className="space-y-1.5">
@@ -222,8 +264,8 @@ export function UploadModal({ open, tab, onClose, onUploaded }: UploadModalProps
         </div>
 
         <div className="flex justify-end gap-sm border-t border-outline-variant/40 pt-md">
-          <Button variant="ghost" onClick={onClose}>
-            Cancelar
+          <Button variant="ghost" onClick={handleClose}>
+            {uploading ? "Cancelar envio" : "Cancelar"}
           </Button>
           <Button onClick={submit} disabled={!canSubmit || saving}>
             {saving ? "Publicando..." : "Publicar"}

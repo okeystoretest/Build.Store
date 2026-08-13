@@ -11,7 +11,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { uploadFile } from "@/lib/utils/upload-file";
+import { uploadFile, type UploadProgress } from "@/lib/utils/upload-file";
+import { UploadProgressBar } from "@/components/ui/upload-progress";
 import type { Store } from "@/types/domain";
 
 /**
@@ -195,6 +196,7 @@ function StoreFormModal({
   const [logoUrl, setLogoUrl] = useState<string | null>(store?.logoUrl ?? null);
   const [active, setActive] = useState(store?.active ?? true);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState<UploadProgress | null>(null);
 
   const canSave = name.trim().length > 0 && !saving && !uploading;
 
@@ -209,13 +211,17 @@ function StoreFormModal({
       return;
     }
     setUploading(true);
+    setProgress({ loaded: 0, total: file.size, percent: 0, phase: "enviando" });
     try {
-      const { url } = await uploadFile(file, "stores");
+      const { url } = await uploadFile(file, "stores", {
+        onProgress: setProgress,
+      });
       setLogoUrl(url);
     } catch (e) {
       toast.error(
         e instanceof Error ? e.message : "Falha ao enviar a imagem.",
       );
+      setProgress(null);
     } finally {
       setUploading(false);
     }
@@ -278,6 +284,7 @@ function StoreFormModal({
               )}
             </div>
           </div>
+          <UploadProgressBar progress={uploading ? progress : null} className="px-1" />
           <p className="px-1 text-label-sm text-on-surface-variant">
             JPG, PNG ou WebP, até 8 MB.
           </p>

@@ -15,7 +15,8 @@ import { gradeTotal, normalizeGrade } from "@/lib/db/grade";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { uploadFile } from "@/lib/utils/upload-file";
+import { uploadFile, type UploadProgress } from "@/lib/utils/upload-file";
+import { UploadProgressBar } from "@/components/ui/upload-progress";
 
 interface ProductFormProps {
   product?: Product | null;
@@ -61,6 +62,7 @@ export function ProductForm({ product, onSubmit, onCancel, onDelete }: ProductFo
   );
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [progress, setProgress] = useState<UploadProgress | null>(null);
 
   const {
     register,
@@ -102,13 +104,17 @@ export function ProductForm({ product, onSubmit, onCancel, onDelete }: ProductFo
     if (!file) return;
     setUploading(true);
     setUploadError(null);
+    setProgress({ loaded: 0, total: file.size, percent: 0, phase: "enviando" });
     try {
-      const { url } = await uploadFile(file, "products");
+      const { url } = await uploadFile(file, "products", {
+        onProgress: setProgress,
+      });
       setImageUrl(url);
     } catch (e) {
       setUploadError(
         e instanceof Error ? e.message : "Falha ao enviar a imagem.",
       );
+      setProgress(null);
     } finally {
       setUploading(false);
     }
@@ -170,11 +176,11 @@ export function ProductForm({ product, onSubmit, onCancel, onDelete }: ProductFo
               }}
             />
           </label>
-          {uploadError && (
-            <p className="max-w-[6rem] text-center text-label-sm text-error">
-              {uploadError}
-            </p>
-          )}
+          <UploadProgressBar
+            progress={uploading ? progress : null}
+            error={uploadError}
+            className="w-20"
+          />
         </div>
 
         <div className="min-w-0 flex-1 space-y-sm">

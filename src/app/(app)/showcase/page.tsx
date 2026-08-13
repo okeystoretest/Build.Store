@@ -1,5 +1,10 @@
 import { ShowcaseScreen } from "@/features/showcase/components/showcase-screen";
+import { ToolGate } from "@/components/layout/tool-gate";
 
 export default function ShowcasePage() {
-  return <ShowcaseScreen />;
+  return (
+    <ToolGate tool="showcase">
+      <ShowcaseScreen />
+    </ToolGate>
+  );
 }

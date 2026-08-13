@@ -34,7 +34,8 @@ import { Button } from "@/components/ui/button";
 import { ToggleGroup } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
 import { formatBRL } from "@/lib/utils/money";
-import { uploadFile } from "@/lib/utils/upload-file";
+import { uploadFile, type UploadProgress } from "@/lib/utils/upload-file";
+import { UploadProgressBar } from "@/components/ui/upload-progress";
 
 type Tool = "users" | "campaigns" | "goals" | "store";
 
@@ -603,6 +604,7 @@ function StoreSettings() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState<UploadProgress | null>(null);
 
   // Sincroniza o campo com o valor atual quando ele chega/muda.
   useEffect(() => {
@@ -617,14 +619,18 @@ function StoreSettings() {
   const handleLogo = async (file: File | undefined) => {
     if (!file) return;
     setUploading(true);
+    setProgress({ loaded: 0, total: file.size, percent: 0, phase: "enviando" });
     try {
-      const { url } = await uploadFile(file, "logos");
+      const { url } = await uploadFile(file, "logos", {
+        onProgress: setProgress,
+      });
       setLogo(url);
       setSaved(false);
     } catch (e) {
       toastStore.error(
         e instanceof Error ? e.message : "Falha ao enviar o logotipo.",
       );
+      setProgress(null);
     } finally {
       setUploading(false);
     }
@@ -713,9 +719,13 @@ function StoreSettings() {
             )}
           </div>
         </div>
+        <UploadProgressBar
+          progress={uploading ? progress : null}
+          className="px-2"
+        />
         <p className="px-2 text-label-sm text-on-surface-variant">
-          Usado no cabeçalho do comprovante impresso e como imagem de perfil dos
-          usuários.
+          Usado no cabeçalho do comprovante impresso e como imagem de perfil de
+          todos os usuários desta loja.
         </p>
       </div>
 

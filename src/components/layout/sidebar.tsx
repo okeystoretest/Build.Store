@@ -19,6 +19,8 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
+  Lock,
+  LockOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -26,6 +28,9 @@ import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
 import { useStoreName } from "@/hooks/use-store-name";
 import { useStoreLogo } from "@/hooks/use-store-logo";
+import { useToolAccess } from "@/hooks/use-tool-access";
+import { useToast } from "@/components/ui/toast";
+import type { UnlockableTool } from "@/features/settings/tool-access";
 import { StoreSelector } from "@/features/stores/components/store-selector";
 
 const SUPPORT_WHATSAPP = "558592178804";
@@ -35,16 +40,35 @@ interface NavItem {
   label: string;
   icon: typeof ShoppingCart;
   gate?: "reports" | "management" | "admin";
+  /**
+   * Ferramenta que o admin pode liberar por loja (cadeado). Sem isto, item
+   * bloqueado simplesmente não aparece — é o caso de Gestão e Lojas, que
+   * carregam criação de usuário e exclusão em cascata e por isso nunca são
+   * liberáveis para vendedora. Ver `features/settings/tool-access.ts`.
+   */
+  unlockable?: UnlockableTool;
 }
 
 const NAV: NavItem[] = [
   { href: "/pos", label: "PDV", icon: ShoppingCart },
   { href: "/dashboard", label: "Rank de Vendas", icon: LayoutDashboard },
   { href: "/inventory", label: "Estoque", icon: Package },
-  { href: "/reports", label: "Relatórios", icon: BarChart3, gate: "reports" },
+  {
+    href: "/reports",
+    label: "Relatórios",
+    icon: BarChart3,
+    gate: "reports",
+    unlockable: "reports",
+  },
   { href: "/orders", label: "Pedidos", icon: History },
   { href: "/customers", label: "Clientes", icon: Contact },
-  { href: "/showcase", label: "Vitrine", icon: Clapperboard, gate: "management" },
+  {
+    href: "/showcase",
+    label: "Vitrine",
+    icon: Clapperboard,
+    gate: "management",
+    unlockable: "showcase",
+  },
   { href: "/management", label: "Gestão", icon: Users, gate: "management" },
   { href: "/stores", label: "Lojas", icon: Building2, gate: "admin" },
 ];
@@ -83,15 +107,54 @@ export function Sidebar({
   const isAdmin = role === "admin";
   const { theme, toggle } = useTheme();
   const storeName = useStoreName();
-  // Imagem de perfil unificada: passa a usar o logotipo da marca.
+  // Imagem de perfil unificada: logotipo da marca, com fallback para a foto
+  // cadastrada em Lojas (ver getStoreLogoAction).
   const photoUrl = useStoreLogo();
+  const toast = useToast();
+  const { access, canToggle, toggle: toggleTool } = useToolAccess();
 
-  const visible = NAV.filter((item) => {
-    if (item.gate === "reports") return canSeeReports;
-    if (item.gate === "management") return canSeeManagement;
+  /** O papel é o piso; o cadeado da loja só ADICIONA acesso para a vendedora. */
+  const isAllowed = (item: NavItem): boolean => {
     if (item.gate === "admin") return isAdmin;
+    if (item.gate === "reports") return canSeeReports || access.reports;
+    if (item.gate === "management") {
+      if (canSeeManagement) return true;
+      return item.unlockable ? access[item.unlockable] : false;
+    }
     return true;
-  });
+  };
+
+  // Item bloqueado só aparece (com cadeado) se for liberável. Gestão e Lojas
+  // continuam invisíveis para quem não tem o papel.
+  const visible = NAV.filter((item) => isAllowed(item) || item.unlockable);
+
+  const avisarBloqueio = (label: string) => {
+    toast.error(
+      `${label} está bloqueado para o seu usuário. Peça a liberação ao responsável pela loja.`,
+    );
+  };
+
+  const alternarCadeado = async (tool: UnlockableTool, label: string) => {
+    if (!canToggle) {
+      toast.error(
+        "Selecione uma loja específica no seletor para liberar ferramentas.",
+      );
+      return;
+    }
+    const habilitar = !access[tool];
+    try {
+      await toggleTool.mutateAsync({ tool, enabled: habilitar });
+      toast.success(
+        habilitar
+          ? `${label} liberado para esta loja.`
+          : `${label} bloqueado para esta loja.`,
+      );
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Não foi possível alterar o acesso.",
+      );
+    }
+  };
 
   const initials = (fullName ?? "BS")
     .split(" ")
@@ -188,28 +251,102 @@ export function Sidebar({
       </div>
 
       <nav className="mt-lg flex shrink-0 flex-col gap-1">
-        {visible.map(({ href, label, icon: Icon }) => {
+        {visible.map((item) => {
+          const { href, label, icon: Icon, unlockable } = item;
           const active = pathname.startsWith(href);
+          const allowed = isAllowed(item);
+
+          // Classe compartilhada entre o link e o botão bloqueado, para os dois
+          // ficarem idênticos em altura e alinhamento.
+          const base = cn(
+            // min-h-[44px]: alvo de toque adequado no mobile.
+            "relative flex min-h-[44px] w-full items-center rounded-full text-label-md transition-colors",
+            isCollapsed ? "justify-center px-0 py-3" : "gap-3 px-4 py-3",
+            !allowed
+              ? "cursor-not-allowed text-on-surface-variant/50 hover:bg-surface-container/60"
+              : active
+                ? "bg-primary-fixed/60 text-primary"
+                : "text-on-surface-variant hover:bg-surface-container",
+          );
+
+          // Cadeado do admin: mostra e alterna o estado da loja. Some quando a
+          // sidebar está recolhida (não há espaço) — o admin expande para usar.
+          const cadeadoAdmin =
+            isAdmin && unlockable && !isCollapsed ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  void alternarCadeado(unlockable, label);
+                }}
+                disabled={toggleTool.isPending}
+                aria-label={
+                  access[unlockable]
+                    ? `Bloquear ${label} para esta loja`
+                    : `Liberar ${label} para esta loja`
+                }
+                title={
+                  access[unlockable]
+                    ? `Liberado para vendedoras — clique para bloquear`
+                    : `Bloqueado para vendedoras — clique para liberar`
+                }
+                className={cn(
+                  "ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors",
+                  access[unlockable]
+                    ? "text-primary hover:bg-primary-fixed/60"
+                    : "text-on-surface-variant/60 hover:bg-surface-container",
+                )}
+              >
+                {access[unlockable] ? (
+                  <LockOpen className="h-4 w-4" strokeWidth={1.75} />
+                ) : (
+                  <Lock className="h-4 w-4" strokeWidth={1.75} />
+                )}
+              </button>
+            ) : null;
+
+          const conteudo = (
+            <>
+              {active && allowed && !isCollapsed && (
+                <span className="absolute right-0 h-6 w-1 rounded-full bg-primary" />
+              )}
+              <Icon className="h-5 w-5 shrink-0" strokeWidth={1.75} />
+              {!isCollapsed && <span className="truncate">{label}</span>}
+              {!allowed && (
+                <Lock
+                  className={cn("h-4 w-4 shrink-0", isCollapsed ? "" : "ml-auto")}
+                  strokeWidth={1.75}
+                />
+              )}
+              {cadeadoAdmin}
+            </>
+          );
+
+          // Sem permissão: não é link. Clicar explica o bloqueio.
+          if (!allowed) {
+            return (
+              <button
+                key={href}
+                type="button"
+                onClick={() => avisarBloqueio(label)}
+                title={isCollapsed ? `${label} (bloqueado)` : undefined}
+                className={base}
+              >
+                {conteudo}
+              </button>
+            );
+          }
+
           return (
             <Link
               key={href}
               href={href}
               onClick={onNavigate}
               title={isCollapsed ? label : undefined}
-              className={cn(
-                // min-h-[44px]: alvo de toque adequado no mobile.
-                "relative flex min-h-[44px] items-center rounded-full text-label-md transition-colors",
-                isCollapsed ? "justify-center px-0 py-3" : "gap-3 px-4 py-3",
-                active
-                  ? "bg-primary-fixed/60 text-primary"
-                  : "text-on-surface-variant hover:bg-surface-container",
-              )}
+              className={base}
             >
-              {active && !isCollapsed && (
-                <span className="absolute right-0 h-6 w-1 rounded-full bg-primary" />
-              )}
-              <Icon className="h-5 w-5 shrink-0" strokeWidth={1.75} />
-              {!isCollapsed && <span className="truncate">{label}</span>}
+              {conteudo}
             </Link>
           );
         })}
