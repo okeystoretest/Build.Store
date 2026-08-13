@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Building2, Pencil, Trash2, Plus } from "lucide-react";
+import { Building2, Pencil, Trash2, Plus, Upload, ImageIcon } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useStores } from "@/features/stores/hooks/use-stores";
 import { useToast } from "@/components/ui/toast";
@@ -13,10 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { Store } from "@/types/domain";
 
+/** Teto da foto da loja (2 MB) — ela é gravada como data URL na própria coluna. */
+const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
+
 /**
  * Gestão › Lojas — CRUD de lojas (tenants). Admin apenas.
  *
- * - Criar: nome + logo (URL).
+ * - Criar: nome + foto da loja (upload de imagem).
  * - Editar: nome, logo, ativa/inativa.
  * - Excluir: HARD-DELETE. Apaga a loja e, em cascata, TODOS os dados dela
  *   (produtos, vendas, clientes, etc). Irreversível — exige que o admin digite
@@ -189,11 +192,34 @@ function StoreFormModal({
     values: Partial<Pick<Store, "name" | "logoUrl" | "active">>,
   ) => void;
 }) {
+  const toast = useToast();
   const [name, setName] = useState(store?.name ?? "");
-  const [logoUrl, setLogoUrl] = useState(store?.logoUrl ?? "");
+  const [logoUrl, setLogoUrl] = useState<string | null>(store?.logoUrl ?? null);
   const [active, setActive] = useState(store?.active ?? true);
 
   const canSave = name.trim().length > 0 && !saving;
+
+  /**
+   * Upload da foto: lê o arquivo como data URL e guarda direto na coluna
+   * `logo_url` — mesmo padrão do logotipo em Gestão e da imagem do produto
+   * (o projeto não tem bucket de storage; a imagem viaja embutida).
+   * Limite de 2 MB para não estourar o payload da Server Action.
+   */
+  const handlePhoto = (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Selecione um arquivo de imagem.");
+      return;
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      toast.error("A imagem deve ter no máximo 2 MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setLogoUrl(reader.result as string);
+    reader.onerror = () => toast.error("Não foi possível ler o arquivo.");
+    reader.readAsDataURL(file);
+  };
 
   return (
     <Modal open onClose={onClose} title={store ? "Editar loja" : "Nova loja"}>
@@ -208,12 +234,52 @@ function StoreFormModal({
           />
         </div>
         <div className="space-y-1.5">
-          <Label>Logo (URL)</Label>
-          <Input
-            value={logoUrl}
-            onChange={(e) => setLogoUrl(e.target.value)}
-            placeholder="https://..."
-          />
+          <Label>Foto da loja</Label>
+          <div className="flex items-center gap-md">
+            <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-md bg-surface-container">
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={logoUrl}
+                  alt="Prévia da foto da loja"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <ImageIcon
+                  className="h-8 w-8 text-on-surface-variant/40"
+                  strokeWidth={1.5}
+                />
+              )}
+            </div>
+            <div className="flex flex-col gap-2">
+              <label className="flex w-max cursor-pointer items-center gap-2 rounded-full border border-primary-container px-4 py-2.5 text-label-md text-primary transition-colors hover:bg-primary-fixed/40">
+                <Upload className="h-4 w-4" strokeWidth={1.75} />
+                {logoUrl ? "Trocar foto" : "Enviar foto"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    handlePhoto(e.target.files?.[0]);
+                    // Permite reenviar o mesmo arquivo depois de remover.
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              {logoUrl && (
+                <button
+                  type="button"
+                  onClick={() => setLogoUrl(null)}
+                  className="w-max text-label-sm text-error hover:underline"
+                >
+                  Remover foto
+                </button>
+              )}
+            </div>
+          </div>
+          <p className="px-1 text-label-sm text-on-surface-variant">
+            JPG ou PNG, até 2 MB.
+          </p>
         </div>
         {store && (
           <label className="flex items-center gap-2 text-body-md text-on-surface">
@@ -235,7 +301,7 @@ function StoreFormModal({
             onClick={() =>
               onSubmit({
                 name: name.trim(),
-                logoUrl: logoUrl.trim() || null,
+                logoUrl: logoUrl || null,
                 ...(store ? { active } : {}),
               })
             }

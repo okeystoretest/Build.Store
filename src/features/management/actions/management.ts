@@ -13,11 +13,16 @@ import type { User, Campaign, Goal, GoalType } from "@/types/domain";
 
 // --- Users -----------------------------------------------------------------
 
+/**
+ * Lista os usuários da loja. Só os ATIVOS: remover um usuário é um soft-delete
+ * (`active=false`, para não quebrar o vínculo das vendas com a vendedora), e
+ * quem foi removido não pode continuar aparecendo na lista.
+ */
 export async function listUsersAction(
   storeId?: string | null,
 ): Promise<User[]> {
   return withCurrentUser(async (trx) => {
-    let q = trx.selectFrom("profiles").selectAll();
+    let q = trx.selectFrom("profiles").selectAll().where("active", "=", true);
     if (storeId) q = q.where("store_id", "=", storeId);
     const rows = await q.orderBy("full_name", "asc").execute();
     return rows.map((r) => toUser(r as Record<string, unknown>));
@@ -62,9 +67,48 @@ export async function updateUserAction(
   });
 }
 
-/** "Remove" = desativa o profile (active=false). */
+/**
+ * Remove um usuário (soft-delete — o `profiles.id` é referenciado por
+ * `orders.seller_id`, então apagar a linha derrubaria o histórico de vendas).
+ *
+ * A remoção faz, numa única transação:
+ *   1. `active=false`      → some da lista e o login passa a recusar;
+ *   2. `password_hash=null`→ a credencial deixa de existir;
+ *   3. libera o `username` (renomeia para `<user>__removido__<sufixo>`), para
+ *      que o mesmo nome possa ser cadastrado de novo — o índice de username é
+ *      único e antes ficava preso pelo usuário removido;
+ *   4. apaga as sessões do Lucia → quem estava logado cai na hora, em vez de
+ *      seguir usando o app até a sessão expirar.
+ *
+ * Ninguém pode remover a si mesmo (evita o admin se trancar para fora).
+ */
 export async function deleteUserAction(id: string): Promise<void> {
-  await updateUserAction(id, { active: false });
+  await withCurrentUser(async (trx, caller) => {
+    if (caller.id === id) {
+      throw new Error("Você não pode remover o seu próprio usuário.");
+    }
+
+    const target = await trx
+      .selectFrom("profiles")
+      .select(["username", "active"])
+      .where("id", "=", id)
+      .executeTakeFirst();
+    if (!target) throw new Error("Usuário não encontrado.");
+    if (!target.active) return; // já removido — nada a fazer
+
+    const suffix = randomUUID().slice(0, 8);
+    await trx
+      .updateTable("profiles")
+      .set({
+        active: false,
+        password_hash: null,
+        username: `${target.username}__removido__${suffix}`,
+      } as never)
+      .where("id", "=", id)
+      .execute();
+
+    await trx.deleteFrom("sessions").where("user_id", "=", id).execute();
+  });
 }
 
 // --- Campaigns -------------------------------------------------------------

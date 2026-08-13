@@ -254,8 +254,20 @@ function UsersList({
         label={confirm?.fullName ?? ""}
         onCancel={() => setConfirm(null)}
         onConfirm={async () => {
-          if (confirm) { await deleteUserAction(confirm.id); void invalidateUsers(); toast.success("Usuário removido."); }
+          const target = confirm;
           setConfirm(null);
+          if (!target) return;
+          try {
+            await deleteUserAction(target.id);
+            // await: só avisa "removido" depois que a lista já refez a busca,
+            // senão a linha some com atraso e parece que nada aconteceu.
+            await invalidateUsers();
+            toast.success("Usuário removido.");
+          } catch (e) {
+            toast.error(
+              e instanceof Error ? e.message : "Falha ao remover o usuário.",
+            );
+          }
         }}
       />
     </>
