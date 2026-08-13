@@ -14,13 +14,6 @@ const nextConfig = {
       "lucia",
       "@lucia-auth/adapter-postgresql",
     ],
-    // Reduz o paralelismo do build (menos workers de compilação simultâneos)
-    // pra diminuir o pico de memória durante "next build". Suspeita: a VPS
-    // (Easypanel + Postgres rodando junto) está com pouca RAM livre durante
-    // o build, e os workers de compilação estão sendo mortos pelo OOM killer
-    // do SO, deixando pra trás resoluções de módulo incompletas/erradas.
-    cpus: 1,
-    workerThreads: false,
   },
 };
 
