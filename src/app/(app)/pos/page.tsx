@@ -1,5 +1,10 @@
 import { POSScreen } from "@/features/pos/components/pos-screen";
+import { ToolGate } from "@/components/layout/tool-gate";
 
 export default function POSPage() {
-  return <POSScreen />;
+  return (
+    <ToolGate tool="pos">
+      <POSScreen />
+    </ToolGate>
+  );
 }

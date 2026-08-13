@@ -1,5 +1,10 @@
 import { DashboardScreen } from "@/features/dashboard/components/dashboard-screen";
+import { ToolGate } from "@/components/layout/tool-gate";
 
 export default function DashboardPage() {
-  return <DashboardScreen />;
+  return (
+    <ToolGate tool="dashboard">
+      <DashboardScreen />
+    </ToolGate>
+  );
 }

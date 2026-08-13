@@ -6,9 +6,10 @@ import { getCurrentSession } from "@/lib/auth/session";
 import { DEFAULT_STORE_NAME } from "@/features/settings/constants";
 import {
   TOOL_ACCESS_KEY,
+  TOOL_BY_KEY,
   parseToolAccess,
   type ToolAccess,
-  type UnlockableTool,
+  type ToolKey,
 } from "@/features/settings/tool-access";
 
 /**
@@ -121,23 +122,31 @@ export async function getToolAccessAction(
 }
 
 /**
- * Grava a liberação. Só admin — a checagem é explícita aqui porque a tabela
- * `settings` é gravável por lojista (nome e logo da loja passam por ela), e sem
- * esta trava um lojista poderia liberar telas para as próprias vendedoras.
+ * Grava o cadeado de uma ferramenta na loja.
+ *
+ * `enabled` null remove o override — a ferramenta volta a seguir o papel.
+ *
+ * Só admin: a checagem é explícita aqui porque a tabela `settings` é gravável
+ * por lojista (nome e logo da loja passam por ela), e sem esta trava um lojista
+ * poderia liberar telas para as próprias vendedoras.
  */
 export async function setToolAccessAction(
   storeId: string,
-  tool: UnlockableTool,
-  enabled: boolean,
+  tool: ToolKey,
+  enabled: boolean | null,
 ): Promise<ToolAccess> {
   const { user } = await getCurrentSession();
   if (!user) throw new Error("Não autenticado.");
   if (user.role !== "admin") {
-    throw new Error("Apenas administradores podem liberar ferramentas.");
+    throw new Error("Apenas administradores podem alterar o acesso.");
   }
+  if (!TOOL_BY_KEY[tool]) throw new Error("Ferramenta desconhecida.");
 
   const atual = await getToolAccessAction(storeId);
-  const novo: ToolAccess = { ...atual, [tool]: enabled };
+  const novo: ToolAccess = { ...atual };
+  if (enabled === null) delete novo[tool];
+  else novo[tool] = enabled;
+
   await upsertValue(storeId, TOOL_ACCESS_KEY, JSON.stringify(novo));
   return novo;
 }

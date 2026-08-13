@@ -2,6 +2,7 @@
 
 import { randomUUID } from "crypto";
 import { withCurrentUser } from "@/lib/db/with-current-user";
+import { getCurrentSession } from "@/lib/auth/session";
 import { toUser, toCampaign, toGoal } from "@/lib/db/mappers";
 import type { User, Campaign, Goal, GoalType } from "@/types/domain";
 
@@ -9,7 +10,28 @@ import type { User, Campaign, Goal, GoalType } from "@/types/domain";
  * Server Actions de Gestão (usuários/vendedoras, campanhas, metas) — Kysely +
  * RLS por sessão. A criação de usuário com credenciais fica em
  * createUserAction; aqui ficam as demais escritas/leituras.
+ *
+ * ATENÇÃO — por que existe `exigirGestao()` abaixo:
+ *
+ * O cadeado da sidebar permite ao admin LIBERAR a tela de Gestão para uma
+ * vendedora numa loja específica. Isso é liberação de VISUALIZAÇÃO. Sem uma
+ * trava de papel no servidor, essa liberação viraria escalada de privilégio —
+ * a vendedora liberada poderia alterar papéis, remover usuários e mexer nas
+ * metas que definem a própria comissão.
+ *
+ * Então: quem enxerga a tela é decidido pelo cadeado; quem ESCREVE continua
+ * sendo decidido pelo papel, aqui, no servidor. As duas coisas são separadas
+ * de propósito.
  */
+
+/** Escritas de Gestão: só lojista e admin, independentemente do cadeado. */
+async function exigirGestao(): Promise<void> {
+  const { user } = await getCurrentSession();
+  if (!user) throw new Error("Não autenticado.");
+  if (user.role !== "lojista" && user.role !== "admin") {
+    throw new Error("Sem permissão para esta alteração.");
+  }
+}
 
 // --- Users -----------------------------------------------------------------
 
@@ -50,6 +72,8 @@ export async function updateUserAction(
     Pick<User, "fullName" | "birthDate" | "role" | "photoUrl" | "active">
   >,
 ): Promise<void> {
+  await exigirGestao();
+
   const row: Record<string, unknown> = {};
   if (patch.fullName !== undefined) row.full_name = patch.fullName;
   if (patch.birthDate !== undefined) row.birth_date = patch.birthDate;
@@ -83,6 +107,8 @@ export async function updateUserAction(
  * Ninguém pode remover a si mesmo (evita o admin se trancar para fora).
  */
 export async function deleteUserAction(id: string): Promise<void> {
+  await exigirGestao();
+
   await withCurrentUser(async (trx, caller) => {
     if (caller.id === id) {
       throw new Error("Você não pode remover o seu próprio usuário.");
@@ -142,6 +168,8 @@ export async function createCampaignAction(
   name: string,
   storeId: string,
 ): Promise<Campaign> {
+  await exigirGestao();
+
   return withCurrentUser(async (trx) => {
     const row = await trx
       .insertInto("campaigns")
@@ -162,6 +190,7 @@ export async function updateCampaignAction(
   id: string,
   patch: Partial<Pick<Campaign, "name" | "active">>,
 ): Promise<void> {
+  await exigirGestao();
   if (Object.keys(patch).length === 0) return;
   await withCurrentUser(async (trx) => {
     await trx
@@ -173,6 +202,8 @@ export async function updateCampaignAction(
 }
 
 export async function deleteCampaignAction(id: string): Promise<void> {
+  await exigirGestao();
+
   await withCurrentUser(async (trx) => {
     await trx.deleteFrom("campaigns").where("id", "=", id).execute();
   });
@@ -212,6 +243,8 @@ export async function createGoalAction(input: {
   targetQuantity: number | null;
   storeId: string;
 }): Promise<Goal> {
+  await exigirGestao();
+
   return withCurrentUser(async (trx) => {
     const row = await trx
       .insertInto("goals")
@@ -237,6 +270,8 @@ export async function updateGoalAction(
     Pick<Goal, "type" | "campaignId" | "targetCents" | "targetQuantity">
   >,
 ): Promise<void> {
+  await exigirGestao();
+
   const row: Record<string, unknown> = {};
   if (patch.type !== undefined) row.type = patch.type;
   if (patch.campaignId !== undefined) row.campaign_id = patch.campaignId;
@@ -255,6 +290,8 @@ export async function updateGoalAction(
 }
 
 export async function deleteGoalAction(id: string): Promise<void> {
+  await exigirGestao();
+
   await withCurrentUser(async (trx) => {
     await trx.deleteFrom("goals").where("id", "=", id).execute();
   });

@@ -21,6 +21,7 @@ import {
   ChevronRight,
   Lock,
   LockOpen,
+  UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -28,9 +29,9 @@ import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
 import { useStoreName } from "@/hooks/use-store-name";
 import { useStoreLogo } from "@/hooks/use-store-logo";
-import { useToolAccess } from "@/hooks/use-tool-access";
+import { useToolAccess, nextLockState } from "@/hooks/use-tool-access";
 import { useToast } from "@/components/ui/toast";
-import type { UnlockableTool } from "@/features/settings/tool-access";
+import { toolLabel, type ToolKey } from "@/features/settings/tool-access";
 import { StoreSelector } from "@/features/stores/components/store-selector";
 
 const SUPPORT_WHATSAPP = "558592178804";
@@ -39,38 +40,25 @@ interface NavItem {
   href: string;
   label: string;
   icon: typeof ShoppingCart;
-  gate?: "reports" | "management" | "admin";
-  /**
-   * Ferramenta que o admin pode liberar por loja (cadeado). Sem isto, item
-   * bloqueado simplesmente não aparece — é o caso de Gestão e Lojas, que
-   * carregam criação de usuário e exclusão em cascata e por isso nunca são
-   * liberáveis para vendedora. Ver `features/settings/tool-access.ts`.
-   */
-  unlockable?: UnlockableTool;
+  /** Chave do cadeado. Toda ferramenta tem a sua. */
+  tool: ToolKey;
 }
 
+/**
+ * Ordem do menu. O rótulo e quem enxerga cada item por padrão vivem em
+ * `features/settings/tool-access.ts` — aqui fica só a rota e o ícone, para não
+ * haver duas fontes de verdade sobre permissão.
+ */
 const NAV: NavItem[] = [
-  { href: "/pos", label: "PDV", icon: ShoppingCart },
-  { href: "/dashboard", label: "Rank de Vendas", icon: LayoutDashboard },
-  { href: "/inventory", label: "Estoque", icon: Package },
-  {
-    href: "/reports",
-    label: "Relatórios",
-    icon: BarChart3,
-    gate: "reports",
-    unlockable: "reports",
-  },
-  { href: "/orders", label: "Pedidos", icon: History },
-  { href: "/customers", label: "Clientes", icon: Contact },
-  {
-    href: "/showcase",
-    label: "Vitrine",
-    icon: Clapperboard,
-    gate: "management",
-    unlockable: "showcase",
-  },
-  { href: "/management", label: "Gestão", icon: Users, gate: "management" },
-  { href: "/stores", label: "Lojas", icon: Building2, gate: "admin" },
+  { href: "/pos", label: toolLabel("pos"), icon: ShoppingCart, tool: "pos" },
+  { href: "/dashboard", label: toolLabel("dashboard"), icon: LayoutDashboard, tool: "dashboard" },
+  { href: "/inventory", label: toolLabel("inventory"), icon: Package, tool: "inventory" },
+  { href: "/reports", label: toolLabel("reports"), icon: BarChart3, tool: "reports" },
+  { href: "/orders", label: toolLabel("orders"), icon: History, tool: "orders" },
+  { href: "/customers", label: toolLabel("customers"), icon: Contact, tool: "customers" },
+  { href: "/showcase", label: toolLabel("showcase"), icon: Clapperboard, tool: "showcase" },
+  { href: "/management", label: toolLabel("management"), icon: Users, tool: "management" },
+  { href: "/stores", label: toolLabel("stores"), icon: Building2, tool: "stores" },
 ];
 
 interface SidebarProps {
@@ -111,22 +99,13 @@ export function Sidebar({
   // cadastrada em Lojas (ver getStoreLogoAction).
   const photoUrl = useStoreLogo();
   const toast = useToast();
-  const { access, canToggle, toggle: toggleTool } = useToolAccess();
-
-  /** O papel é o piso; o cadeado da loja só ADICIONA acesso para a vendedora. */
-  const isAllowed = (item: NavItem): boolean => {
-    if (item.gate === "admin") return isAdmin;
-    if (item.gate === "reports") return canSeeReports || access.reports;
-    if (item.gate === "management") {
-      if (canSeeManagement) return true;
-      return item.unlockable ? access[item.unlockable] : false;
-    }
-    return true;
-  };
-
-  // Item bloqueado só aparece (com cadeado) se for liberável. Gestão e Lojas
-  // continuam invisíveis para quem não tem o papel.
-  const visible = NAV.filter((item) => isAllowed(item) || item.unlockable);
+  const {
+    can,
+    lockState,
+    defaultHint,
+    canToggle,
+    toggle: toggleTool,
+  } = useToolAccess();
 
   const avisarBloqueio = (label: string) => {
     toast.error(
@@ -134,20 +113,23 @@ export function Sidebar({
     );
   };
 
-  const alternarCadeado = async (tool: UnlockableTool, label: string) => {
+  /** Ciclo do cadeado (admin): padrão → liberado → bloqueado → padrão. */
+  const alternarCadeado = async (tool: ToolKey, label: string) => {
     if (!canToggle) {
       toast.error(
-        "Selecione uma loja específica no seletor para liberar ferramentas.",
+        "Selecione uma loja específica no seletor para alterar o acesso.",
       );
       return;
     }
-    const habilitar = !access[tool];
+    const alvo = nextLockState(lockState(tool));
     try {
-      await toggleTool.mutateAsync({ tool, enabled: habilitar });
+      await toggleTool.mutateAsync({ tool, enabled: alvo });
       toast.success(
-        habilitar
-          ? `${label} liberado para esta loja.`
-          : `${label} bloqueado para esta loja.`,
+        alvo === true
+          ? `${label}: liberado para todos desta loja.`
+          : alvo === false
+            ? `${label}: bloqueado nesta loja.`
+            : `${label}: voltou ao padrão do nível de acesso.`,
       );
     } catch (e) {
       toast.error(
@@ -251,10 +233,11 @@ export function Sidebar({
       </div>
 
       <nav className="mt-lg flex shrink-0 flex-col gap-1">
-        {visible.map((item) => {
-          const { href, label, icon: Icon, unlockable } = item;
+        {NAV.map((item) => {
+          const { href, label, icon: Icon, tool } = item;
           const active = pathname.startsWith(href);
-          const allowed = isAllowed(item);
+          const allowed = can(tool);
+          const estado = lockState(tool);
 
           // Classe compartilhada entre o link e o botão bloqueado, para os dois
           // ficarem idênticos em altura e alinhamento.
@@ -269,39 +252,41 @@ export function Sidebar({
                 : "text-on-surface-variant hover:bg-surface-container",
           );
 
-          // Cadeado do admin: mostra e alterna o estado da loja. Some quando a
+          // Cadeado do admin: mostra e cicla o estado da loja. Some quando a
           // sidebar está recolhida (não há espaço) — o admin expande para usar.
           const cadeadoAdmin =
-            isAdmin && unlockable && !isCollapsed ? (
+            isAdmin && !isCollapsed ? (
               <button
                 type="button"
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  void alternarCadeado(unlockable, label);
+                  void alternarCadeado(tool, label);
                 }}
                 disabled={toggleTool.isPending}
-                aria-label={
-                  access[unlockable]
-                    ? `Bloquear ${label} para esta loja`
-                    : `Liberar ${label} para esta loja`
-                }
+                aria-label={`Alterar acesso de ${label} nesta loja`}
                 title={
-                  access[unlockable]
-                    ? `Liberado para vendedoras — clique para bloquear`
-                    : `Bloqueado para vendedoras — clique para liberar`
+                  estado === "liberado"
+                    ? "Liberado para todos desta loja — clique para bloquear"
+                    : estado === "bloqueado"
+                      ? "Bloqueado nesta loja — clique para voltar ao padrão"
+                      : `Padrão do nível de acesso (${defaultHint(tool)}) — clique para liberar`
                 }
                 className={cn(
                   "ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors",
-                  access[unlockable]
+                  estado === "liberado"
                     ? "text-primary hover:bg-primary-fixed/60"
-                    : "text-on-surface-variant/60 hover:bg-surface-container",
+                    : estado === "bloqueado"
+                      ? "text-error hover:bg-error/10"
+                      : "text-on-surface-variant/50 hover:bg-surface-container",
                 )}
               >
-                {access[unlockable] ? (
+                {estado === "liberado" ? (
                   <LockOpen className="h-4 w-4" strokeWidth={1.75} />
-                ) : (
+                ) : estado === "bloqueado" ? (
                   <Lock className="h-4 w-4" strokeWidth={1.75} />
+                ) : (
+                  <UserCog className="h-4 w-4" strokeWidth={1.75} />
                 )}
               </button>
             ) : null;

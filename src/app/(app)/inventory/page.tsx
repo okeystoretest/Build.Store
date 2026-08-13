@@ -1,5 +1,10 @@
 import { InventoryScreen } from "@/features/inventory/components/inventory-screen";
+import { ToolGate } from "@/components/layout/tool-gate";
 
 export default function InventoryPage() {
-  return <InventoryScreen />;
+  return (
+    <ToolGate tool="inventory">
+      <InventoryScreen />
+    </ToolGate>
+  );
 }
