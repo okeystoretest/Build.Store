@@ -7,8 +7,11 @@ import {
 } from "@/features/settings/actions/settings";
 import {
   DEFAULT_TOOL_ACCESS,
-  allowedByRole,
+  TOOL_BY_KEY,
+  roleUnlocked,
   resolveToolAccess,
+  type LockableRole,
+  type RoleAccess,
   type ToolAccess,
   type ToolKey,
 } from "@/features/settings/tool-access";
@@ -20,7 +23,7 @@ import { useAuth } from "@/hooks/use-auth";
  * Cadeado das ferramentas da loja ativa.
  *
  * Devolve `can(tool)` — o acesso efetivo do usuário logado — e a mutação que o
- * admin usa para trancar/destrancar por loja.
+ * admin usa para liberar/bloquear por papel, a partir do modal do cadeado.
  *
  * Sem loja ativa (admin em "todas as lojas") não há o que editar: a liberação é
  * sempre POR loja, então `canToggle` fica falso.
@@ -38,14 +41,14 @@ export function useToolAccess() {
 
   const access: ToolAccess = data ?? DEFAULT_TOOL_ACCESS;
 
-  const toggle = useMutation({
-    mutationFn: (vars: { tool: ToolKey; enabled: boolean | null }) => {
+  const save = useMutation({
+    mutationFn: (vars: { tool: ToolKey; papeis: RoleAccess }) => {
       if (!storeId) {
         throw new Error(
           "Selecione uma loja específica no seletor para alterar o acesso.",
         );
       }
-      return setToolAccessAction(storeId, vars.tool, vars.enabled);
+      return setToolAccessAction(storeId, vars.tool, vars.papeis);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.settings });
@@ -60,36 +63,15 @@ export function useToolAccess() {
     /** Acesso efetivo do usuário logado a uma ferramenta. */
     can: (tool: ToolKey) => resolveToolAccess(tool, role, access),
     /**
-     * Estado do cadeado na visão do admin. Três estados, e não dois, porque
-     * "sem override" é diferente de "liberado": Relatórios no padrão já vale
-     * para lojista e não vale para vendedora — um booleano só não expressa
-     * isso sem mentir sobre um dos dois papéis.
+     * Estado exibido no modal para um papel: liberado (true) ou bloqueado
+     * (false). Sem override, mostra o que o papel já dá — nunca um terceiro
+     * estado abstrato.
      */
-    lockState: (tool: ToolKey): LockState => {
-      const o = access[tool];
-      if (o === true) return "liberado";
-      if (o === false) return "bloqueado";
-      return "padrao";
-    },
-    /** Quem enxerga a ferramenta quando não há override (para o tooltip). */
-    defaultHint: (tool: ToolKey) => {
-      const papeis = (["lojista", "vendedora"] as const).filter((r) =>
-        allowedByRole(tool, r),
-      );
-      if (papeis.length === 2) return "lojista e vendedora";
-      if (papeis.length === 1) return papeis[0];
-      return "ninguém além do admin";
-    },
-    toggle,
+    unlockedFor: (tool: ToolKey, papel: LockableRole) =>
+      roleUnlocked(tool, papel, access),
+    /** false quando o cadeado não pode LIBERAR a ferramenta (só `stores`). */
+    isUnlockable: (tool: ToolKey) => TOOL_BY_KEY[tool]?.unlockable ?? false,
+    /** Grava o resultado do modal. */
+    save,
   };
-}
-
-/** liberado = todos da loja; bloqueado = ninguém; padrao = segue o papel. */
-export type LockState = "liberado" | "bloqueado" | "padrao";
-
-/** Ciclo do clique do admin: padrão → liberado → bloqueado → padrão. */
-export function nextLockState(atual: LockState): boolean | null {
-  if (atual === "padrao") return true;
-  if (atual === "liberado") return false;
-  return null;
 }

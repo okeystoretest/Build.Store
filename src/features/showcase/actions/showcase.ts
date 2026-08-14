@@ -14,6 +14,11 @@ import type {
  * Server Actions da Vitrine — Kysely + RLS por sessão. Corte de 90 dias aplicado
  * na leitura (defensivo contra atraso do cron de limpeza). Insert só admin
  * (RLS 0004) e sempre carimbando a loja ativa.
+ *
+ * A ORDENAÇÃO final é alfanumérica e acontece no cliente
+ * (`sortMediaAlphanumeric`): o Postgres compara bytes e colocaria "Look 10"
+ * antes de "Look 2". O `ORDER BY created_at` daqui só dá uma ordem estável ao
+ * resultado do banco.
  */
 
 export async function listShowcaseMediaAction(

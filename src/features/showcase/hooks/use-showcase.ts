@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ShowcaseMedia, ShowcaseTab } from "@/types/domain";
 import { listShowcaseMediaAction } from "@/features/showcase/actions/showcase";
+import { sortMediaAlphanumeric } from "@/features/showcase/lib/showcase";
 import { queryKeys } from "@/lib/db/query-keys";
 import { useRealtimeInvalidation } from "@/lib/db/use-realtime-invalidation";
 import { useStoreContext } from "@/features/stores/store-context";
@@ -35,10 +36,21 @@ export function useShowcase(tab: ShowcaseTab) {
     return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
   }, [all]);
 
-  // Aplica o filtro de coleção; a ordenação (recentes no topo) já vem do banco.
+  /**
+   * Filtro de coleção + ordenação ALFANUMÉRICA pelo padrão de nomenclatura
+   * (título; na falta dele, o nome do arquivo). Vale para as três abas.
+   *
+   * A ordenação é feita aqui, e não no `ORDER BY`, porque o Postgres ordena por
+   * bytes: "Look 10" viria antes de "Look 2". O `Intl.Collator` com
+   * `numeric: true` entende o número dentro do texto, que é o que a vitrine
+   * numerada precisa.
+   */
   const media: ShowcaseMedia[] = useMemo(() => {
-    if (collection === ALL) return all;
-    return all.filter((m) => m.collectionName === collection);
+    const base =
+      collection === ALL
+        ? all
+        : all.filter((m) => m.collectionName === collection);
+    return sortMediaAlphanumeric(base);
   }, [all, collection]);
 
   return {

@@ -66,6 +66,19 @@ export async function createUserAction(input: {
 
   try {
     await withUser(caller.id, async (trx) => {
+      // Foto de perfil herdada da loja (requisito 2.C): quem entra na equipe já
+      // nasce com a imagem da loja, sem ninguém precisar anexá-la de novo.
+      let photoUrl = input.photoUrl ?? null;
+      if (!photoUrl && targetStoreId) {
+        const loja = await trx
+          .selectFrom("stores")
+          .select("logo_url")
+          .where("id", "=", targetStoreId)
+          .executeTakeFirst();
+        const url = (loja?.logo_url as string | null) ?? null;
+        photoUrl = url && url.trim() ? url : null;
+      }
+
       await trx
         .insertInto("profiles")
         .values({
@@ -74,7 +87,7 @@ export async function createUserAction(input: {
           full_name: input.fullName,
           birth_date: input.birthDate,
           role: input.role,
-          photo_url: input.photoUrl ?? null,
+          photo_url: photoUrl,
           store_id: targetStoreId,
           password_hash: passwordHash,
           active: true,

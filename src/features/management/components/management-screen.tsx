@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { UserPlus, Megaphone, Target, Pencil, Trash2 } from "lucide-react";
 import { useManagement } from "@/features/management/hooks/use-management";
@@ -14,13 +14,9 @@ import {
 } from "@/features/management/actions/management";
 import { parseToCents } from "@/lib/utils/money";
 import { queryKeys } from "@/lib/db/query-keys";
-import { setStoreNameAction, setStoreLogoAction } from "@/features/settings/actions/settings";
-import { useStoreContext } from "@/features/stores/store-context";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/components/ui/toast";
-import { useStoreName } from "@/hooks/use-store-name";
 import { useStoreLogo } from "@/hooks/use-store-logo";
-import { Store, ImageIcon } from "lucide-react";
 import type { User, Campaign, Goal, Role } from "@/types/domain";
 import { UserForm, ROLE_LABELS } from "./user-form";
 import { CampaignForm } from "./campaign-form";
@@ -34,15 +30,17 @@ import { Button } from "@/components/ui/button";
 import { ToggleGroup } from "@/components/ui/toggle-group";
 import { Badge } from "@/components/ui/badge";
 import { formatBRL } from "@/lib/utils/money";
-import { uploadFile, type UploadProgress } from "@/lib/utils/upload-file";
-import { UploadProgressBar } from "@/components/ui/upload-progress";
 
-type Tool = "users" | "campaigns" | "goals" | "store";
+type Tool = "users" | "campaigns" | "goals";
 
 /**
  * Gestão screen — three management tools: user registration, campaign creation
  * and goal definition. Each is paired with a live list of what already exists.
  * Access is gated to lojista/admin at the sidebar + route level.
+ *
+ * A aba "Loja" (nome e foto) saiu daqui: nome e foto agora são cadastrados
+ * exclusivamente na ferramenta **Lojas** da barra lateral. Eram dois formulários
+ * para o mesmo dado, e quem editava num lugar não via o efeito do outro.
  */
 export function ManagementScreen() {
   const m = useManagement();
@@ -93,20 +91,13 @@ export function ManagementScreen() {
               { value: "users", label: "Usuários", icon: <UserPlus className="h-4 w-4" strokeWidth={1.75} /> },
               { value: "campaigns", label: "Campanhas", icon: <Megaphone className="h-4 w-4" strokeWidth={1.75} /> },
               { value: "goals", label: "Metas", icon: <Target className="h-4 w-4" strokeWidth={1.75} /> },
-              // "Loja" (nome/logo da loja) é exclusivo do Admin (requisito 5).
-              ...(isAdmin
-                ? [{ value: "store" as const, label: "Loja", icon: <Store className="h-4 w-4" strokeWidth={1.75} /> }]
-                : []),
             ]}
           />
         </div>
       </header>
 
       <div className="flex-1 overflow-y-auto px-margin py-md">
-        {tool === "store" && isAdmin ? (
-          <StoreSettings />
-        ) : (
-          <div className="grid grid-cols-1 gap-md lg:grid-cols-[minmax(360px,440px)_1fr]">
+        <div className="grid grid-cols-1 gap-md lg:grid-cols-[minmax(360px,440px)_1fr]">
           {/* Form column */}
           <div className="rounded-lg bg-surface-container-lowest p-md shadow-level-1">
             {tool === "users" && (
@@ -151,8 +142,7 @@ export function ManagementScreen() {
               />
             )}
           </div>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );
@@ -586,157 +576,4 @@ function ConfirmDelete({
 
 function Empty({ text }: { text: string }) {
   return <p className="text-body-md text-on-surface-variant">{text}</p>;
-}
-
-/**
- * Configurações da loja. Por ora, apenas o "Nome da Loja", que substitui o
- * título abaixo da logo na sidebar (global, via tabela settings). Salvar
- * invalida o cache; o Realtime propaga para os demais dispositivos.
- */
-function StoreSettings() {
-  const toastStore = useToast();
-  const { activeStoreId } = useStoreContext();
-  const currentName = useStoreName();
-  const currentLogo = useStoreLogo();
-  const queryClient = useQueryClient();
-  const [name, setName] = useState("");
-  const [logo, setLogo] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [progress, setProgress] = useState<UploadProgress | null>(null);
-
-  // Sincroniza o campo com o valor atual quando ele chega/muda.
-  useEffect(() => {
-    setName(currentName);
-  }, [currentName]);
-
-  useEffect(() => {
-    setLogo(currentLogo);
-  }, [currentLogo]);
-
-  /** Sobe o logotipo para o disco (/api/upload); o setting guarda só a URL. */
-  const handleLogo = async (file: File | undefined) => {
-    if (!file) return;
-    setUploading(true);
-    setProgress({ loaded: 0, total: file.size, percent: 0, phase: "enviando" });
-    try {
-      const { url } = await uploadFile(file, "logos", {
-        onProgress: setProgress,
-      });
-      setLogo(url);
-      setSaved(false);
-    } catch (e) {
-      toastStore.error(
-        e instanceof Error ? e.message : "Falha ao enviar o logotipo.",
-      );
-      setProgress(null);
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  const save = async () => {
-    if (!name.trim()) return;
-    if (!activeStoreId) {
-      toastStore.error(
-        "Selecione uma loja específica no seletor para editar nome e logo.",
-      );
-      return;
-    }
-    setSaving(true);
-    setSaved(false);
-    try {
-      await setStoreNameAction(activeStoreId, name.trim());
-      await setStoreLogoAction(activeStoreId, logo);
-      toastStore.success("Dados da loja atualizados.");
-      await queryClient.invalidateQueries({ queryKey: queryKeys.settings });
-      setSaved(true);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <div className="max-w-xl rounded-lg bg-surface-container-lowest p-md shadow-level-1">
-      <h2 className="mb-md text-headline-md text-on-surface">Dados da loja</h2>
-
-      <div className="space-y-1.5">
-        <Label>Nome da Loja</Label>
-        <Input
-          value={name}
-          onChange={(e) => {
-            setName(e.target.value);
-            setSaved(false);
-          }}
-          placeholder="Ex.: Okey Store"
-        />
-        <p className="px-2 text-label-sm text-on-surface-variant">
-          Exibido abaixo da logo, na barra lateral.
-        </p>
-      </div>
-
-      <div className="mt-md space-y-1.5">
-        <Label>Logotipo da Marca</Label>
-        <div className="flex items-center gap-md">
-          <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-md bg-surface-container">
-            {logo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={logo} alt="Logo da loja" className="h-full w-full object-contain" />
-            ) : (
-              <ImageIcon className="h-8 w-8 text-on-surface-variant/40" strokeWidth={1.5} />
-            )}
-          </div>
-          <div className="flex flex-col gap-2">
-            <label
-              className="flex w-max cursor-pointer items-center gap-2 rounded-full border border-primary-container px-4 py-2.5 text-label-md text-primary transition-colors hover:bg-primary-fixed/40 aria-disabled:pointer-events-none aria-disabled:opacity-60"
-              aria-disabled={uploading}
-            >
-              <ImageIcon className="h-4 w-4" strokeWidth={1.75} />
-              {uploading ? "Enviando..." : "Enviar logotipo"}
-              <input
-                type="file"
-                accept="image/*"
-                className="hidden"
-                disabled={uploading}
-                onChange={(e) => {
-                  void handleLogo(e.target.files?.[0]);
-                  e.target.value = "";
-                }}
-              />
-            </label>
-            {logo && (
-              <button
-                type="button"
-                onClick={() => {
-                  setLogo(null);
-                  setSaved(false);
-                }}
-                className="w-max text-label-sm text-error hover:underline"
-              >
-                Remover logotipo
-              </button>
-            )}
-          </div>
-        </div>
-        <UploadProgressBar
-          progress={uploading ? progress : null}
-          className="px-2"
-        />
-        <p className="px-2 text-label-sm text-on-surface-variant">
-          Usado no cabeçalho do comprovante impresso e como imagem de perfil de
-          todos os usuários desta loja.
-        </p>
-      </div>
-
-      <div className="mt-md flex items-center gap-md">
-        <Button onClick={save} disabled={saving || uploading || !name.trim()}>
-          {saving ? "Salvando..." : "Salvar"}
-        </Button>
-        {saved && (
-          <span className="text-label-md text-primary">Dados atualizados.</span>
-        )}
-      </div>
-    </div>
-  );
 }

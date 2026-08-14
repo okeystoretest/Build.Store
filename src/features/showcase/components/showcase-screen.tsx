@@ -48,7 +48,8 @@ const MONTHS_SHORT = [
  * Vitrine — distribuição de mídia por coleção com três abas:
  * Workshop, Vídeos da Coleção e Fotos da Coleção. Cada aba envia arquivos
  * (metadados obrigatórios no modal), filtra por coleção e lista os conteúdos
- * mais recentes primeiro. Mídias com mais de 90 dias são removidas pela rotina
+ * em ordem alfanumérica pelo padrão de nomenclatura (título ou nome do
+ * arquivo). Mídias com mais de 90 dias são removidas pela rotina
  * agendada (/api/showcase/cleanup) e nunca aparecem aqui.
  */
 export function ShowcaseScreen() {
@@ -126,7 +127,11 @@ export function ShowcaseScreen() {
                 key={m.id}
                 media={m}
                 onOpen={() => setViewerIndex(i)}
-                onDelete={() => handleDelete(m)}
+                // Excluir mídia segue restrito a quem pode publicar. A Vitrine
+                // passou a ser visível para a vendedora (requisito 2); sem esta
+                // linha, ela veria o botão de lixeira em cima do material da
+                // coleção.
+                onDelete={canUploadShowcase ? () => handleDelete(m) : null}
               />
             ))}
           </div>
@@ -163,7 +168,8 @@ function MediaCard({
 }: {
   media: ShowcaseMedia;
   onOpen: () => void;
-  onDelete: () => void;
+  /** null = usuário sem permissão para excluir; o botão nem é renderizado. */
+  onDelete: (() => void) | null;
 }) {
   const isImage = (media.mimeType ?? "").startsWith("image/");
   const isVideo = (media.mimeType ?? "").startsWith("video/");
@@ -192,15 +198,17 @@ function MediaCard({
           </span>
         </button>
 
-        <button
-          type="button"
-          onClick={onDelete}
-          aria-label="Remover mídia"
-          title="Remover"
-          className="absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-surface/90 text-on-surface-variant opacity-0 transition-all hover:bg-error-container hover:text-on-error-container group-hover:opacity-100"
-        >
-          <Trash2 className="h-4 w-4" strokeWidth={1.75} />
-        </button>
+        {onDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            aria-label="Remover mídia"
+            title="Remover"
+            className="absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-surface/90 text-on-surface-variant opacity-0 transition-all hover:bg-error-container hover:text-on-error-container group-hover:opacity-100"
+          >
+            <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+          </button>
+        )}
       </div>
 
       <div className="p-sm">

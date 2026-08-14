@@ -10,6 +10,47 @@ export function retentionCutoffISO(now = new Date()): string {
   return cutoff.toISOString();
 }
 
+/**
+ * Comparador alfanumérico da Vitrine.
+ *
+ * `numeric: true` faz "Look 2" vir antes de "Look 10" — a ordenação puramente
+ * lexicográfica colocaria "Look 10" primeiro, quebrando exatamente o padrão de
+ * nomenclatura numerada que a vitrine usa. `sensitivity: "base"` ignora caixa e
+ * acento, para "Ática" e "atica" não caírem em blocos separados.
+ */
+const COLLATOR = new Intl.Collator("pt-BR", {
+  numeric: true,
+  sensitivity: "base",
+});
+
+/** Nome do arquivo em `/api/media/<escopo>/<aaaa-mm>/<uuid>.<ext>`. */
+function fileNameOf(url: string): string {
+  const semQuery = url.split("?")[0] ?? "";
+  return decodeURIComponent(semQuery.split("/").pop() ?? "");
+}
+
+/**
+ * Chave de ordenação: o título cadastrado e, se vazio, o nome do arquivo.
+ * Toda mídia tem uma das duas — sem isso, itens sem título afundariam no fim da
+ * lista em ordem imprevisível.
+ */
+export function sortKey(m: ShowcaseMedia): string {
+  const t = (m.title ?? "").trim();
+  return t || fileNameOf(m.fileUrl ?? "");
+}
+
+/**
+ * Ordena mídia da Vitrine de forma alfanumérica pelo padrão de nomenclatura.
+ * Empate no nome cai para a data de envio, só para a ordem ser estável.
+ */
+export function sortMediaAlphanumeric(list: ShowcaseMedia[]): ShowcaseMedia[] {
+  return [...list].sort((a, b) => {
+    const cmp = COLLATOR.compare(sortKey(a), sortKey(b));
+    if (cmp !== 0) return cmp;
+    return (a.createdAt ?? "").localeCompare(b.createdAt ?? "");
+  });
+}
+
 type Row = Record<string, unknown>;
 
 export function toMedia(r: Row): ShowcaseMedia {

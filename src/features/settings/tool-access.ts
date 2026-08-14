@@ -8,20 +8,26 @@ import type { Role } from "@/types/domain";
  * ## Como funciona
  *
  * Cada ferramenta tem um PADRÃO derivado do papel (é o comportamento histórico
- * do sistema) e um OVERRIDE opcional por loja, gravado em `settings`:
+ * do sistema) e um OVERRIDE opcional POR PAPEL e por loja, gravado em
+ * `settings`:
  *
- *   efetivo = override ?? padrãoDoPapel
+ *   efetivo(papel) = override[ferramenta][papel] ?? padrãoDoPapel
  *
  * O override existe nos dois sentidos: o admin pode **liberar** algo que o
  * papel não dá (Relatórios para a vendedora) e **bloquear** algo que o papel
- * daria (tirar Pedidos de uma loja específica). Ausente = segue o papel.
+ * daria (tirar Pedidos das vendedoras). Ausente = segue o papel.
+ *
+ * O override é por papel — e não um booleano único para todos os não-admin —
+ * porque "liberar" e "bloquear" só fazem sentido apontando para quem: liberar
+ * Relatórios para a lojista é diferente de liberar para a vendedora, e o modal
+ * do cadeado pede exatamente essa escolha.
  *
  * ## Duas travas deliberadas
  *
  * 1. **Admin nunca é bloqueado.** O cadeado é editado pela própria sidebar; se
  *    um admin pudesse trancar Gestão para si mesmo, ficaria sem caminho de
  *    volta e só sairia disso por SQL. Para o admin, o cadeado exibe e edita o
- *    estado da LOJA — nunca o acesso dele.
+ *    estado dos DEMAIS papéis — nunca o acesso dele.
  *
  * 2. **`stores` não é liberável para não-admin.** Aquela tela exclui a loja
  *    inteira em cascata (produtos, vendas, clientes, mídias). Segue admin-only
@@ -48,8 +54,20 @@ export type ToolKey =
   | "management"
   | "stores";
 
-/** Override por loja. Chave ausente = segue o padrão do papel. */
-export type ToolAccess = Partial<Record<ToolKey, boolean>>;
+/** Papéis que o cadeado consegue editar. Admin nunca entra aqui (trava 1). */
+export const LOCKABLE_ROLES = ["lojista", "vendedora"] as const;
+export type LockableRole = (typeof LOCKABLE_ROLES)[number];
+
+export const ROLE_LABEL: Record<LockableRole, string> = {
+  lojista: "Lojista",
+  vendedora: "Vendedora",
+};
+
+/** Override de uma ferramenta por papel. Papel ausente = segue o padrão. */
+export type RoleAccess = Partial<Record<LockableRole, boolean>>;
+
+/** Override por loja: ferramenta → papel → liberado/bloqueado. */
+export type ToolAccess = Partial<Record<ToolKey, RoleAccess>>;
 
 export const DEFAULT_TOOL_ACCESS: ToolAccess = {};
 
@@ -69,6 +87,13 @@ const TODOS: Role[] = ["vendedora", "lojista", "admin"];
 const GESTAO: Role[] = ["lojista", "admin"];
 const SO_ADMIN: Role[] = ["admin"];
 
+/**
+ * Padrões por perfil (requisitos 2 e 3):
+ *
+ * - Vendedora: PDV, Rank de Vendas, Estoque, Pedidos, Vitrine, Clientes.
+ * - Lojista: os acima + Relatórios e Gestão. Sem "Lojas".
+ * - Admin: tudo.
+ */
 export const TOOLS: ToolMeta[] = [
   { key: "pos", label: "PDV", defaultRoles: TODOS, unlockable: true },
   { key: "dashboard", label: "Rank de Vendas", defaultRoles: TODOS, unlockable: true },
@@ -76,7 +101,7 @@ export const TOOLS: ToolMeta[] = [
   { key: "reports", label: "Relatórios", defaultRoles: GESTAO, unlockable: true },
   { key: "orders", label: "Pedidos", defaultRoles: TODOS, unlockable: true },
   { key: "customers", label: "Clientes", defaultRoles: TODOS, unlockable: true },
-  { key: "showcase", label: "Vitrine", defaultRoles: GESTAO, unlockable: true },
+  { key: "showcase", label: "Vitrine", defaultRoles: TODOS, unlockable: true },
   { key: "management", label: "Gestão", defaultRoles: GESTAO, unlockable: true },
   { key: "stores", label: "Lojas", defaultRoles: SO_ADMIN, unlockable: false },
 ];
@@ -98,11 +123,16 @@ export function allowedByRole(key: ToolKey, role: Role): boolean {
   return TOOL_BY_KEY[key]?.defaultRoles.includes(role) ?? false;
 }
 
+/** O cadeado consegue mexer neste papel? (admin, não — ver trava 1) */
+export function isLockableRole(role: Role): role is LockableRole {
+  return role === "lojista" || role === "vendedora";
+}
+
 /**
- * Acesso efetivo: override da loja sobre o padrão do papel.
+ * Acesso efetivo: override do papel sobre o padrão do papel.
  *
- * Admin passa por cima de tudo (ver trava 1 no topo do arquivo), e nenhum
- * override consegue liberar uma ferramenta não-liberável (trava 2).
+ * Admin passa por cima de tudo (trava 1), e nenhum override consegue liberar
+ * uma ferramenta não-liberável (trava 2).
  */
 export function resolveToolAccess(
   key: ToolKey,
@@ -115,12 +145,27 @@ export function resolveToolAccess(
   if (!meta) return false;
 
   const porPapel = meta.defaultRoles.includes(role);
-  const override = overrides[key];
+  if (!isLockableRole(role)) return porPapel;
+
+  const override = overrides[key]?.[role];
   if (override === undefined) return porPapel;
 
   // Bloquear sempre vale; liberar só quando a ferramenta é liberável.
   if (override === false) return false;
   return meta.unlockable ? true : porPapel;
+}
+
+/**
+ * Estado que o modal do cadeado mostra para um papel: só dois, "liberado" e
+ * "bloqueado" (requisito 5). Sem override, o estado exibido é o que o papel já
+ * dá — assim o admin sempre vê a verdade, não um terceiro estado abstrato.
+ */
+export function roleUnlocked(
+  key: ToolKey,
+  role: LockableRole,
+  overrides: ToolAccess,
+): boolean {
+  return resolveToolAccess(key, role, overrides);
 }
 
 /** Lê o JSON do settings com tolerância a valor ausente/corrompido. */
@@ -131,8 +176,24 @@ export function parseToolAccess(raw: string | null | undefined): ToolAccess {
     const out: ToolAccess = {};
     for (const t of TOOLS) {
       const v = parsed[t.key];
-      // Só booleano estrito conta; qualquer outra coisa volta ao padrão.
-      if (v === true || v === false) out[t.key] = v;
+
+      // Formato antigo: booleano único valendo para todos os não-admin.
+      // Migrado na leitura para não exigir migração de banco.
+      if (v === true || v === false) {
+        out[t.key] = { lojista: v, vendedora: v };
+        continue;
+      }
+
+      if (v && typeof v === "object") {
+        const obj = v as Record<string, unknown>;
+        const papeis: RoleAccess = {};
+        for (const r of LOCKABLE_ROLES) {
+          const rv = obj[r];
+          // Só booleano estrito conta; qualquer outra coisa volta ao padrão.
+          if (rv === true || rv === false) papeis[r] = rv;
+        }
+        if (Object.keys(papeis).length > 0) out[t.key] = papeis;
+      }
     }
     return out;
   } catch {

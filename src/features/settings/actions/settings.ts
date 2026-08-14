@@ -5,9 +5,12 @@ import { withCurrentUser } from "@/lib/db/with-current-user";
 import { getCurrentSession } from "@/lib/auth/session";
 import { DEFAULT_STORE_NAME } from "@/features/settings/constants";
 import {
+  LOCKABLE_ROLES,
   TOOL_ACCESS_KEY,
   TOOL_BY_KEY,
   parseToolAccess,
+  type LockableRole,
+  type RoleAccess,
   type ToolAccess,
   type ToolKey,
 } from "@/features/settings/tool-access";
@@ -60,11 +63,31 @@ async function upsertValue(
   });
 }
 
+/**
+ * Nome da loja ativa.
+ *
+ * Cai para `stores.name` quando não há nome em `settings`. Sem isso, uma loja
+ * recém-cadastrada em Lojas aparecia na sidebar como "Build.Sales": o cadastro
+ * grava `stores.name`, e a chave de settings só nascia se alguém abrisse a
+ * antiga aba Gestão › Loja — que deixou de existir.
+ */
 export async function getStoreNameAction(
   storeId: string | null,
 ): Promise<string> {
   const v = await getValue(storeId, STORE_NAME_KEY);
-  return (v ?? "").trim() || DEFAULT_STORE_NAME;
+  if (v && v.trim()) return v.trim();
+  if (!storeId) return DEFAULT_STORE_NAME;
+
+  const doCadastro = await withCurrentUser(async (trx) => {
+    const row = await trx
+      .selectFrom("stores")
+      .select("name")
+      .where("id", "=", storeId)
+      .executeTakeFirst();
+    return (row?.name as string | null) ?? null;
+  });
+
+  return (doCadastro ?? "").trim() || DEFAULT_STORE_NAME;
 }
 
 export async function setStoreNameAction(
@@ -77,11 +100,11 @@ export async function setStoreNameAction(
 /**
  * Logotipo/foto da loja ativa.
  *
- * Cai para `stores.logo_url` quando não há logotipo definido em Gestão: são
- * dois pontos de cadastro para a mesma coisa (Gestão › Dados da loja e a foto
- * da loja em Lojas), e a lojista não deveria precisar saber a diferença. Assim,
- * seja qual for o lugar em que a foto foi enviada, ela aparece no perfil da
- * sidebar de todos os usuários daquela loja.
+ * A foto passou a ser cadastrada só em Lojas (a aba Gestão › Loja foi
+ * removida), e o cadastro grava nos dois lugares. O fallback para
+ * `stores.logo_url` continua aqui para as lojas antigas, cadastradas antes
+ * dessa unificação. Seja qual for a origem, a mesma imagem aparece como foto de
+ * perfil de todos os usuários daquela loja.
  */
 export async function getStoreLogoAction(
   storeId: string | null,
@@ -122,9 +145,10 @@ export async function getToolAccessAction(
 }
 
 /**
- * Grava o cadeado de uma ferramenta na loja.
+ * Grava o cadeado de uma ferramenta na loja, por papel.
  *
- * `enabled` null remove o override — a ferramenta volta a seguir o papel.
+ * `papeis` traz o estado escolhido no modal para cada perfil editável
+ * (`true` = liberado, `false` = bloqueado). Papel omitido fica como estava.
  *
  * Só admin: a checagem é explícita aqui porque a tabela `settings` é gravável
  * por lojista (nome e logo da loja passam por ela), e sem esta trava um lojista
@@ -133,20 +157,33 @@ export async function getToolAccessAction(
 export async function setToolAccessAction(
   storeId: string,
   tool: ToolKey,
-  enabled: boolean | null,
+  papeis: RoleAccess,
 ): Promise<ToolAccess> {
   const { user } = await getCurrentSession();
   if (!user) throw new Error("Não autenticado.");
   if (user.role !== "admin") {
     throw new Error("Apenas administradores podem alterar o acesso.");
   }
-  if (!TOOL_BY_KEY[tool]) throw new Error("Ferramenta desconhecida.");
+  const meta = TOOL_BY_KEY[tool];
+  if (!meta) throw new Error("Ferramenta desconhecida.");
 
   const atual = await getToolAccessAction(storeId);
-  const novo: ToolAccess = { ...atual };
-  if (enabled === null) delete novo[tool];
-  else novo[tool] = enabled;
+  const doTool: RoleAccess = { ...(atual[tool] ?? {}) };
 
+  for (const papel of LOCKABLE_ROLES) {
+    const v = papeis[papel as LockableRole];
+    if (v === undefined) continue;
+    // Liberar o que a ferramenta não permite liberar é ignorado em silêncio no
+    // resolvedor; recusar aqui deixa o erro visível para quem tentou.
+    if (v === true && !meta.unlockable) {
+      throw new Error(
+        `${meta.label} não pode ser liberada para ${papel}: a tela exclui a loja inteira.`,
+      );
+    }
+    doTool[papel] = v;
+  }
+
+  const novo: ToolAccess = { ...atual, [tool]: doTool };
   await upsertValue(storeId, TOOL_ACCESS_KEY, JSON.stringify(novo));
   return novo;
 }

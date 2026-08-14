@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -21,7 +22,6 @@ import {
   ChevronRight,
   Lock,
   LockOpen,
-  UserCog,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
@@ -29,9 +29,15 @@ import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
 import { useStoreName } from "@/hooks/use-store-name";
 import { useStoreLogo } from "@/hooks/use-store-logo";
-import { useToolAccess, nextLockState } from "@/hooks/use-tool-access";
+import { useToolAccess } from "@/hooks/use-tool-access";
 import { useToast } from "@/components/ui/toast";
-import { toolLabel, type ToolKey } from "@/features/settings/tool-access";
+import {
+  LOCKABLE_ROLES,
+  toolLabel,
+  type LockableRole,
+  type ToolKey,
+} from "@/features/settings/tool-access";
+import { ToolAccessModal } from "@/components/layout/tool-access-modal";
 import { StoreSelector } from "@/features/stores/components/store-selector";
 
 const SUPPORT_WHATSAPP = "558592178804";
@@ -99,13 +105,10 @@ export function Sidebar({
   // cadastrada em Lojas (ver getStoreLogoAction).
   const photoUrl = useStoreLogo();
   const toast = useToast();
-  const {
-    can,
-    lockState,
-    defaultHint,
-    canToggle,
-    toggle: toggleTool,
-  } = useToolAccess();
+  const { can, unlockedFor, isUnlockable, canToggle, save } = useToolAccess();
+
+  // Ferramenta com o modal do cadeado aberto; null = fechado.
+  const [cadeadoAberto, setCadeadoAberto] = useState<ToolKey | null>(null);
 
   const avisarBloqueio = (label: string) => {
     toast.error(
@@ -113,29 +116,22 @@ export function Sidebar({
     );
   };
 
-  /** Ciclo do cadeado (admin): padrão → liberado → bloqueado → padrão. */
-  const alternarCadeado = async (tool: ToolKey, label: string) => {
+  /** Clique no cadeado (admin): abre o modal de perfis. */
+  const abrirCadeado = (tool: ToolKey) => {
     if (!canToggle) {
       toast.error(
         "Selecione uma loja específica no seletor para alterar o acesso.",
       );
       return;
     }
-    const alvo = nextLockState(lockState(tool));
-    try {
-      await toggleTool.mutateAsync({ tool, enabled: alvo });
-      toast.success(
-        alvo === true
-          ? `${label}: liberado para todos desta loja.`
-          : alvo === false
-            ? `${label}: bloqueado nesta loja.`
-            : `${label}: voltou ao padrão do nível de acesso.`,
-      );
-    } catch (e) {
-      toast.error(
-        e instanceof Error ? e.message : "Não foi possível alterar o acesso.",
-      );
-    }
+    setCadeadoAberto(tool);
+  };
+
+  /** Estado atual de cada perfil, do jeito que o modal precisa. */
+  const estadoPorPapel = (tool: ToolKey) => {
+    const out = {} as Record<LockableRole, boolean>;
+    for (const r of LOCKABLE_ROLES) out[r] = unlockedFor(tool, r);
+    return out;
   };
 
   const initials = (fullName ?? "BS")
@@ -237,7 +233,11 @@ export function Sidebar({
           const { href, label, icon: Icon, tool } = item;
           const active = pathname.startsWith(href);
           const allowed = can(tool);
-          const estado = lockState(tool);
+          // Resumo do cadeado para o ícone: liberado para os dois perfis
+          // editáveis, ou não.
+          const liberadoParaTodos = LOCKABLE_ROLES.every((r) =>
+            unlockedFor(tool, r),
+          );
 
           // Classe compartilhada entre o link e o botão bloqueado, para os dois
           // ficarem idênticos em altura e alinhamento.
@@ -252,8 +252,8 @@ export function Sidebar({
                 : "text-on-surface-variant hover:bg-surface-container",
           );
 
-          // Cadeado do admin: mostra e cicla o estado da loja. Some quando a
-          // sidebar está recolhida (não há espaço) — o admin expande para usar.
+          // Cadeado do admin: abre o modal de perfis. Some quando a sidebar
+          // está recolhida (não há espaço) — o admin expande para usar.
           const cadeadoAdmin =
             isAdmin && !isCollapsed ? (
               <button
@@ -261,32 +261,26 @@ export function Sidebar({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  void alternarCadeado(tool, label);
+                  abrirCadeado(tool);
                 }}
-                disabled={toggleTool.isPending}
+                disabled={save.isPending}
                 aria-label={`Alterar acesso de ${label} nesta loja`}
                 title={
-                  estado === "liberado"
-                    ? "Liberado para todos desta loja — clique para bloquear"
-                    : estado === "bloqueado"
-                      ? "Bloqueado nesta loja — clique para voltar ao padrão"
-                      : `Padrão do nível de acesso (${defaultHint(tool)}) — clique para liberar`
+                  liberadoParaTodos
+                    ? "Liberado para lojista e vendedora — clique para escolher os perfis"
+                    : "Restrito — clique para escolher os perfis"
                 }
                 className={cn(
                   "ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors",
-                  estado === "liberado"
+                  liberadoParaTodos
                     ? "text-primary hover:bg-primary-fixed/60"
-                    : estado === "bloqueado"
-                      ? "text-error hover:bg-error/10"
-                      : "text-on-surface-variant/50 hover:bg-surface-container",
+                    : "text-error hover:bg-error/10",
                 )}
               >
-                {estado === "liberado" ? (
+                {liberadoParaTodos ? (
                   <LockOpen className="h-4 w-4" strokeWidth={1.75} />
-                ) : estado === "bloqueado" ? (
-                  <Lock className="h-4 w-4" strokeWidth={1.75} />
                 ) : (
-                  <UserCog className="h-4 w-4" strokeWidth={1.75} />
+                  <Lock className="h-4 w-4" strokeWidth={1.75} />
                 )}
               </button>
             ) : null;
@@ -337,10 +331,15 @@ export function Sidebar({
         })}
       </nav>
 
-      {/* Seletor global de loja — admin, só quando expandida */}
-      {isAdmin && !isCollapsed && (
+      {/*
+        Seletor global de loja — permanente para o admin (requisito 4). Fica
+        visível também com a sidebar recolhida: o escopo da loja decide o que
+        toda edição do admin atinge, então escondê-lo é esconder a informação
+        mais importante da tela.
+      */}
+      {isAdmin && (
         <div className="mt-md shrink-0">
-          <StoreSelector />
+          <StoreSelector compact={isCollapsed} />
         </div>
       )}
 
@@ -406,6 +405,30 @@ export function Sidebar({
           </button>
         </div>
       </div>
+
+      {cadeadoAberto && (
+        <ToolAccessModal
+          tool={cadeadoAberto}
+          atual={estadoPorPapel(cadeadoAberto)}
+          unlockable={isUnlockable(cadeadoAberto)}
+          saving={save.isPending}
+          onClose={() => setCadeadoAberto(null)}
+          onSave={async (papeis) => {
+            const tool = cadeadoAberto;
+            try {
+              await save.mutateAsync({ tool, papeis });
+              toast.success(`${toolLabel(tool)}: acesso atualizado.`);
+              setCadeadoAberto(null);
+            } catch (e) {
+              toast.error(
+                e instanceof Error
+                  ? e.message
+                  : "Não foi possível alterar o acesso.",
+              );
+            }
+          }}
+        />
+      )}
     </aside>
   );
 }

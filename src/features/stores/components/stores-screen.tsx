@@ -16,7 +16,11 @@ import { UploadProgressBar } from "@/components/ui/upload-progress";
 import type { Store } from "@/types/domain";
 
 /**
- * Gestão › Lojas — CRUD de lojas (tenants). Admin apenas.
+ * Lojas — CRUD de lojas (tenants), na barra lateral. Admin apenas.
+ *
+ * Ponto ÚNICO de cadastro de nome e foto da loja: a antiga aba Gestão › Loja
+ * foi removida. O nome salvo aqui é o que aparece estilizado na sidebar, e a
+ * foto vira a imagem de perfil da loja e de todos os usuários vinculados a ela.
  *
  * - Criar: nome + foto da loja (upload de imagem).
  * - Editar: nome, logo, ativa/inativa.
