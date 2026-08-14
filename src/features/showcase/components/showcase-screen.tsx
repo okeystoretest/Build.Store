@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   Upload,
@@ -177,14 +177,7 @@ function MediaCard({
   return (
     <div className="group flex flex-col overflow-hidden rounded-md bg-surface-container-lowest shadow-level-1">
       <div className="relative flex h-32 w-full items-center justify-center overflow-hidden bg-surface-container">
-        {isImage ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={media.fileUrl} alt={media.title} className="h-full w-full object-cover" />
-        ) : isVideo ? (
-          <video src={media.fileUrl} className="h-full w-full object-cover" />
-        ) : (
-          <FileVideo className="h-8 w-8 text-on-surface-variant/40" strokeWidth={1.5} />
-        )}
+        <Thumb media={media} isImage={isImage} isVideo={isVideo} />
 
         {/* Abre o visualizador interno — sem nova aba nem sair do app. */}
         <button
@@ -221,6 +214,84 @@ function MediaCard({
           {MONTHS_SHORT[(media.releaseMonth - 1 + 12) % 12]}/{media.releaseYear}
         </p>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Miniatura do card — só carrega o arquivo quando o card chega perto da tela.
+ *
+ * O problema anterior: a grade montava um `<img>` e, pior, um `<video>` por
+ * card assim que a aba abria. O `<video>` sem `preload` definido faz o Chrome
+ * baixar o arquivo inteiro para pintar o primeiro frame — quinze vídeos de
+ * coleção davam alguns GB de download só para desenhar miniaturas.
+ *
+ * Agora: IntersectionObserver segura a montagem até 300px antes de entrar na
+ * viewport, imagem usa `loading="lazy"`, e o vídeo pede `preload="metadata"`
+ * com o fragmento `#t=0.1` — com o Range da rota de mídia, isso baixa só o
+ * cabeçalho e o pedaço do primeiro frame em vez do arquivo todo.
+ */
+function Thumb({
+  media,
+  isImage,
+  isVideo,
+}: {
+  media: ShowcaseMedia;
+  isImage: boolean;
+  isVideo: boolean;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [visivel, setVisivel] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || visivel) return;
+
+    // Navegador sem suporte (ou ambiente de teste): mostra tudo de uma vez.
+    if (typeof IntersectionObserver === "undefined") {
+      setVisivel(true);
+      return;
+    }
+
+    const obs = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisivel(true);
+          obs.disconnect();
+        }
+      },
+      { rootMargin: "300px" },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [visivel]);
+
+  return (
+    <div ref={ref} className="h-full w-full">
+      {!visivel ? (
+        <div className="h-full w-full animate-pulse bg-surface-container-high/40" />
+      ) : isImage ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={media.fileUrl}
+          alt={media.title}
+          loading="lazy"
+          decoding="async"
+          className="h-full w-full object-cover"
+        />
+      ) : isVideo ? (
+        <video
+          src={`${media.fileUrl}#t=0.1`}
+          preload="metadata"
+          muted
+          playsInline
+          className="h-full w-full object-cover"
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center">
+          <FileVideo className="h-8 w-8 text-on-surface-variant/40" strokeWidth={1.5} />
+        </div>
+      )}
     </div>
   );
 }

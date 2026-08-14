@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { me, logoutAction } from "@/features/auth/actions/auth";
 import type { Role } from "@/types/domain";
 
@@ -14,10 +15,36 @@ export interface AuthState {
   storeId: string | null;
 }
 
+/** Chave única da sessão no cache — uma busca para o app inteiro. */
+export const AUTH_QUERY_KEY = ["auth", "me"] as const;
+
+const ANONIMO: AuthState = {
+  loading: false,
+  userId: null,
+  fullName: null,
+  photoUrl: null,
+  role: "vendedora",
+  storeId: null,
+};
+
 /**
- * Sessão atual + papel, resolvidos pela auth própria (Lucia) via a server action
- * me(). O middleware protege as rotas por cookie; aqui buscamos o profile para
- * papel, nome e foto.
+ * Sessão atual + papel, resolvidos pela auth própria (Lucia) via a server
+ * action `me()`. O middleware protege as rotas por cookie; aqui buscamos o
+ * profile para papel, nome e foto.
+ *
+ * ## Por que TanStack Query e não useState/useEffect
+ *
+ * Antes, CADA componente que chamava `useAuth()` mantinha o próprio estado e
+ * disparava o próprio `me()` no mount — sidebar, StoreProvider, telas, gates.
+ * Eram meia dúzia de POSTs concorrentes por navegação e, o pior, **sem
+ * retentativa**: se um deles falhasse (rede instável, corrida com o cookie
+ * recém-gravado no login), aquele componente ficava para sempre no padrão
+ * `role: "vendedora"`. Era essa a causa do seletor de loja não aparecer logo
+ * depois do login de admin e só surgir com Ctrl+Shift+R — a recarga refazia a
+ * busca.
+ *
+ * Com uma query compartilhada há UMA busca, resultado único para todos os
+ * consumidores e retentativa automática em caso de falha.
  *
  * Regras de acesso (por spec):
  * - vendedora: sem Relatórios, sem Gestão.
@@ -25,37 +52,32 @@ export interface AuthState {
  * - admin: acesso total, incluindo adicionar estoque.
  */
 export function useAuth() {
-  const [state, setState] = useState<AuthState>({
-    loading: true,
-    userId: null,
-    fullName: null,
-    photoUrl: null,
-    role: "vendedora",
-    storeId: null,
+  const queryClient = useQueryClient();
+
+  const { data, isPending } = useQuery({
+    queryKey: AUTH_QUERY_KEY,
+    queryFn: () => me(),
+    // A sessão não muda no meio da navegação; refazer a busca a cada tela só
+    // gastaria round-trip.
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    // Falha de rede aqui degrada o app inteiro para "vendedora": vale insistir.
+    retry: 3,
+    retryDelay: (tentativa) => Math.min(1000 * 2 ** tentativa, 4000),
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
   });
 
-  useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const res = await me();
-        if (!active) return;
-        setState({
-          loading: false,
-          userId: res.userId,
-          fullName: res.fullName,
-          photoUrl: res.photoUrl,
-          role: res.role,
-          storeId: res.storeId,
-        });
-      } catch {
-        if (active) setState((s) => ({ ...s, loading: false }));
+  const state: AuthState = data
+    ? {
+        loading: false,
+        userId: data.userId,
+        fullName: data.fullName,
+        photoUrl: data.photoUrl,
+        role: data.role,
+        storeId: data.storeId,
       }
-    })();
-    return () => {
-      active = false;
-    };
-  }, []);
+    : { ...ANONIMO, loading: isPending };
 
   const { role } = state;
 
@@ -69,10 +91,13 @@ export function useAuth() {
   const canUploadShowcase = role === "admin"; // só admin envia mídia na Vitrine
 
   const signOut = useCallback(async () => {
+    // Limpa o cache antes de sair: sem isto, o próximo usuário a logar no mesmo
+    // navegador veria por um instante os dados do anterior.
+    queryClient.clear();
     await logoutAction();
     // logoutAction faz redirect no servidor; fallback client:
     window.location.href = "/login";
-  }, []);
+  }, [queryClient]);
 
   return {
     ...state,

@@ -3,6 +3,7 @@
 import { useCallback, useEffect } from "react";
 import { X, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import type { ShowcaseMedia } from "@/types/domain";
+import { VideoPlayer } from "./video-player";
 
 const SEASON_LABEL: Record<string, string> = {
   primavera_verao: "Primavera/Verão",
@@ -124,23 +125,24 @@ export function MediaViewer({
         )}
 
         <div
-          className="flex max-h-full max-w-5xl items-center justify-center"
+          className="flex max-h-full w-full max-w-5xl items-center justify-center"
           onClick={(e) => e.stopPropagation()}
         >
           {isVideo ? (
-            <video
+            // Player próprio: os controles nativos mudam de aparência em cada
+            // navegador e destoam da identidade visual da plataforma.
+            <VideoPlayer
               src={media.fileUrl}
-              controls
               autoPlay
-              playsInline
-              className="max-h-[75vh] max-w-full rounded-md"
+              className="w-full max-w-5xl"
             />
           ) : isImage ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={media.fileUrl}
               alt={media.title}
-              className="max-h-[75vh] max-w-full rounded-md object-contain"
+              decoding="async"
+              className="max-h-[75vh] max-w-full rounded-2xl object-contain"
             />
           ) : (
             // Tipo sem player nativo (PDF, etc.): oferece o download.

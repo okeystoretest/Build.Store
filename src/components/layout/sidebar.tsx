@@ -9,7 +9,6 @@ import {
   BarChart3,
   History,
   HelpCircle,
-  Plus,
   LayoutDashboard,
   Users,
   Contact,
@@ -24,7 +23,6 @@ import {
   LockOpen,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
 import { useTheme } from "@/hooks/use-theme";
 import { useStoreName } from "@/hooks/use-store-name";
@@ -110,12 +108,6 @@ export function Sidebar({
   // Ferramenta com o modal do cadeado aberto; null = fechado.
   const [cadeadoAberto, setCadeadoAberto] = useState<ToolKey | null>(null);
 
-  const avisarBloqueio = (label: string) => {
-    toast.error(
-      `${label} está bloqueado para o seu usuário. Peça a liberação ao responsável pela loja.`,
-    );
-  };
-
   /** Clique no cadeado (admin): abre o modal de perfis. */
   const abrirCadeado = (tool: ToolKey) => {
     if (!canToggle) {
@@ -158,21 +150,37 @@ export function Sidebar({
         isCollapsed ? "w-20 px-2" : "w-64 px-md",
       )}
     >
-      {/* Cabeçalho: foto + loja (+ botão de recolher no desktop) */}
+      {/*
+        Cabeçalho: foto + loja (+ botão de recolher no desktop).
+
+        Recolhida, o botão sai do canto absoluto e vira uma linha própria acima
+        da foto: em 80px de largura, um botão de 32px ancorado em `-right-1`
+        cobria metade do avatar e vazava para fora da borda.
+      */}
       <div className="relative shrink-0">
-        {variant === "desktop" && onToggleCollapsed && (
+        {variant === "desktop" && onToggleCollapsed && isCollapsed && (
+          <div className="mb-2 flex justify-center">
+            <button
+              type="button"
+              onClick={onToggleCollapsed}
+              aria-label="Expandir menu"
+              title="Expandir"
+              className="flex h-7 w-7 items-center justify-center rounded-full border border-outline-variant/60 bg-surface text-on-surface-variant transition-colors hover:bg-surface-container"
+            >
+              <ChevronRight className="h-4 w-4" strokeWidth={2} />
+            </button>
+          </div>
+        )}
+
+        {variant === "desktop" && onToggleCollapsed && !isCollapsed && (
           <button
             type="button"
             onClick={onToggleCollapsed}
-            aria-label={isCollapsed ? "Expandir menu" : "Recolher menu"}
-            title={isCollapsed ? "Expandir" : "Recolher"}
+            aria-label="Recolher menu"
+            title="Recolher"
             className="absolute -right-1 top-0 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-outline-variant/60 bg-surface text-on-surface-variant shadow-level-1 transition-colors hover:bg-surface-container"
           >
-            {isCollapsed ? (
-              <ChevronRight className="h-4 w-4" strokeWidth={2} />
-            ) : (
-              <ChevronLeft className="h-4 w-4" strokeWidth={2} />
-            )}
+            <ChevronLeft className="h-4 w-4" strokeWidth={2} />
           </button>
         )}
 
@@ -185,7 +193,7 @@ export function Sidebar({
           <div
             className={cn(
               "shrink-0 overflow-hidden rounded-full bg-primary-fixed/60 ring-2 ring-primary-container transition-all",
-              isCollapsed ? "h-11 w-11" : "h-16 w-16",
+              isCollapsed ? "h-10 w-10" : "h-16 w-16",
             )}
           >
             {photoUrl ? (
@@ -210,7 +218,7 @@ export function Sidebar({
 
           {isCollapsed ? (
             <span
-              className="font-logo mt-2 text-[1.4rem] leading-none text-primary"
+              className="font-logo mt-1.5 max-w-full truncate text-[1.1rem] leading-none text-primary"
               title={storeName}
             >
               {storeInitials}
@@ -241,15 +249,18 @@ export function Sidebar({
 
           // Classe compartilhada entre o link e o botão bloqueado, para os dois
           // ficarem idênticos em altura e alinhamento.
+          // Sem acesso, o item NÃO é renderizado. Antes ele aparecia cinza com
+          // um cadeado — e "Lojas" acinzentada ainda é "Lojas" visível na tela
+          // de uma vendedora, o oposto do que a regra de perfis pede.
+          if (!allowed) return null;
+
           const base = cn(
             // min-h-[44px]: alvo de toque adequado no mobile.
             "relative flex min-h-[44px] w-full items-center rounded-full text-label-md transition-colors",
             isCollapsed ? "justify-center px-0 py-3" : "gap-3 px-4 py-3",
-            !allowed
-              ? "cursor-not-allowed text-on-surface-variant/50 hover:bg-surface-container/60"
-              : active
-                ? "bg-primary-fixed/60 text-primary"
-                : "text-on-surface-variant hover:bg-surface-container",
+            active
+              ? "bg-primary-fixed/60 text-primary"
+              : "text-on-surface-variant hover:bg-surface-container",
           );
 
           // Cadeado do admin: abre o modal de perfis. Some quando a sidebar
@@ -287,35 +298,14 @@ export function Sidebar({
 
           const conteudo = (
             <>
-              {active && allowed && !isCollapsed && (
+              {active && !isCollapsed && (
                 <span className="absolute right-0 h-6 w-1 rounded-full bg-primary" />
               )}
               <Icon className="h-5 w-5 shrink-0" strokeWidth={1.75} />
               {!isCollapsed && <span className="truncate">{label}</span>}
-              {!allowed && (
-                <Lock
-                  className={cn("h-4 w-4 shrink-0", isCollapsed ? "" : "ml-auto")}
-                  strokeWidth={1.75}
-                />
-              )}
               {cadeadoAdmin}
             </>
           );
-
-          // Sem permissão: não é link. Clicar explica o bloqueio.
-          if (!allowed) {
-            return (
-              <button
-                key={href}
-                type="button"
-                onClick={() => avisarBloqueio(label)}
-                title={isCollapsed ? `${label} (bloqueado)` : undefined}
-                className={base}
-              >
-                {conteudo}
-              </button>
-            );
-          }
 
           return (
             <Link
@@ -339,22 +329,14 @@ export function Sidebar({
       */}
       {isAdmin && (
         <div className="mt-md shrink-0">
-          <StoreSelector compact={isCollapsed} />
+          <StoreSelector
+            variant={isCollapsed ? "icon" : "full"}
+            onExpand={onToggleCollapsed}
+          />
         </div>
       )}
 
       <div className="mt-auto flex shrink-0 flex-col gap-md pt-md">
-        <Link href="/pos" onClick={onNavigate}>
-          <Button
-            className={cn("w-full", isCollapsed && "px-0")}
-            size="lg"
-            title={isCollapsed ? "Nova Venda" : undefined}
-          >
-            <Plus className="h-5 w-5 shrink-0" strokeWidth={2} />
-            {!isCollapsed && "Nova Venda"}
-          </Button>
-        </Link>
-
         <div className="flex flex-col gap-1">
           <button
             onClick={toggle}
