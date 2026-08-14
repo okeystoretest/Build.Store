@@ -37,6 +37,7 @@ interface StoreContextValue {
 
 const StoreContext = createContext<StoreContextValue | null>(null);
 
+/** Chave legada da última loja escolhida — não é mais lida, apenas limpa. */
 const ACTIVE_STORE_KEY = "bs:active-store";
 
 export function StoreProvider({ children }: { children: ReactNode }) {
@@ -44,30 +45,30 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const isAdmin = role === "admin";
   const queryClient = useQueryClient();
 
-  // Não-admin: travado na própria loja. Admin: começa em "todas" (null),
-  // hidratando a última escolha do localStorage.
+  // Não-admin: travado na própria loja.
+  //
+  // Admin: SEMPRE inicia em "Todas as lojas" (null). A escolha vale só para a
+  // navegação atual e não é mais persistida — antes, a última loja selecionada
+  // voltava do localStorage no carregamento seguinte e o admin abria o painel
+  // vendo os números de uma unidade só, achando estar no consolidado da marca.
+  // O padrão é o consolidado; restringir passa a ser uma ação explícita, que
+  // ele continua podendo fazer no seletor a qualquer momento.
   const [adminSelection, setAdminSelection] = useState<string | null>(null);
 
+  // Limpa o resquício da versão que persistia a escolha, para o valor antigo
+  // não reaparecer em nenhum cenário.
   useEffect(() => {
-    if (!isAdmin) return;
     try {
-      const saved = localStorage.getItem(ACTIVE_STORE_KEY);
-      if (saved) setAdminSelection(saved);
+      localStorage.removeItem(ACTIVE_STORE_KEY);
     } catch {
       /* ignore */
     }
-  }, [isAdmin]);
+  }, []);
 
   const setActiveStoreId = useCallback(
     (id: string | null) => {
       if (!isAdmin) return;
       setAdminSelection(id);
-      try {
-        if (id) localStorage.setItem(ACTIVE_STORE_KEY, id);
-        else localStorage.removeItem(ACTIVE_STORE_KEY);
-      } catch {
-        /* ignore */
-      }
       // Recarrega tudo no novo escopo de loja.
       queryClient.invalidateQueries();
     },

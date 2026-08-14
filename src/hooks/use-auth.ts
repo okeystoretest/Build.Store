@@ -9,10 +9,15 @@ export interface AuthState {
   loading: boolean;
   userId: string | null;
   fullName: string | null;
+  username: string | null;
   photoUrl: string | null;
   role: Role;
   /** Loja do usuário. null = admin global (todas as lojas). */
   storeId: string | null;
+  /** Nome da loja da sessão (vendedora/lojista). null para admin global. */
+  storeName: string | null;
+  /** Foto/logotipo da loja da sessão. null quando a loja não tem foto. */
+  storeLogoUrl: string | null;
 }
 
 /** Chave única da sessão no cache — uma busca para o app inteiro. */
@@ -22,9 +27,12 @@ const ANONIMO: AuthState = {
   loading: false,
   userId: null,
   fullName: null,
+  username: null,
   photoUrl: null,
   role: "vendedora",
   storeId: null,
+  storeName: null,
+  storeLogoUrl: null,
 };
 
 /**
@@ -73,9 +81,12 @@ export function useAuth() {
         loading: false,
         userId: data.userId,
         fullName: data.fullName,
+        username: data.username ?? null,
         photoUrl: data.photoUrl,
         role: data.role,
         storeId: data.storeId,
+        storeName: data.storeName ?? null,
+        storeLogoUrl: data.storeLogoUrl ?? null,
       }
     : { ...ANONIMO, loading: isPending };
 

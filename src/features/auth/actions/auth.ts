@@ -62,32 +62,96 @@ export async function logoutAction(): Promise<void> {
 export interface MeResult {
   userId: string | null;
   fullName: string | null;
+  username: string | null;
   photoUrl: string | null;
   role: "vendedora" | "lojista" | "admin";
   storeId: string | null;
+  /** Nome da loja vinculada à sessão. null para admin global. */
+  storeName: string | null;
+  /** Foto/logotipo da loja vinculada à sessão. null quando não há. */
+  storeLogoUrl: string | null;
+}
+
+const ANONIMO: MeResult = {
+  userId: null,
+  fullName: null,
+  username: null,
+  photoUrl: null,
+  role: "vendedora",
+  storeId: null,
+  storeName: null,
+  storeLogoUrl: null,
+};
+
+/**
+ * Nome e foto da loja da SESSÃO, resolvidos no servidor junto com o perfil.
+ *
+ * Por que aqui e não apenas no hook `useStoreLogo`: aquele hook depende do
+ * `StoreContext`, que por sua vez depende do próprio `me()`. Na primeira
+ * renderização depois do login ainda não havia `storeId`, a query saía com
+ * `null`, e o resultado nulo ficava no cache sob a chave `[..., null]`.
+ * Vendedora e lojista — que nunca trocam de loja — terminavam sem nome e sem
+ * foto até um recarregamento manual.
+ *
+ * A leitura usa o pool sem escopo (`db`) de propósito: o filtro é o `store_id`
+ * que veio da sessão já validada pelo Lucia, então não há como vazar dado de
+ * outra loja, e a identidade visual deixa de depender das políticas de RLS —
+ * uma política restritiva em `settings`/`stores` derrubava nome e foto juntos.
+ */
+async function loadStoreIdentity(
+  storeId: string,
+): Promise<{ storeName: string | null; storeLogoUrl: string | null }> {
+  try {
+    const [loja, config] = await Promise.all([
+      db
+        .selectFrom("stores")
+        .select(["name", "logo_url"])
+        .where("id", "=", storeId)
+        .executeTakeFirst(),
+      db
+        .selectFrom("settings")
+        .select(["key", "value"])
+        .where("store_id", "=", storeId)
+        .where("key", "in", ["store_name", "store_logo"])
+        .execute(),
+    ]);
+
+    const porChave = new Map(
+      config.map((r) => [r.key, ((r.value as string | null) ?? "").trim()]),
+    );
+    const nome = (porChave.get("store_name") || loja?.name || "").trim();
+    const logo = (porChave.get("store_logo") || loja?.logo_url || "").trim();
+
+    return { storeName: nome || null, storeLogoUrl: logo || null };
+  } catch {
+    // Identidade visual é acessório: falha aqui não pode derrubar a sessão.
+    return { storeName: null, storeLogoUrl: null };
+  }
 }
 
 /**
- * Retorna o perfil do usuário logado a partir da sessão Lucia. Usado pelo hook
- * client useAuth. Sem sessão → userId null (o middleware já redireciona, mas o
- * hook trata graciosamente).
+ * Retorna o perfil do usuário logado a partir da sessão Lucia, já com os dados
+ * da loja vinculada. Usado pelo hook client useAuth. Sem sessão → userId null
+ * (o middleware já redireciona, mas o hook trata graciosamente).
  */
 export async function me(): Promise<MeResult> {
   const { user } = await getCurrentSession();
-  if (!user) {
-    return {
-      userId: null,
-      fullName: null,
-      photoUrl: null,
-      role: "vendedora",
-      storeId: null,
-    };
-  }
+  if (!user) return ANONIMO;
+
+  const storeId = user.storeId ?? null;
+  const { storeName, storeLogoUrl } = storeId
+    ? await loadStoreIdentity(storeId)
+    : { storeName: null, storeLogoUrl: null };
+
   return {
     userId: user.id,
     fullName: user.fullName ?? null,
-    photoUrl: user.photoUrl ?? null,
+    username: user.username ?? null,
+    // Foto individual quando houver; senão a da loja (propagação da sessão 6).
+    photoUrl: user.photoUrl ?? storeLogoUrl,
     role: user.role,
-    storeId: user.storeId ?? null,
+    storeId,
+    storeName,
+    storeLogoUrl,
   };
 }

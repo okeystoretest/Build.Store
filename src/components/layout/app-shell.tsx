@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Menu } from "lucide-react";
 import { Sidebar } from "./sidebar";
 import { useStoreName } from "@/hooks/use-store-name";
+import { useStoreLogo } from "@/hooks/use-store-logo";
+import { StoreAvatar } from "@/components/ui/store-avatar";
 
 /**
  * Shell responsivo das telas autenticadas.
@@ -22,6 +24,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   // Drawer aberto (mobile).
   const [drawerOpen, setDrawerOpen] = useState(false);
   const storeName = useStoreName();
+  const storeLogo = useStoreLogo();
 
   useEffect(() => {
     try {
@@ -52,13 +55,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
-
-  const initials = (storeName || "BS")
-    .split(" ")
-    .map((p) => p[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
 
   // h-screen (100vh) é o fallback: Safari iOS antigo não entende `dvh` e, sem
   // isso, o container ficaria sem altura e o layout colapsaria. Navegadores
@@ -108,9 +104,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <Menu className="h-6 w-6" strokeWidth={1.75} />
           </button>
           <div className="flex min-w-0 items-center gap-2">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-fixed/60 text-label-md font-semibold text-primary">
-              {initials}
-            </span>
+            <StoreAvatar
+              src={storeLogo}
+              alt={storeName}
+              className="h-8 w-8 ring-1"
+            />
             <span className="font-logo truncate text-[1.4rem] leading-none text-primary">
               {storeName}
             </span>

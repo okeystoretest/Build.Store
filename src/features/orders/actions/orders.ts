@@ -147,13 +147,17 @@ export async function recordSaleAction(input: RecordSaleInput): Promise<Order> {
   });
 }
 
-export async function listOrdersAction(): Promise<Order[]> {
+export async function listOrdersAction(
+  storeId?: string | null,
+): Promise<Order[]> {
   return withCurrentUser(async (trx) => {
-    const headers = await trx
-      .selectFrom("orders")
-      .selectAll()
-      .orderBy("created_at", "desc")
-      .execute();
+    // Sem storeId, quem decide o alcance é a RLS: a própria loja para
+    // vendedora/lojista, todas para o admin — que é exatamente o consolidado de
+    // "Todas as lojas". Com storeId, o admin restringe o painel a uma unidade,
+    // no mesmo padrão já usado em produtos, clientes e gestão.
+    let q = trx.selectFrom("orders").selectAll();
+    if (storeId) q = q.where("store_id", "=", storeId);
+    const headers = await q.orderBy("created_at", "desc").execute();
     if (headers.length === 0) return [];
 
     const ids = headers.map((o) => o.id as string);

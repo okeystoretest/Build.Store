@@ -36,6 +36,7 @@ import {
   type ToolKey,
 } from "@/features/settings/tool-access";
 import { ToolAccessModal } from "@/components/layout/tool-access-modal";
+import { StoreAvatar } from "@/components/ui/store-avatar";
 import { StoreSelector } from "@/features/stores/components/store-selector";
 
 const SUPPORT_WHATSAPP = "558592178804";
@@ -94,8 +95,12 @@ export function Sidebar({
   onNavigate,
 }: SidebarProps) {
   const pathname = usePathname();
-  const { canSeeReports, canSeeManagement, role, fullName, signOut } =
+  const { canSeeReports, canSeeManagement, role, fullName, username, signOut } =
     useAuth();
+  // Identidade exibida: nome completo quando houver, senão o usuário do login.
+  // Um perfil sem `full_name` deixava o cabeçalho sem nenhuma identificação de
+  // quem estava logado.
+  const displayName = fullName?.trim() || username?.trim() || null;
   const isAdmin = role === "admin";
   const { theme, toggle } = useTheme();
   const storeName = useStoreName();
@@ -125,13 +130,6 @@ export function Sidebar({
     for (const r of LOCKABLE_ROLES) out[r] = unlockedFor(tool, r);
     return out;
   };
-
-  const initials = (fullName ?? "BS")
-    .split(" ")
-    .map((p) => p[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
 
   const storeInitials = (storeName || "BS")
     .split(" ")
@@ -190,29 +188,15 @@ export function Sidebar({
             isCollapsed ? "px-0" : "px-sm",
           )}
         >
-          <div
-            className={cn(
-              "shrink-0 overflow-hidden rounded-full bg-primary-fixed/60 ring-2 ring-primary-container transition-all",
-              isCollapsed ? "h-10 w-10" : "h-16 w-16",
-            )}
-          >
-            {photoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={photoUrl}
-                alt={fullName ?? "Perfil"}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <span className="flex h-full w-full items-center justify-center text-headline-md font-semibold text-primary">
-                {initials}
-              </span>
-            )}
-          </div>
+          <StoreAvatar
+            src={photoUrl}
+            alt={storeName}
+            className={isCollapsed ? "h-10 w-10" : "h-16 w-16"}
+          />
 
-          {!isCollapsed && fullName && (
+          {!isCollapsed && displayName && (
             <p className="mt-2 w-full truncate text-label-md font-medium text-on-surface">
-              {fullName}
+              {displayName}
             </p>
           )}
 
@@ -336,7 +320,20 @@ export function Sidebar({
         </div>
       )}
 
-      <div className="mt-auto flex shrink-0 flex-col gap-md pt-md">
+      {/*
+        Rodapé: tema, suporte e sair.
+
+        A linha separadora acima existe para eles não serem lidos como mais
+        três ferramentas do menu — são ações do aplicativo, de natureza
+        diferente. Recolhida, a régua encolhe (mx-2) para não encostar nas
+        bordas da faixa de 80px.
+      */}
+      <div
+        className={cn(
+          "mt-auto flex shrink-0 flex-col gap-md border-t border-outline-variant/60 pt-md",
+          isCollapsed ? "mx-2" : "mx-sm",
+        )}
+      >
         <div className="flex flex-col gap-1">
           <button
             onClick={toggle}
