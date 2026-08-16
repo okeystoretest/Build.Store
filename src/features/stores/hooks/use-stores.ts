@@ -7,9 +7,16 @@ import {
   updateStoreAction,
   deleteStoreAction,
 } from "@/features/stores/actions/stores";
+import { queryKeys } from "@/lib/db/query-keys";
 import type { Store } from "@/types/domain";
 
-const STORES_KEY = ["stores"] as const;
+/**
+ * Mesma chave usada pelo layout de `(app)` para semear a lista no servidor —
+ * por isso ela mora em `query-keys`, e não solta aqui dentro. Divergir as duas
+ * grafias significaria semear uma chave que ninguém lê, e o seletor voltaria a
+ * abrir vazio.
+ */
+const STORES_KEY = queryKeys.stores;
 
 /** Lista de lojas (para o seletor global e o módulo Gestão › Lojas). */
 export function useStores() {
@@ -47,8 +54,12 @@ export function useStores() {
     mutationFn: (id: string) => deleteStoreAction(id),
     onSuccess: () => {
       invalidate();
-      // Uma loja pode ter sumido; recarrega o resto também.
-      queryClient.invalidateQueries();
+      // Uma loja pode ter sumido; recarrega o resto também — menos a sessão,
+      // que não muda por causa disso e cujo descarte faria menu e permissões
+      // voltarem ao estado "carregando" sem motivo.
+      void queryClient.invalidateQueries({
+        predicate: (query) => query.queryKey[0] !== queryKeys.auth[0],
+      });
     },
   });
 

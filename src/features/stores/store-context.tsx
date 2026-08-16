@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
+import { queryKeys } from "@/lib/db/query-keys";
 
 /**
  * Seletor global de loja (visão do admin) — Opção A: filtro de aplicação.
@@ -69,13 +70,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     (id: string | null) => {
       if (!isAdmin) return;
       setAdminSelection(id);
-      // Recarrega tudo no novo escopo de loja.
-      queryClient.invalidateQueries();
+      // Recarrega tudo no novo escopo de loja — MENOS a sessão. Trocar de loja
+      // não muda quem está logado, e derrubar o retrato da sessão junto faria
+      // a interface inteira voltar ao estado "carregando" a cada troca no
+      // seletor, com o menu e as permissões piscando por nada.
+      void queryClient.invalidateQueries({
+        predicate: (query) => query.queryKey[0] !== queryKeys.auth[0],
+      });
     },
     [isAdmin, queryClient],
   );
 
-  // Enquanto o perfil carrega, mantém null (evita piscar dados de outra loja).
+  // A sessão chega semeada pelo servidor (ver o layout de `(app)`), então na
+  // prática `loading` já nasce falso e o admin abre direto em "Todas as lojas".
+  // O ramo de carregamento fica como rede de segurança: numa revalidação que
+  // por algum motivo esvazie o retrato, é melhor não filtrar nada do que
+  // filtrar pela loja errada.
   const activeStoreId = loading
     ? null
     : isAdmin

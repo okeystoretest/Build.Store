@@ -6,6 +6,14 @@
  * as chaves centralizadas evita divergência entre quem lê e quem invalida.
  */
 export const queryKeys = {
+  /**
+   * Retrato da sessão. Chave ÚNICA no app inteiro: é semeada no servidor pelo
+   * layout de `(app)` e lida por todo consumidor de `useAuth()`. Fica aqui, e
+   * não dentro do hook cliente, porque o Server Component que semeia o cache
+   * também precisa dela.
+   */
+  auth: ["auth", "me"] as const,
+  stores: ["stores"] as const,
   products: ["products"] as const,
   orders: ["orders"] as const,
   users: ["users"] as const,

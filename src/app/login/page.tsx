@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Eye, EyeOff } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { loginAction } from "@/features/auth/actions/auth";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,11 +24,24 @@ type LoginValues = z.infer<typeof loginSchema>;
  *
  * UX de teclado: Enter no campo Usuário move o foco para Senha (em vez de
  * submeter). O campo Senha tem um botão de olho para mostrar/ocultar o texto.
+ *
+ * ## Entrada limpa
+ *
+ * O sucesso NÃO usa o roteador do Next. Trocar de rota por ele preserva o
+ * `QueryClient` — e com ele qualquer resquício da sessão anterior ou do estado
+ * deslogado, que era exatamente o que deixava a interface incompleta até um
+ * `Ctrl+Shift+R`. Aqui o cache é esvaziado e a navegação é de DOCUMENTO: a
+ * próxima página nasce com processo novo e com o cookie de sessão já gravado
+ * pela resposta da action.
  */
 export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  // Mantém o botão em "Entrando..." durante a troca de página — sem isto o
+  // formulário voltava ao estado ocioso e convidava a um segundo clique.
+  const [entrando, setEntrando] = useState(false);
   const passwordRef = useRef<HTMLInputElement | null>(null);
+  const queryClient = useQueryClient();
 
   const {
     register,
@@ -38,16 +52,28 @@ export default function LoginPage() {
   // Combina o ref do react-hook-form com o nosso, para poder focar a senha.
   const passwordReg = register("password");
 
+  // Chegar ao login (inclusive de volta, pelo botão do navegador) zera o cache:
+  // nada do usuário anterior pode atravessar para a próxima sessão.
+  useEffect(() => {
+    queryClient.clear();
+  }, [queryClient]);
+
   const onSubmit = async (values: LoginValues) => {
     setError(null);
     const fd = new FormData();
     fd.set("username", values.username);
     fd.set("password", values.password);
     const res = await loginAction(null, fd);
-    // loginAction faz redirect em caso de sucesso; só retorna em caso de erro.
-    if (res && "error" in res) {
+
+    if ("error" in res) {
       setError(res.error);
+      return;
     }
+
+    setEntrando(true);
+    queryClient.clear();
+    // Navegação de documento (não `router.push`): garante cache novo em folha.
+    window.location.assign("/pos");
   };
 
   return (
@@ -127,9 +153,9 @@ export default function LoginPage() {
             type="submit"
             className="w-full"
             size="lg"
-            disabled={isSubmitting}
+            disabled={isSubmitting || entrando}
           >
-            {isSubmitting ? "Entrando..." : "Entrar"}
+            {isSubmitting || entrando ? "Entrando..." : "Entrar"}
           </Button>
         </form>
       </div>

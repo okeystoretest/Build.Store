@@ -6,17 +6,40 @@ import { lucia } from "@/lib/auth/lucia";
 import { db } from "@/lib/db/kysely";
 import { verifyPassword } from "@/lib/auth/password";
 import { getCurrentSession } from "@/lib/auth/session";
+import { loadSessionSnapshot } from "@/features/auth/session-snapshot";
+import type { SessionSnapshot } from "@/features/auth/types";
+
+/** Resultado do login: erro para exibir, ou sinal verde para navegar. */
+export type LoginResult = { error: string } | { ok: true };
 
 /**
  * Login por username puro (sem o e-mail interno do Supabase). Valida a senha
  * (Argon2) contra profiles.password_hash, cria a sessão Lucia e grava o cookie.
  *
  * Retorna erro genérico (não revela se o usuário existe) e nunca vaza detalhe.
+ *
+ * ## Por que NÃO chamamos `redirect("/pos")` aqui
+ *
+ * `redirect()` dentro de uma Server Action faz o roteador do Next navegar do
+ * lado do cliente — sem recarregar o documento. O `QueryClient` do TanStack
+ * vive no layout raiz, que é o mesmo para `/login` e para `/pos`, então ele
+ * SOBREVIVE a essa navegação com tudo o que tinha dentro. E o que ele tinha
+ * dentro era o retrato da sessão buscado enquanto a tela de login ainda estava
+ * aberta: userId null, `role: "vendedora"`, gravado como sucesso e fresco por
+ * cinco minutos. Depois de entrar, todo consumidor de `useAuth()` lia esse
+ * valor: sem seletor de loja, sem lista de lojas, telas de admin dizendo
+ * "apenas administradores". O `Ctrl+Shift+R` "resolvia" porque destruía o
+ * cache em memória junto com a página.
+ *
+ * Devolvendo `{ ok: true }`, quem navega é o cliente — com um carregamento de
+ * documento de verdade, que garante um `QueryClient` novo, já com o cookie de
+ * sessão no lugar. O `Set-Cookie` desta resposta chega ao navegador antes,
+ * porque foi gravado antes do retorno.
  */
 export async function loginAction(
   _prev: unknown,
   formData: FormData,
-): Promise<{ error: string } | void> {
+): Promise<LoginResult> {
   const username = String(formData.get("username") ?? "").trim();
   const password = String(formData.get("password") ?? "");
 
@@ -24,8 +47,8 @@ export async function loginAction(
     return { error: "Informe usuário e senha." };
   }
 
-  // Busca o usuário por username (case-insensitive). Sem escopo de loja: é
-  // anterior à sessão, então roda fora de withUser.
+  // Busca o usuário por username. Sem escopo de loja: é anterior à sessão,
+  // então roda fora de withUser.
   const user = await db
     .selectFrom("profiles")
     .select(["id", "password_hash", "active"])
@@ -45,7 +68,7 @@ export async function loginAction(
   const cookie = lucia.createSessionCookie(session.id);
   cookies().set(cookie.name, cookie.value, cookie.attributes);
 
-  redirect("/pos");
+  return { ok: true };
 }
 
 /** Logout: invalida a sessão Lucia e limpa o cookie. */
@@ -59,99 +82,12 @@ export async function logoutAction(): Promise<void> {
   redirect("/login");
 }
 
-export interface MeResult {
-  userId: string | null;
-  fullName: string | null;
-  username: string | null;
-  photoUrl: string | null;
-  role: "vendedora" | "lojista" | "admin";
-  storeId: string | null;
-  /** Nome da loja vinculada à sessão. null para admin global. */
-  storeName: string | null;
-  /** Foto/logotipo da loja vinculada à sessão. null quando não há. */
-  storeLogoUrl: string | null;
-}
-
-const ANONIMO: MeResult = {
-  userId: null,
-  fullName: null,
-  username: null,
-  photoUrl: null,
-  role: "vendedora",
-  storeId: null,
-  storeName: null,
-  storeLogoUrl: null,
-};
-
 /**
- * Nome e foto da loja da SESSÃO, resolvidos no servidor junto com o perfil.
- *
- * Por que aqui e não apenas no hook `useStoreLogo`: aquele hook depende do
- * `StoreContext`, que por sua vez depende do próprio `me()`. Na primeira
- * renderização depois do login ainda não havia `storeId`, a query saía com
- * `null`, e o resultado nulo ficava no cache sob a chave `[..., null]`.
- * Vendedora e lojista — que nunca trocam de loja — terminavam sem nome e sem
- * foto até um recarregamento manual.
- *
- * A leitura usa o pool sem escopo (`db`) de propósito: o filtro é o `store_id`
- * que veio da sessão já validada pelo Lucia, então não há como vazar dado de
- * outra loja, e a identidade visual deixa de depender das políticas de RLS —
- * uma política restritiva em `settings`/`stores` derrubava nome e foto juntos.
+ * Retrato da sessão para o cliente. O primeiro render já vem semeado pelo
+ * layout de `(app)` (ver `session-snapshot.ts`); esta action serve as
+ * revalidações posteriores — foco de janela, reconexão, expiração do
+ * `staleTime`.
  */
-async function loadStoreIdentity(
-  storeId: string,
-): Promise<{ storeName: string | null; storeLogoUrl: string | null }> {
-  try {
-    const [loja, config] = await Promise.all([
-      db
-        .selectFrom("stores")
-        .select(["name", "logo_url"])
-        .where("id", "=", storeId)
-        .executeTakeFirst(),
-      db
-        .selectFrom("settings")
-        .select(["key", "value"])
-        .where("store_id", "=", storeId)
-        .where("key", "in", ["store_name", "store_logo"])
-        .execute(),
-    ]);
-
-    const porChave = new Map(
-      config.map((r) => [r.key, ((r.value as string | null) ?? "").trim()]),
-    );
-    const nome = (porChave.get("store_name") || loja?.name || "").trim();
-    const logo = (porChave.get("store_logo") || loja?.logo_url || "").trim();
-
-    return { storeName: nome || null, storeLogoUrl: logo || null };
-  } catch {
-    // Identidade visual é acessório: falha aqui não pode derrubar a sessão.
-    return { storeName: null, storeLogoUrl: null };
-  }
-}
-
-/**
- * Retorna o perfil do usuário logado a partir da sessão Lucia, já com os dados
- * da loja vinculada. Usado pelo hook client useAuth. Sem sessão → userId null
- * (o middleware já redireciona, mas o hook trata graciosamente).
- */
-export async function me(): Promise<MeResult> {
-  const { user } = await getCurrentSession();
-  if (!user) return ANONIMO;
-
-  const storeId = user.storeId ?? null;
-  const { storeName, storeLogoUrl } = storeId
-    ? await loadStoreIdentity(storeId)
-    : { storeName: null, storeLogoUrl: null };
-
-  return {
-    userId: user.id,
-    fullName: user.fullName ?? null,
-    username: user.username ?? null,
-    // Foto individual quando houver; senão a da loja (propagação da sessão 6).
-    photoUrl: user.photoUrl ?? storeLogoUrl,
-    role: user.role,
-    storeId,
-    storeName,
-    storeLogoUrl,
-  };
+export async function me(): Promise<SessionSnapshot> {
+  return loadSessionSnapshot();
 }
