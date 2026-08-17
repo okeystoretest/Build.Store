@@ -17,8 +17,17 @@ import { useQueryClient } from "@tanstack/react-query";
  * mais usado); o polling age sobre a queryKey.
  */
 
+/**
+ * 30s (era 8s). Cada tick invalida a chave e dispara uma Server Action — que é
+ * um POST ao servidor, com validação de sessão no Postgres. Com o mesmo hook
+ * montado em várias telas ao mesmo tempo (nome e logotipo da loja aparecem na
+ * sidebar E na barra de topo), 8 segundos significavam dezenas de round-trips
+ * por minuto para dados que mudam uma vez por semana. Mutação continua
+ * invalidando na hora — o polling só cobre alteração feita em OUTRO
+ * dispositivo, onde poucos segundos a mais não fazem diferença.
+ */
 const POLL_INTERVAL_MS = Number(
-  process.env.NEXT_PUBLIC_POLL_INTERVAL_MS ?? 8000,
+  process.env.NEXT_PUBLIC_POLL_INTERVAL_MS ?? 30000,
 );
 
 export function useRealtimeInvalidation(
@@ -31,9 +40,12 @@ export function useRealtimeInvalidation(
     // Revalida periodicamente enquanto a aba está visível. Ao voltar o foco,
     // revalida na hora (pega mudanças feitas em outro dispositivo).
     const tick = () => {
-      if (document.visibilityState === "visible") {
-        void queryClient.invalidateQueries({ queryKey });
-      }
+      if (document.visibilityState !== "visible") return;
+      // `refetchType: "active"`: revalida só o que está montado na tela. Sem
+      // isto, a invalidação marcava como velhas também as queries de telas já
+      // desmontadas, que iam refazer a busca na próxima visita mesmo com dado
+      // fresco no cache.
+      void queryClient.invalidateQueries({ queryKey, refetchType: "active" });
     };
     const id = setInterval(tick, POLL_INTERVAL_MS);
 

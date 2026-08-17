@@ -10,6 +10,7 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: [
       "@node-rs/argon2",
+      "sharp",
       "pg",
       "lucia",
       "@lucia-auth/adapter-postgresql",

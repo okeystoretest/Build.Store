@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils/cn";
+import { mediaVariantUrl } from "@/lib/storage/media-url";
 
 /** Imagem padrão para loja sem foto cadastrada (ou com URL quebrada). */
 export const STORE_PLACEHOLDER = "/icons/store-placeholder.svg";
@@ -32,7 +33,10 @@ export function StoreAvatar({ src, alt = "Loja", className }: StoreAvatarProps) 
     setFalhou(false);
   }, [url]);
 
-  const fonte = !url || falhou ? STORE_PLACEHOLDER : url;
+  // O avatar tem 40–56px: a miniatura de 480px já é generosa, e era aqui que
+  // o logotipo de vários MB da loja era baixado em toda tela do aplicativo.
+  const fonte =
+    !url || falhou ? STORE_PLACEHOLDER : (mediaVariantUrl(url, "thumb") ?? url);
 
   return (
     <div
@@ -46,7 +50,17 @@ export function StoreAvatar({ src, alt = "Loja", className }: StoreAvatarProps) 
         src={fonte}
         alt={alt}
         className="h-full w-full object-cover"
-        onError={() => setFalhou(true)}
+        onError={(e) => {
+          // Escada de fallback: miniatura → original → imagem padrão. Sem o
+          // degrau do meio, uma loja com logotipo antigo (sem derivada) ficaria
+          // com a imagem genérica.
+          const img = e.currentTarget;
+          if (url && img.src.endsWith(".thumb.webp")) {
+            img.src = url;
+            return;
+          }
+          setFalhou(true);
+        }}
       />
     </div>
   );

@@ -4,6 +4,7 @@ import { useCallback, useEffect } from "react";
 import { X, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import type { ShowcaseMedia } from "@/types/domain";
 import { VideoPlayer } from "./video-player";
+import { MediaImage } from "@/components/ui/media-image";
 
 const SEASON_LABEL: Record<string, string> = {
   primavera_verao: "Primavera/Verão",
@@ -137,11 +138,13 @@ export function MediaViewer({
               className="w-full max-w-5xl"
             />
           ) : isImage ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
+            // `lg` (1600px): cobre qualquer tela de loja com sobra e evita
+            // baixar o arquivo de câmera inteiro só para olhar a foto.
+            <MediaImage
               src={media.fileUrl}
               alt={media.title}
-              decoding="async"
+              variant="lg"
+              eager
               className="max-h-[75vh] max-w-full rounded-2xl object-contain"
             />
           ) : (

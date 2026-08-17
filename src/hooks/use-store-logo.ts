@@ -2,7 +2,6 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { getStoreLogoAction } from "@/features/settings/actions/settings";
-import { useRealtimeInvalidation } from "@/lib/db/use-realtime-invalidation";
 import { useStoreContext } from "@/features/stores/store-context";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -18,9 +17,13 @@ import { useAuth } from "@/hooks/use-auth";
  * sem foto logo depois do login.
  */
 export function useStoreLogo(): string | null {
+  // Sem polling aqui de propósito. Este hook está montado em DOIS lugares ao
+  // mesmo tempo (sidebar e barra de topo), e o logotipo da loja muda quando
+  // alguém o edita em Gestão — momento em que a própria mutação invalida a
+  // chave `settings`. Revalidar de tempos em tempos era pura repetição: o
+  // maior gerador de requisições ociosas do aplicativo.
   const { activeStoreId } = useStoreContext();
   const { storeId: sessionStoreId, storeLogoUrl } = useAuth();
-  useRealtimeInvalidation("settings", ["settings"]);
 
   const { data } = useQuery({
     queryKey: ["settings", "logo", activeStoreId],

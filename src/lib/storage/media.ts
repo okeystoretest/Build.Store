@@ -5,6 +5,7 @@ import { mkdir, stat, unlink, writeFile } from "fs/promises";
 import { Transform } from "stream";
 import { pipeline } from "stream/promises";
 import path from "path";
+import { apagarDerivadas } from "@/lib/storage/image";
 
 /**
  * Storage de mídia em disco.
@@ -223,6 +224,9 @@ export async function deleteMediaByUrl(url: string | null): Promise<boolean> {
   if (!relative) return false;
   const abs = resolveMediaPath(relative);
   if (!abs) return false;
+  // As derivadas (.thumb.webp/.lg.webp) saem junto: sem isto elas viravam
+  // órfãs no volume, invisíveis para qualquer limpeza.
+  await apagarDerivadas(abs);
   try {
     await unlink(abs);
     return true;

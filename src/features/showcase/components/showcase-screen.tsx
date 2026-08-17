@@ -23,6 +23,7 @@ import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { LoadingArea } from "@/components/ui/spinner";
 import { cn } from "@/lib/utils/cn";
+import { MediaImage } from "@/components/ui/media-image";
 import { UploadModal } from "./upload-modal";
 import { MediaViewer } from "./media-viewer";
 
@@ -378,13 +379,13 @@ function Thumb({
       {!visivel ? (
         <div className="h-full w-full animate-pulse bg-surface-container-high/40" />
       ) : isImage ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        // `thumb`: a grade mostra 480px; o original de 4000px só é baixado ao
+        // abrir a foto no visualizador.
+        <MediaImage
           src={media.fileUrl}
           alt={media.title}
-          loading="lazy"
-          decoding="async"
-          className={cn("h-full w-full object-cover", mediaClassName)}
+          variant="thumb"
+          className={mediaClassName}
         />
       ) : isVideo ? (
         <video

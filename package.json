@@ -2,7 +2,9 @@
   "name": "build-store",
   "version": "0.1.0",
   "private": true,
-  "engines": { "node": "20.x" },
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -33,6 +35,7 @@
     "react-hook-form": "^7.53.0",
     "recharts": "^2.12.7",
     "server-only": "^0.0.1",
+    "sharp": "^0.33.5",
     "tailwind-merge": "^2.5.3",
     "zod": "^3.23.8"
   },

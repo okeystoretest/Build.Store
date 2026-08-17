@@ -3,7 +3,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { getStoreNameAction } from "@/features/settings/actions/settings";
 import { DEFAULT_STORE_NAME } from "@/features/settings/constants";
-import { useRealtimeInvalidation } from "@/lib/db/use-realtime-invalidation";
 import { useStoreContext } from "@/features/stores/store-context";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -18,9 +17,13 @@ import { useAuth } from "@/hooks/use-auth";
  * do nome da loja dela.
  */
 export function useStoreName(): string {
+  // Sem polling aqui de propósito. Este hook está montado em DOIS lugares ao
+  // mesmo tempo (sidebar e barra de topo), e o nome da loja muda quando
+  // alguém o edita em Gestão — momento em que a própria mutação invalida a
+  // chave `settings`. Revalidar de tempos em tempos era pura repetição: o
+  // maior gerador de requisições ociosas do aplicativo.
   const { activeStoreId } = useStoreContext();
   const { storeId: sessionStoreId, storeName: sessionStoreName } = useAuth();
-  useRealtimeInvalidation("settings", ["settings"]);
 
   const { data } = useQuery({
     queryKey: ["settings", "name", activeStoreId],

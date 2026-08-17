@@ -5,6 +5,7 @@ import type { Product } from "@/types/domain";
 import { formatBRL } from "@/lib/utils/money";
 import { stockLevel } from "@/features/inventory/types";
 import { cn } from "@/lib/utils/cn";
+import { MediaImage } from "@/components/ui/media-image";
 
 interface ProductCardProps {
   product: Product;
@@ -39,12 +40,14 @@ export function ProductCard({ product, onOpen, canManage = false }: ProductCardP
             low ? "bg-[#f8b4c4]" : "bg-surface-container",
           )}
         >
-          {product.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={product.imageUrl} alt={product.name} className="h-full w-full object-cover" />
-          ) : (
-            <ImageIcon className="h-9 w-9 text-on-surface-variant/40" strokeWidth={1.5} />
-          )}
+          <MediaImage
+            src={product.imageUrl}
+            alt={product.name}
+            variant="thumb"
+            fallback={
+              <ImageIcon className="h-9 w-9 text-on-surface-variant/40" strokeWidth={1.5} />
+            }
+          />
         </div>
         {outOfStock ? (
           <span className="absolute left-2 top-2 rounded-full bg-error px-2.5 py-0.5 text-label-sm font-semibold uppercase tracking-wide text-on-error">
@@ -108,12 +111,14 @@ export function ProductRow({ product, onOpen, canManage = false }: ProductCardPr
       )}
     >
       <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-md bg-surface-container">
-        {product.imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={product.imageUrl} alt={product.name} className="h-full w-full object-cover" />
-        ) : (
-          <ImageIcon className="h-6 w-6 text-on-surface-variant/40" strokeWidth={1.5} />
-        )}
+        <MediaImage
+          src={product.imageUrl}
+          alt={product.name}
+          variant="thumb"
+          fallback={
+            <ImageIcon className="h-6 w-6 text-on-surface-variant/40" strokeWidth={1.5} />
+          }
+        />
       </div>
 
       <div className="min-w-0 flex-1">

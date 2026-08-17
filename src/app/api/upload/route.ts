@@ -6,8 +6,11 @@ import {
   isMediaScope,
   isVideoMime,
   maxBytesForMime,
+  resolveMediaPath,
   saveMediaStream,
 } from "@/lib/storage/media";
+import { gerarDerivadas } from "@/lib/storage/image";
+import { mediaVariantUrl } from "@/lib/storage/media-url";
 
 /**
  * Upload de mídia — corpo BINÁRIO puro, em streaming.
@@ -89,9 +92,19 @@ export async function POST(request: Request) {
     const stream = Readable.fromWeb(request.body as never);
     const saved = await saveMediaStream(scope, stream, mime, max);
 
+    // Miniatura e versão de tela cheia, geradas AQUI e não sob demanda: o
+    // custo (algumas centenas de ms de CPU) é pago uma vez pela lojista que
+    // envia, em vez de a cada visita de cada usuária. Vídeo e formatos que não
+    // convertemos passam direto — `gerarDerivadas` devolve vazio.
+    const abs = resolveMediaPath(saved.relativePath);
+    const derivadas = abs ? await gerarDerivadas(abs, mime) : {};
+
     return NextResponse.json({
       ok: true,
       url: saved.url,
+      // O cliente já sabe montar esta URL sozinho; devolvê-la explicitamente
+      // evita que ele aponte para uma derivada que não chegou a existir.
+      thumbUrl: derivadas.thumb ? mediaVariantUrl(saved.url, "thumb") : null,
       bytes: saved.bytes,
       mimeType: mime,
       fileName,
