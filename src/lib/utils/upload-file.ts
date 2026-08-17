@@ -111,14 +111,7 @@ export function uploadFile(
       }
 
       if (xhr.status < 200 || xhr.status >= 300 || !body.ok || !body.url) {
-        reject(
-          new Error(
-            body.error ??
-              (xhr.status === 413
-                ? "Arquivo grande demais para o servidor."
-                : "Falha ao enviar o arquivo."),
-          ),
-        );
+        reject(new Error(body.error ?? mensagemPorStatus(xhr.status)));
         return;
       }
 
@@ -143,6 +136,25 @@ export function uploadFile(
 
     xhr.send(file);
   });
+}
+
+/**
+ * Traduz o status HTTP para algo que a lojista possa agir a respeito.
+ *
+ * O caso que motivou isto: com vários envios simultâneos, o proxy devolvia
+ * **502** e a tela dizia apenas "Falha ao enviar o arquivo" — três vezes, sem
+ * pista do motivo nem do que fazer. 502/503/504 não vêm da aplicação: quem
+ * responde é o proxy, porque o processo por trás caiu ou demorou demais. A
+ * mensagem precisa dizer isso, e não sugerir que o arquivo está errado.
+ */
+function mensagemPorStatus(status: number): string {
+  if (status === 413) return "Arquivo grande demais para o servidor.";
+  if (status === 401 || status === 403)
+    return "Sua sessão expirou. Entre novamente para enviar.";
+  if (status === 502 || status === 503 || status === 504)
+    return "O servidor não concluiu o envio. Aguarde alguns segundos e use \"Tentar de novo\" — se repetir, o arquivo pode estar grande demais para a conexão da loja.";
+  if (status === 0) return "A conexão caiu durante o envio.";
+  return "Falha ao enviar o arquivo.";
 }
 
 /** Espelha os limites do servidor (ver lib/storage/media.ts). */

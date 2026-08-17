@@ -8,6 +8,7 @@ import {
   Video,
   ImageIcon,
   Play,
+  Maximize2,
   Trash2,
   FileVideo,
 } from "lucide-react";
@@ -21,6 +22,7 @@ import { ToggleGroup } from "@/components/ui/toggle-group";
 import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { LoadingArea } from "@/components/ui/spinner";
+import { cn } from "@/lib/utils/cn";
 import { UploadModal } from "./upload-modal";
 import { MediaViewer } from "./media-viewer";
 
@@ -61,6 +63,10 @@ export function ShowcaseScreen() {
   const { canUploadShowcase } = useAuth();
   const toast = useToast();
   const queryClient = useQueryClient();
+
+  // Fotos ganham a grade de galeria; vídeos seguem no card compacto, que é o
+  // formato certo para um conteúdo que só se entende ao ser reproduzido.
+  const galeria = tab === "collection_photos";
 
   const refresh = () =>
     void queryClient.invalidateQueries({ queryKey: queryKeys.showcase });
@@ -121,19 +127,38 @@ export function ShowcaseScreen() {
         ) : sc.media.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="grid grid-cols-2 gap-md sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
-            {sc.media.map((m, i) => (
-              <MediaCard
-                key={m.id}
-                media={m}
-                onOpen={() => setViewerIndex(i)}
-                // Excluir mídia segue restrito a quem pode publicar. A Vitrine
-                // passou a ser visível para a vendedora (requisito 2); sem esta
-                // linha, ela veria o botão de lixeira em cima do material da
-                // coleção.
-                onDelete={canUploadShowcase ? () => handleDelete(m) : null}
-              />
-            ))}
+          <div
+            className={cn(
+              "grid gap-md",
+              galeria
+                ? // Menos colunas que os vídeos, de propósito: a foto de coleção
+                  // é o produto, e um card de 128px de altura mostrava um
+                  // recorte pequeno demais para escolher a peça pelo olho.
+                  "grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
+                : "grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5",
+            )}
+          >
+            {sc.media.map((m, i) =>
+              galeria ? (
+                <PhotoCard
+                  key={m.id}
+                  media={m}
+                  onOpen={() => setViewerIndex(i)}
+                  onDelete={canUploadShowcase ? () => handleDelete(m) : null}
+                />
+              ) : (
+                <MediaCard
+                  key={m.id}
+                  media={m}
+                  onOpen={() => setViewerIndex(i)}
+                  // Excluir mídia segue restrito a quem pode publicar. A Vitrine
+                  // passou a ser visível para a vendedora (requisito 2); sem esta
+                  // linha, ela veria o botão de lixeira em cima do material da
+                  // coleção.
+                  onDelete={canUploadShowcase ? () => handleDelete(m) : null}
+                />
+              ),
+            )}
           </div>
         )}
       </div>
@@ -157,6 +182,85 @@ export function ShowcaseScreen() {
           )
         }
       />
+    </div>
+  );
+}
+
+/**
+ * Card de FOTO — a imagem é o card.
+ *
+ * O card antigo era uma faixa de 128px de altura com três linhas de texto
+ * embaixo: metade da área ia para metadados e a foto virava um recorte
+ * horizontal de uma peça que é, quase sempre, vertical. Para escolher a peça
+ * pelo olho — que é o uso real desta aba — isso não serve.
+ *
+ * Agora o card TEM a proporção de retrato (3:4), a foto ocupa tudo, e os
+ * metadados vivem sobre um gradiente no rodapé. O texto continua legível
+ * porque o gradiente escurece só a faixa de baixo, e o conjunto lê como uma
+ * galeria em vez de uma tabela com miniatura.
+ */
+function PhotoCard({
+  media,
+  onOpen,
+  onDelete,
+}: {
+  media: ShowcaseMedia;
+  onOpen: () => void;
+  /** null = usuário sem permissão para excluir; o botão nem é renderizado. */
+  onDelete: (() => void) | null;
+}) {
+  const isImage = (media.mimeType ?? "").startsWith("image/");
+  const isVideo = (media.mimeType ?? "").startsWith("video/");
+
+  return (
+    <div className="group relative aspect-[3/4] overflow-hidden rounded-lg bg-surface-container shadow-level-1">
+      <Thumb
+        media={media}
+        isImage={isImage}
+        isVideo={isVideo}
+        mediaClassName="transition-transform duration-500 ease-out group-hover:scale-[1.05]"
+      />
+
+      {/* Abre o visualizador interno — sem nova aba nem sair do app. */}
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`Abrir ${media.title}`}
+        className="absolute inset-0 flex items-start justify-center bg-black/0 pt-8 transition-colors hover:bg-black/25 focus-visible:bg-black/25"
+      >
+        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-surface/90 text-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+          <Maximize2 className="h-5 w-5" strokeWidth={2} />
+        </span>
+      </button>
+
+      {/*
+        Faixa de metadados. `pointer-events-none` para não roubar o clique do
+        botão que cobre o card inteiro — o rodapé é informação, não alvo.
+      */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent px-sm pb-sm pt-lg">
+        <p className="line-clamp-2 text-label-md font-medium leading-snug text-white">
+          {media.title}
+        </p>
+        <p className="mt-0.5 line-clamp-1 text-label-sm text-white/85">
+          {media.collectionName}
+        </p>
+        <p className="text-label-sm text-white/65">
+          {SEASON_LABEL[media.season]} ·{" "}
+          {MONTHS_SHORT[(media.releaseMonth - 1 + 12) % 12]}/{media.releaseYear}
+        </p>
+      </div>
+
+      {onDelete && (
+        <button
+          type="button"
+          onClick={onDelete}
+          aria-label="Remover mídia"
+          title="Remover"
+          className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-surface/90 text-on-surface-variant opacity-0 transition-all hover:bg-error-container hover:text-on-error-container focus-visible:opacity-100 group-hover:opacity-100"
+        >
+          <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+        </button>
+      )}
     </div>
   );
 }
@@ -235,10 +339,13 @@ function Thumb({
   media,
   isImage,
   isVideo,
+  mediaClassName,
 }: {
   media: ShowcaseMedia;
   isImage: boolean;
   isVideo: boolean;
+  /** Classes extras no `<img>`/`<video>` (ex.: o zoom sutil da galeria). */
+  mediaClassName?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const [visivel, setVisivel] = useState(false);
@@ -277,7 +384,7 @@ function Thumb({
           alt={media.title}
           loading="lazy"
           decoding="async"
-          className="h-full w-full object-cover"
+          className={cn("h-full w-full object-cover", mediaClassName)}
         />
       ) : isVideo ? (
         <video
@@ -285,7 +392,7 @@ function Thumb({
           preload="metadata"
           muted
           playsInline
-          className="h-full w-full object-cover"
+          className={cn("h-full w-full object-cover", mediaClassName)}
         />
       ) : (
         <div className="flex h-full w-full items-center justify-center">

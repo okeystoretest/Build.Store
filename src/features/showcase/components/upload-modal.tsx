@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Upload,
   FileVideo,
@@ -9,6 +9,8 @@ import {
   X,
   Check,
   AlertCircle,
+  Clock,
+  RotateCcw,
 } from "lucide-react";
 import type { ShowcaseSeason, ShowcaseTab } from "@/types/domain";
 import {
@@ -40,8 +42,13 @@ const MONTHS = [
 ];
 
 /**
- * Regras de lote por aba. O teto existe para não deixar a lojista enfileirar
- * 40 vídeos e travar a conexão da loja no meio do expediente.
+ * Regras de lote por aba.
+ *
+ * Os tetos são assimétricos de propósito, porque o custo de um arquivo é
+ * assimétrico: uma foto de coleção tem alguns MB, um vídeo tem centenas. Quinze
+ * fotos cabem no envio de uma coleção inteira sem esforço; quinze vídeos são
+ * gigabytes atravessando a conexão da loja no meio do expediente — foi
+ * exatamente esse lote que vinha derrubando o envio em 502.
  */
 const REGRAS: Record<
   ShowcaseTab,
@@ -54,32 +61,29 @@ const REGRAS: Record<
     descricaoLabel: "Descrição",
   },
   collection_videos: {
-    max: 15,
+    max: 5,
     accept: "video/*",
     rotulo: "vídeo",
     descricaoLabel: "Descrição",
   },
   collection_photos: {
-    max: 5,
+    max: 15,
     accept: "image/*",
     rotulo: "foto",
     descricaoLabel: "Legenda",
   },
 };
 
-/**
- * Quantos arquivos sobem ao mesmo tempo. Três é o meio-termo: aproveita a
- * banda sem estrangular a conexão da loja nem estourar memória do servidor
- * com vários vídeos grandes simultâneos. O resto fica na fila.
- */
-const CONCORRENCIA = 3;
-
-type ItemStatus = "enviando" | "pronto" | "erro";
+type ItemStatus = "aguardando" | "enviando" | "pronto" | "erro";
 
 interface Item {
   /** id local, só para o React — não é o id da mídia. */
   id: string;
+  /** Mantido para poder repetir o envio sem o usuário reescolher o arquivo. */
+  file: File;
   fileName: string;
+  /** `blob:` local, para pré-visualizar a foto antes mesmo de ela subir. */
+  previewUrl?: string;
   /** Descrição personalizada. Começa VAZIA por especificação. */
   description: string;
   status: ItemStatus;
@@ -93,26 +97,37 @@ interface Item {
 
 function TabIcon({ tab }: { tab: ShowcaseTab }) {
   if (tab === "collection_photos")
-    return <FileImage className="h-5 w-5 text-on-surface-variant/50" strokeWidth={1.5} />;
+    return <FileImage className="h-6 w-6 text-on-surface-variant/50" strokeWidth={1.5} />;
   if (tab === "workshop" || tab === "collection_videos")
-    return <FileVideo className="h-5 w-5 text-on-surface-variant/50" strokeWidth={1.5} />;
-  return <FileIcon className="h-5 w-5 text-on-surface-variant/50" strokeWidth={1.5} />;
+    return <FileVideo className="h-6 w-6 text-on-surface-variant/50" strokeWidth={1.5} />;
+  return <FileIcon className="h-6 w-6 text-on-surface-variant/50" strokeWidth={1.5} />;
 }
 
 let contador = 0;
 const novoId = () => `item-${++contador}`;
 
 /**
- * Modal de envio da Vitrine — LOTE.
+ * Modal de envio da Vitrine — LOTE, um arquivo de cada vez.
  *
- * Cada arquivo tem a própria barra de progresso e o próprio campo de descrição
- * (vazio por padrão), que substitui o nome do arquivo como título da mídia.
- * Os metadados da coleção (nome, temporada, mês/ano) valem para o lote inteiro,
- * já que um lote é sempre de uma mesma coleção.
+ * Cada arquivo tem a própria pré-visualização, barra de progresso e campo de
+ * descrição (vazio por padrão), que substitui o nome do arquivo como título da
+ * mídia. Os metadados da coleção (nome, temporada, mês/ano) valem para o lote
+ * inteiro, já que um lote é sempre de uma mesma coleção.
  *
- * Os arquivos sobem assim que são escolhidos, em paralelo limitado; "Publicar"
- * só grava as linhas no banco. Assim a lojista preenche as descrições enquanto
- * os vídeos ainda estão subindo, em vez de esperar parada.
+ * ## Envio serial
+ *
+ * Os arquivos sobem assim que são escolhidos, mas **em fila: um termina, o
+ * próximo começa**. A versão anterior mandava três de uma vez, e três vídeos de
+ * coleção subindo em paralelo é o cenário que estourava o servidor — o
+ * navegador ainda reportava `Falha ao enviar o arquivo` em cima de um 502 do
+ * proxy, com os três perdidos de uma vez.
+ *
+ * A fila é ÚNICA e vive num ref, não por chamada de `pickFiles`. Se fosse por
+ * chamada, clicar em "Adicionar mais" no meio de um envio abriria uma segunda
+ * fila em paralelo — o problema de volta, só que mais difícil de enxergar.
+ *
+ * "Publicar" só grava as linhas no banco. Assim a lojista preenche as
+ * descrições enquanto os arquivos ainda estão subindo, em vez de esperar parada.
  */
 export function UploadModal({ open, tab, onClose, onUploaded }: UploadModalProps) {
   const toast = useToast();
@@ -131,25 +146,38 @@ export function UploadModal({ open, tab, onClose, onUploaded }: UploadModalProps
   const itemsRef = useRef<Item[]>([]);
   itemsRef.current = items;
 
+  /**
+   * Rabo da fila de envios. Cada arquivo se encadeia no anterior, então nunca
+   * há dois uploads no ar ao mesmo tempo — independentemente de quantas vezes
+   * o usuário escolha arquivos ou peça uma nova tentativa.
+   */
+  const filaRef = useRef<Promise<void>>(Promise.resolve());
+
   const patchItem = useCallback((id: string, patch: Partial<Item>) => {
     setItems((prev) =>
       prev.map((it) => (it.id === id ? { ...it, ...patch } : it)),
     );
   }, []);
 
-  const reset = () => {
-    setItems([]);
-    setCollectionName("");
-    setSeason("primavera_verao");
-    setMonth(new Date().getMonth() + 1);
-    setYear(CURRENT_YEAR);
-  };
-
   /** Envia um arquivo e reflete o progresso no item correspondente. */
   const enviar = useCallback(
-    async (item: Item, file: File) => {
+    async (item: Item) => {
+      // Removido (ou modal fechado) enquanto esperava a vez: não gasta banda.
+      if (item.controller.signal.aborted) return;
+
+      patchItem(item.id, {
+        status: "enviando",
+        error: undefined,
+        progress: {
+          loaded: 0,
+          total: item.file.size,
+          percent: 0,
+          phase: "enviando",
+        },
+      });
+
       try {
-        const up = await uploadFile(file, "showcase", {
+        const up = await uploadFile(item.file, "showcase", {
           signal: item.controller.signal,
           onProgress: (p) => patchItem(item.id, { progress: p }),
         });
@@ -157,7 +185,12 @@ export function UploadModal({ open, tab, onClose, onUploaded }: UploadModalProps
           status: "pronto",
           url: up.url,
           mimeType: up.mimeType,
-          progress: { loaded: file.size, total: file.size, percent: 100, phase: "processando" },
+          progress: {
+            loaded: item.file.size,
+            total: item.file.size,
+            percent: 100,
+            phase: "processando",
+          },
         });
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Falha no envio.";
@@ -167,8 +200,33 @@ export function UploadModal({ open, tab, onClose, onUploaded }: UploadModalProps
     [patchItem],
   );
 
-  /** Seleção: valida o teto da aba e dispara os envios com concorrência limitada. */
-  const pickFiles = async (lista: FileList | null) => {
+  /** Encadeia uma tarefa no fim da fila. Uma falha não pode parar as seguintes. */
+  const enfileirar = useCallback((tarefa: () => Promise<void>) => {
+    filaRef.current = filaRef.current.then(tarefa).catch(() => {});
+  }, []);
+
+  /** Libera o `blob:` da pré-visualização — senão o arquivo fica preso na memória. */
+  const soltarPreview = (item: Item) => {
+    if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+  };
+
+  const reset = useCallback(() => {
+    setItems([]);
+    setCollectionName("");
+    setSeason("primavera_verao");
+    setMonth(new Date().getMonth() + 1);
+    setYear(CURRENT_YEAR);
+  }, []);
+
+  // Desmontagem inesperada (troca de aba, navegação): não deixa `blob:` para trás.
+  useEffect(() => {
+    return () => {
+      for (const it of itemsRef.current) soltarPreview(it);
+    };
+  }, []);
+
+  /** Seleção: valida o teto da aba e enfileira os envios, um a um. */
+  const pickFiles = (lista: FileList | null) => {
     if (!lista || lista.length === 0) return;
 
     const escolhidos = Array.from(lista);
@@ -188,31 +246,40 @@ export function UploadModal({ open, tab, onClose, onUploaded }: UploadModalProps
 
     const novos: Item[] = aceitos.map((f) => ({
       id: novoId(),
+      file: f,
       fileName: f.name,
+      previewUrl: f.type.startsWith("image/")
+        ? URL.createObjectURL(f)
+        : undefined,
       description: "",
-      status: "enviando",
-      progress: { loaded: 0, total: f.size, percent: 0, phase: "enviando" },
+      status: "aguardando",
+      progress: null,
       controller: new AbortController(),
     }));
 
     setItems((prev) => [...prev, ...novos]);
+    for (const item of novos) enfileirar(() => enviar(item));
+  };
 
-    // Fila com concorrência limitada.
-    let cursor = 0;
-    const trabalhador = async () => {
-      while (cursor < novos.length) {
-        const i = cursor++;
-        await enviar(novos[i], aceitos[i]);
-      }
+  /** Reenfileira um arquivo que falhou, sem obrigar a reescolher no disco. */
+  const tentarNovamente = (item: Item) => {
+    // Controller novo: o antigo pode ter sido abortado, e um AbortSignal já
+    // disparado recusaria o envio na hora.
+    const renovado: Item = {
+      ...item,
+      controller: new AbortController(),
+      status: "aguardando",
+      error: undefined,
+      progress: null,
     };
-    await Promise.all(
-      Array.from({ length: Math.min(CONCORRENCIA, novos.length) }, trabalhador),
-    );
+    setItems((prev) => prev.map((it) => (it.id === item.id ? renovado : it)));
+    enfileirar(() => enviar(renovado));
   };
 
   /** Remove um item: cancela o envio em curso e apaga o arquivo já gravado. */
   const removerItem = (item: Item) => {
     item.controller.abort();
+    soltarPreview(item);
     setItems((prev) => prev.filter((it) => it.id !== item.id));
     if (item.url) void discardUploadedMediaAction(item.url);
   };
@@ -221,6 +288,7 @@ export function UploadModal({ open, tab, onClose, onUploaded }: UploadModalProps
     // Nada publicado: cancela o que está subindo e limpa os arquivos órfãos.
     for (const it of itemsRef.current) {
       it.controller.abort();
+      soltarPreview(it);
       if (it.url) void discardUploadedMediaAction(it.url);
     }
     reset();
@@ -228,11 +296,14 @@ export function UploadModal({ open, tab, onClose, onUploaded }: UploadModalProps
   };
 
   const prontos = items.filter((i) => i.status === "pronto");
-  const enviando = items.some((i) => i.status === "enviando");
+  const naFila = items.filter(
+    (i) => i.status === "enviando" || i.status === "aguardando",
+  );
+  const emAndamento = naFila.length > 0;
 
   const canSubmit =
     prontos.length > 0 &&
-    !enviando &&
+    !emAndamento &&
     !saving &&
     collectionName.trim().length > 0 &&
     !!month &&
@@ -287,6 +358,7 @@ export function UploadModal({ open, tab, onClose, onUploaded }: UploadModalProps
       return; // mantém o modal aberto para nova tentativa
     }
 
+    for (const it of itemsRef.current) soltarPreview(it);
     reset();
     onClose();
   };
@@ -322,37 +394,74 @@ export function UploadModal({ open, tab, onClose, onUploaded }: UploadModalProps
               className="hidden"
               disabled={restantes <= 0}
               onChange={(e) => {
-                void pickFiles(e.target.files);
+                pickFiles(e.target.files);
                 e.target.value = "";
               }}
             />
           </label>
 
           <p className="px-1 text-label-sm text-on-surface-variant">
-            Até {regra.max} {regra.rotulo}s por envio. Deixe a{" "}
+            Até {regra.max} {regra.rotulo}s por envio, enviados{" "}
+            <strong className="font-medium">um de cada vez</strong>. Deixe a{" "}
             {regra.descricaoLabel.toLowerCase()} em branco para usar o nome do
             arquivo.
           </p>
         </div>
 
         {items.length > 0 && (
-          <ul className="max-h-72 space-y-sm overflow-y-auto pr-1">
+          <ul className="max-h-80 space-y-sm overflow-y-auto pr-1">
             {items.map((item) => (
               <li
                 key={item.id}
-                className="flex gap-3 rounded-md bg-surface-container-low p-sm"
+                className={cn(
+                  "flex gap-3 rounded-md p-sm transition-colors",
+                  item.status === "erro"
+                    ? "bg-error-container/40"
+                    : "bg-surface-container-low",
+                )}
               >
-                <span className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-md bg-surface-container">
-                  {item.status === "pronto" &&
-                  (item.mimeType ?? "").startsWith("image/") ? (
+                {/*
+                  Miniatura grande e real. Antes era um quadrado de 36px que só
+                  ganhava a imagem DEPOIS do upload terminar — quem enviava
+                  quinze fotos de uma coleção não conseguia distinguir uma da
+                  outra na hora de escrever as legendas. O `blob:` local mostra
+                  a foto no instante da escolha, sem esperar rede nenhuma.
+                */}
+                <span className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-surface-container">
+                  {item.previewUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.previewUrl}
+                      alt={`Prévia de ${item.fileName}`}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : item.status === "pronto" &&
+                    (item.mimeType ?? "").startsWith("image/") ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={item.url} alt="" className="h-full w-full object-cover" />
-                  ) : item.status === "erro" ? (
-                    <AlertCircle className="h-5 w-5 text-error" strokeWidth={1.75} />
-                  ) : item.status === "pronto" ? (
-                    <Check className="h-5 w-5 text-primary" strokeWidth={2} />
                   ) : (
                     <TabIcon tab={tab} />
+                  )}
+
+                  {/* Selo de estado por cima da prévia. */}
+                  {item.status !== "enviando" && (
+                    <span
+                      className={cn(
+                        "absolute bottom-0.5 right-0.5 flex h-5 w-5 items-center justify-center rounded-full",
+                        item.status === "pronto" && "bg-primary text-on-primary",
+                        item.status === "erro" && "bg-error text-on-error",
+                        item.status === "aguardando" &&
+                          "bg-surface/90 text-on-surface-variant",
+                      )}
+                    >
+                      {item.status === "pronto" ? (
+                        <Check className="h-3.5 w-3.5" strokeWidth={2.5} />
+                      ) : item.status === "erro" ? (
+                        <AlertCircle className="h-3.5 w-3.5" strokeWidth={2.5} />
+                      ) : (
+                        <Clock className="h-3.5 w-3.5" strokeWidth={2} />
+                      )}
+                    </span>
                   )}
                 </span>
 
@@ -369,12 +478,31 @@ export function UploadModal({ open, tab, onClose, onUploaded }: UploadModalProps
                   <p className="truncate px-1 text-label-sm text-on-surface-variant">
                     {item.fileName}
                   </p>
-                  {item.status !== "pronto" && (
-                    <UploadProgressBar
-                      progress={item.progress}
-                      error={item.error}
-                      className="px-1"
-                    />
+
+                  {item.status === "aguardando" && (
+                    <p className="px-1 text-label-sm text-on-surface-variant">
+                      Na fila — começa quando o anterior terminar.
+                    </p>
+                  )}
+
+                  {item.status === "enviando" && (
+                    <UploadProgressBar progress={item.progress} className="px-1" />
+                  )}
+
+                  {item.status === "erro" && (
+                    <div className="flex flex-wrap items-center gap-2 px-1">
+                      <p className="text-label-sm text-error" role="alert">
+                        {item.error}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => tentarNovamente(item)}
+                        className="flex items-center gap-1 rounded-full border border-primary-container px-2.5 py-1 text-label-sm text-primary transition-colors hover:bg-primary-fixed/40"
+                      >
+                        <RotateCcw className="h-3.5 w-3.5" strokeWidth={2} />
+                        Tentar de novo
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -439,9 +567,11 @@ export function UploadModal({ open, tab, onClose, onUploaded }: UploadModalProps
         </div>
 
         <div className="flex items-center justify-end gap-sm border-t border-outline-variant/40 pt-md">
-          {enviando && (
+          {emAndamento && (
             <span className="mr-auto text-label-sm text-on-surface-variant">
-              Aguarde o fim dos envios para publicar.
+              {naFila.length === 1
+                ? "Enviando 1 arquivo..."
+                : `Enviando — faltam ${naFila.length} arquivos na fila.`}
             </span>
           )}
           <Button variant="ghost" onClick={handleClose} disabled={saving}>
