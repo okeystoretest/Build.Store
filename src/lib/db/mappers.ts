@@ -9,14 +9,27 @@ import type {
   Customer,
   Store,
 } from "@/types/domain";
+import {
+  toIsoString,
+  toIsoDateOrNull,
+} from "@/lib/utils/date";
 
 /**
  * Row ↔ domain mappers.
  *
- * App online-only: o Supabase é a única fonte de verdade. Estas funções são o
- * ÚNICO ponto que traduz entre o formato do banco (snake_case) e o modelo de
- * domínio (camelCase). Repositórios e hooks reutilizam tudo daqui, então o
- * mapeamento vive num lugar só.
+ * Estas funções são o ÚNICO ponto que traduz entre o formato do banco
+ * (snake_case) e o modelo de domínio (camelCase). Repositórios e hooks
+ * reutilizam tudo daqui, então o mapeamento vive num lugar só.
+ *
+ * ## Datas: sempre por `toIsoString`, nunca por `as string`
+ *
+ * O driver `pg` devolve `timestamp`/`timestamptz` como objeto `Date`. O
+ * `as string` que existia aqui não convertia nada — apenas silenciava o
+ * TypeScript — e um `Date` disfarçado de string derrubava Relatórios e Pedidos
+ * com `slice is not a function`, além de esvaziar o campo de data de
+ * nascimento em Gestão. Ver `lib/utils/date.ts` para o histórico completo.
+ *
+ * Regra: coluna de data NUNCA sai daqui sem passar pelo normalizador.
  */
 
 export const PRODUCT_COLUMNS =
@@ -65,8 +78,8 @@ export function toProduct(r: Row): Product {
     address: (r.address as string | null) ?? null,
     imageUrl: (r.image_url as string | null) ?? null,
     active: (r.active as boolean) ?? true,
-    createdAt: r.created_at as string,
-    updatedAt: r.updated_at as string,
+    createdAt: toIsoString(r.created_at),
+    updatedAt: toIsoString(r.updated_at),
   };
 }
 
@@ -127,7 +140,7 @@ export function toOrder(r: Row, items: OrderItem[]): Order {
     sellerName: (r.seller_name as string | null) ?? null,
     campaignId: (r.campaign_id as string | null) ?? null,
     invoiceNumber: (r.invoice_number as string | null) ?? null,
-    createdAt: r.created_at as string,
+    createdAt: toIsoString(r.created_at),
     createdBy: (r.created_by as string | null) ?? null,
   };
 }
@@ -137,12 +150,12 @@ export function toUser(r: Row): User {
     id: r.id as string,
     username: (r.username as string) ?? "",
     fullName: (r.full_name as string) ?? "",
-    birthDate: (r.birth_date as string | null) ?? null,
+    birthDate: toIsoDateOrNull(r.birth_date),
     role: r.role as User["role"],
     photoUrl: (r.photo_url as string | null) ?? null,
     active: (r.active as boolean) ?? true,
     storeId: (r.store_id as string | null) ?? null,
-    createdAt: r.created_at as string,
+    createdAt: toIsoString(r.created_at),
   };
 }
 
@@ -152,7 +165,7 @@ export function toStore(r: Row): Store {
     name: (r.name as string) ?? "",
     logoUrl: (r.logo_url as string | null) ?? null,
     active: (r.active as boolean) ?? true,
-    createdAt: r.created_at as string,
+    createdAt: toIsoString(r.created_at),
   };
 }
 
@@ -161,7 +174,7 @@ export function toCampaign(r: Row): Campaign {
     id: r.id as string,
     name: r.name as string,
     active: r.active as boolean,
-    createdAt: r.created_at as string,
+    createdAt: toIsoString(r.created_at),
   };
 }
 
@@ -173,7 +186,7 @@ export function toGoal(r: Row): Goal {
     campaignId: (r.campaign_id as string | null) ?? null,
     targetCents: (r.target_cents as number | null) ?? null,
     targetQuantity: (r.target_quantity as number | null) ?? null,
-    createdAt: r.created_at as string,
+    createdAt: toIsoString(r.created_at),
   };
 }
 
@@ -184,7 +197,7 @@ export function toNotification(r: Row): AppNotification {
     title: r.title as string,
     body: (r.body as string) ?? "",
     read: (r.read as boolean) ?? false,
-    createdAt: r.created_at as string,
+    createdAt: toIsoString(r.created_at),
   };
 }
 
@@ -198,6 +211,6 @@ export function toCustomer(r: Row): Customer {
     instagram: (r.instagram as string | null) ?? null,
     email: (r.email as string | null) ?? null,
     document: (r.document as string | null) ?? null,
-    createdAt: r.created_at as string,
+    createdAt: toIsoString(r.created_at),
   };
 }

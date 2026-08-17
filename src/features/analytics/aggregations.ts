@@ -1,4 +1,5 @@
 import type { Order, OrderStatus, PaymentMethod } from "@/types/domain";
+import { localDayKey } from "@/lib/utils/date";
 
 /**
  * Analytics aggregations. Pure functions over the order list so they're trivial
@@ -97,7 +98,10 @@ export function dailyRevenue(
 ): { date: string; revenueCents: number }[] {
   const byDay = new Map<string, number>();
   for (const o of orders.filter(isRevenue)) {
-    const day = o.createdAt.slice(0, 10); // YYYY-MM-DD
+    // Dia LOCAL da loja, não UTC: venda às 21h30 em São Paulo é 00h30 do dia
+    // seguinte em UTC, e ia parar no relatório do dia errado.
+    const day = localDayKey(o.createdAt);
+    if (!day) continue;
     byDay.set(day, (byDay.get(day) ?? 0) + o.totalCents);
   }
   return [...byDay.entries()]

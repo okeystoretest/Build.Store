@@ -9,8 +9,10 @@ import {
   ResponsiveContainer,
   CartesianGrid,
 } from "recharts";
+import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { formatBRL } from "@/lib/utils/money";
+import { parseDayKey } from "@/lib/utils/date";
 
 interface RevenueChartProps {
   data: { date: string; revenueCents: number }[];
@@ -18,8 +20,17 @@ interface RevenueChartProps {
 
 /** Daily revenue area chart in the primary tone. */
 export function RevenueChart({ data }: RevenueChartProps) {
+  // O recharts mede o container para se desenhar, então no servidor ele produz
+  // uma árvore diferente da do navegador — era essa a origem dos erros de
+  // hidratação #418/#422/#425 no console. Montar só no cliente elimina a
+  // divergência (e o custo do render descartado no servidor).
+  const [montado, setMontado] = useState(false);
+  useEffect(() => setMontado(true), []);
+
   const points = data.map((d) => ({
-    label: format(new Date(d.date), "dd/MM"),
+    // `new Date("2026-08-17")` é meia-noite UTC por especificação; formatado em
+    // São Paulo virava "16/08". O rótulo mostrava o dia anterior ao do dado.
+    label: format(parseDayKey(d.date), "dd/MM"),
     reais: d.revenueCents / 100,
   }));
 
@@ -30,6 +41,8 @@ export function RevenueChart({ data }: RevenueChartProps) {
       </div>
     );
   }
+
+  if (!montado) return <div className="h-[220px] w-full" aria-hidden="true" />;
 
   return (
     <ResponsiveContainer width="100%" height={220}>

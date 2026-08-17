@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLiveOrdersQuery } from "@/features/orders/hooks/use-live-orders";
 import type { Order, OrderStatus } from "@/types/domain";
+import { localDayKey } from "@/lib/utils/date";
 
 export type StatusFilter = OrderStatus | "all";
 
@@ -33,7 +34,10 @@ export function useOrders() {
         o.reference.toLowerCase().includes(q) ||
         (o.customerName?.toLowerCase().includes(q) ?? false);
       const matchesStatus = status === "all" || o.status === status;
-      const day = o.createdAt.slice(0, 10);
+      // Mesma chave local usada nos relatórios: o filtro de período usa um
+      // <input type="date">, que é dia de calendário do usuário — comparar com
+      // dia UTC deixava de fora toda venda feita depois das 21h.
+      const day = localDayKey(o.createdAt);
       const matchesFrom = !from || day >= from;
       const matchesTo = !to || day <= to;
       return matchesQuery && matchesStatus && matchesFrom && matchesTo;

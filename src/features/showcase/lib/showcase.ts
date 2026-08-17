@@ -1,4 +1,5 @@
 import type { ShowcaseMedia, ShowcaseSeason, ShowcaseTab } from "@/types/domain";
+import { toIsoString } from "@/lib/utils/date";
 
 /** Retenção da Vitrine: mídias com upload há mais de 90 dias expiram. */
 export const RETENTION_DAYS = 90;
@@ -64,6 +65,6 @@ export function toMedia(r: Row): ShowcaseMedia {
     season: r.season as ShowcaseSeason,
     releaseMonth: Number(r.release_month) || 1,
     releaseYear: Number(r.release_year) || new Date().getFullYear(),
-    createdAt: r.created_at as string,
+    createdAt: toIsoString(r.created_at),
   };
 }
