@@ -67,7 +67,7 @@ const NAV: NavItem[] = [
 ];
 
 interface SidebarProps {
-  /** Recolhida: só ícones/iniciais/foto (desktop). */
+  /** Recolhida: só ícones/foto (desktop). */
   collapsed?: boolean;
   /** Alterna recolher/expandir (só no desktop). */
   onToggleCollapsed?: () => void;
@@ -80,10 +80,15 @@ interface SidebarProps {
 /**
  * Navegação lateral.
  *
- * - Desktop: pode recolher para uma faixa compacta (ícones + iniciais da loja +
- *   foto do usuário), com botão de seta.
+ * - Desktop: pode recolher para uma faixa compacta (logotipo curto + foto +
+ *   ícones). O botão de recolher/expandir fica no rodapé, abaixo de "Sair".
  * - Mobile: renderizada sempre expandida dentro do drawer do AppShell. Rola
  *   internamente (overflow-y-auto) para caber em telas baixas.
+ *
+ * Hierarquia do topo: logotipo da PLATAFORMA (Build.Sales) → foto de perfil da
+ * LOJA → régua → ferramentas. O nome da loja não é repetido em texto: a foto já
+ * identifica quem está logado, e o texto grande competia com o logotipo da
+ * plataforma logo acima.
  *
  * Alvos de toque: todos os itens têm no mínimo 44px de altura, atendendo às
  * diretrizes de acessibilidade para toque no celular.
@@ -95,14 +100,10 @@ export function Sidebar({
   onNavigate,
 }: SidebarProps) {
   const pathname = usePathname();
-  const { canSeeReports, canSeeManagement, role, fullName, username, signOut } =
-    useAuth();
-  // Identidade exibida: nome completo quando houver, senão o usuário do login.
-  // Um perfil sem `full_name` deixava o cabeçalho sem nenhuma identificação de
-  // quem estava logado.
-  const displayName = fullName?.trim() || username?.trim() || null;
+  const { role, signOut } = useAuth();
   const isAdmin = role === "admin";
   const { theme, toggle } = useTheme();
+  // Usado apenas como texto alternativo/dica da foto — não é exibido.
   const storeName = useStoreName();
   // Imagem de perfil unificada: logotipo da marca, com fallback para a foto
   // cadastrada em Lojas (ver getStoreLogoAction).
@@ -131,15 +132,9 @@ export function Sidebar({
     return out;
   };
 
-  const storeInitials = (storeName || "BS")
-    .split(" ")
-    .map((p) => p[0])
-    .slice(0, 2)
-    .join("")
-    .toUpperCase();
-
   // Só recolhe no desktop; no drawer mobile fica sempre expandida.
   const isCollapsed = variant === "desktop" && collapsed;
+  const podeRecolher = variant === "desktop" && Boolean(onToggleCollapsed);
 
   return (
     <aside
@@ -149,78 +144,47 @@ export function Sidebar({
       )}
     >
       {/*
-        Cabeçalho: foto + loja (+ botão de recolher no desktop).
-
-        Recolhida, o botão sai do canto absoluto e vira uma linha própria acima
-        da foto: em 80px de largura, um botão de 32px ancorado em `-right-1`
-        cobria metade do avatar e vazava para fora da borda.
+        Logotipo da plataforma. A divisão "Build." / "Sales" usa os dois tokens
+        de marca do sistema (primary e secondary) — nenhuma cor solta.
+        Recolhida, vira "B.S": "Build.Sales" em 80px de largura quebraria ou
+        exigiria um corpo ilegível.
       */}
-      <div className="relative shrink-0">
-        {variant === "desktop" && onToggleCollapsed && isCollapsed && (
-          <div className="mb-2 flex justify-center">
-            <button
-              type="button"
-              onClick={onToggleCollapsed}
-              aria-label="Expandir menu"
-              title="Expandir"
-              className="flex h-7 w-7 items-center justify-center rounded-full border border-outline-variant/60 bg-surface text-on-surface-variant transition-colors hover:bg-surface-container"
-            >
-              <ChevronRight className="h-4 w-4" strokeWidth={2} />
-            </button>
-          </div>
-        )}
-
-        {variant === "desktop" && onToggleCollapsed && !isCollapsed && (
-          <button
-            type="button"
-            onClick={onToggleCollapsed}
-            aria-label="Recolher menu"
-            title="Recolher"
-            className="absolute -right-1 top-0 z-10 flex h-8 w-8 items-center justify-center rounded-full border border-outline-variant/60 bg-surface text-on-surface-variant shadow-level-1 transition-colors hover:bg-surface-container"
-          >
-            <ChevronLeft className="h-4 w-4" strokeWidth={2} />
-          </button>
-        )}
-
-        <div
+      <div className="flex shrink-0 items-center justify-center">
+        <span
           className={cn(
-            "flex min-w-0 flex-col items-center text-center",
-            isCollapsed ? "px-0" : "px-sm",
+            "font-logo select-none leading-none",
+            isCollapsed ? "text-[1.35rem]" : "text-[1.9rem]",
           )}
+          title="Build.Sales"
+          aria-label="Build.Sales"
         >
-          <StoreAvatar
-            src={photoUrl}
-            alt={storeName}
-            className={isCollapsed ? "h-10 w-10" : "h-16 w-16"}
-          />
-
-          {!isCollapsed && displayName && (
-            <p className="mt-2 w-full truncate text-label-md font-medium text-on-surface">
-              {displayName}
-            </p>
-          )}
-
-          {isCollapsed ? (
-            <span
-              className="font-logo mt-1.5 max-w-full truncate text-[1.1rem] leading-none text-primary"
-              title={storeName}
-            >
-              {storeInitials}
-            </span>
-          ) : (
-            <>
-              <h1 className="font-logo mt-1 w-full break-words text-[2rem] leading-tight text-primary">
-                {storeName}
-              </h1>
-              <p className="mt-1 text-label-sm uppercase tracking-wide text-on-surface-variant">
-                BUILD.SALES - PDV
-              </p>
-            </>
-          )}
-        </div>
+          <span className="text-primary">{isCollapsed ? "B." : "Build."}</span>
+          <span className="text-secondary">{isCollapsed ? "S" : "Sales"}</span>
+        </span>
       </div>
 
-      <nav className="mt-lg flex shrink-0 flex-col gap-1">
+      {/* Perfil: apenas a foto da loja. */}
+      <div className="mt-md flex shrink-0 items-center justify-center">
+        <StoreAvatar
+          src={photoUrl}
+          alt={storeName}
+          className={isCollapsed ? "h-10 w-10" : "h-16 w-16"}
+        />
+      </div>
+
+      {/*
+        Régua entre identificação e ferramentas: separa "quem eu sou" de "o que
+        eu faço". Recolhida ela encolhe (mx-2) para não encostar nas bordas da
+        faixa de 80px.
+      */}
+      <div
+        className={cn(
+          "mt-md shrink-0 border-t border-outline-variant/60",
+          isCollapsed ? "mx-2" : "mx-sm",
+        )}
+      />
+
+      <nav className="mt-md flex shrink-0 flex-col gap-1">
         {NAV.map((item) => {
           const { href, label, icon: Icon, tool } = item;
           const active = pathname.startsWith(href);
@@ -231,19 +195,21 @@ export function Sidebar({
             unlockedFor(tool, r),
           );
 
-          // Classe compartilhada entre o link e o botão bloqueado, para os dois
-          // ficarem idênticos em altura e alinhamento.
           // Sem acesso, o item NÃO é renderizado. Antes ele aparecia cinza com
           // um cadeado — e "Lojas" acinzentada ainda é "Lojas" visível na tela
           // de uma vendedora, o oposto do que a regra de perfis pede.
           if (!allowed) return null;
 
+          // Estado ativo: bloco preenchido em `primary-container` com texto em
+          // `on-primary-container` — um tom acima do resto da paleta, legível
+          // nos dois temas. O fundo translúcido anterior (primary-fixed/60)
+          // quase não se distinguia do hover.
           const base = cn(
             // min-h-[44px]: alvo de toque adequado no mobile.
             "relative flex min-h-[44px] w-full items-center rounded-full text-label-md transition-colors",
             isCollapsed ? "justify-center px-0 py-3" : "gap-3 px-4 py-3",
             active
-              ? "bg-primary-fixed/60 text-primary"
+              ? "bg-primary-container font-semibold text-on-primary-container shadow-level-1"
               : "text-on-surface-variant hover:bg-surface-container",
           );
 
@@ -267,9 +233,13 @@ export function Sidebar({
                 }
                 className={cn(
                   "ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors",
-                  liberadoParaTodos
-                    ? "text-primary hover:bg-primary-fixed/60"
-                    : "text-error hover:bg-error/10",
+                  // No item ativo o ícone herda o texto do bloco: `text-primary`
+                  // sobre o preenchimento da mesma família sumiria.
+                  active
+                    ? "text-on-primary-container hover:bg-primary/20"
+                    : liberadoParaTodos
+                      ? "text-primary hover:bg-primary-fixed/60"
+                      : "text-error hover:bg-error/10",
                 )}
               >
                 {liberadoParaTodos ? (
@@ -283,9 +253,9 @@ export function Sidebar({
           const conteudo = (
             <>
               {active && !isCollapsed && (
-                <span className="absolute right-0 h-6 w-1 rounded-full bg-primary" />
+                <span className="absolute left-1 h-6 w-1 rounded-full bg-primary" />
               )}
-              <Icon className="h-5 w-5 shrink-0" strokeWidth={1.75} />
+              <Icon className="h-5 w-5 shrink-0" strokeWidth={active ? 2.25 : 1.75} />
               {!isCollapsed && <span className="truncate">{label}</span>}
               {cadeadoAdmin}
             </>
@@ -297,6 +267,7 @@ export function Sidebar({
               href={href}
               onClick={onNavigate}
               title={isCollapsed ? label : undefined}
+              aria-current={active ? "page" : undefined}
               className={base}
             >
               {conteudo}
@@ -321,12 +292,9 @@ export function Sidebar({
       )}
 
       {/*
-        Rodapé: tema, suporte e sair.
-
+        Rodapé: tema, suporte, sair e — logo abaixo de Sair — recolher/expandir.
         A linha separadora acima existe para eles não serem lidos como mais
-        três ferramentas do menu — são ações do aplicativo, de natureza
-        diferente. Recolhida, a régua encolhe (mx-2) para não encostar nas
-        bordas da faixa de 80px.
+        ferramentas do menu: são ações do aplicativo, de natureza diferente.
       */}
       <div
         className={cn(
@@ -382,6 +350,33 @@ export function Sidebar({
             <LogOut className="h-5 w-5 shrink-0" strokeWidth={1.75} />
             {!isCollapsed && "Sair"}
           </button>
+
+          {/*
+            Recolher/expandir. Saiu do cabeçalho (onde, recolhida, um botão
+            flutuante de 32px cobria metade do avatar) e virou a última ação da
+            lista, logo abaixo de Sair. No drawer mobile não existe: a sidebar
+            ali é sempre expandida.
+          */}
+          {podeRecolher && (
+            <button
+              type="button"
+              onClick={onToggleCollapsed}
+              aria-label={isCollapsed ? "Expandir menu" : "Recolher menu"}
+              title={isCollapsed ? "Expandir" : "Recolher"}
+              aria-expanded={!isCollapsed}
+              className={cn(
+                "flex min-h-[44px] items-center rounded-full py-2.5 text-label-md text-on-surface-variant transition-colors hover:bg-surface-container",
+                isCollapsed ? "justify-center px-0" : "gap-3 px-4",
+              )}
+            >
+              {isCollapsed ? (
+                <ChevronRight className="h-5 w-5 shrink-0" strokeWidth={1.75} />
+              ) : (
+                <ChevronLeft className="h-5 w-5 shrink-0" strokeWidth={1.75} />
+              )}
+              {!isCollapsed && "Recolher menu"}
+            </button>
+          )}
         </div>
       </div>
 
