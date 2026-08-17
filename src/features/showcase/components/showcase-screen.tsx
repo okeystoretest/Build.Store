@@ -188,17 +188,36 @@ export function ShowcaseScreen() {
 }
 
 /**
- * Card de FOTO — a imagem é o card.
+ * Card de FOTO da coleção.
  *
- * O card antigo era uma faixa de 128px de altura com três linhas de texto
- * embaixo: metade da área ia para metadados e a foto virava um recorte
- * horizontal de uma peça que é, quase sempre, vertical. Para escolher a peça
- * pelo olho — que é o uso real desta aba — isso não serve.
+ * ## O que estava pesado
  *
- * Agora o card TEM a proporção de retrato (3:4), a foto ocupa tudo, e os
- * metadados vivem sobre um gradiente no rodapé. O texto continua legível
- * porque o gradiente escurece só a faixa de baixo, e o conjunto lê como uma
- * galeria em vez de uma tabela com miniatura.
+ * O card anterior empilhava, por item: um `<img>` em tamanho de card, um
+ * gradiente preto cobrindo o rodapé, uma camada de `hover:bg-black/25` sobre a
+ * área inteira, `shadow-level-1` (sombra de 20px de desfoque), `transition-all`
+ * e um `scale(1.05)` na imagem no hover. Cada um desses é barato sozinho;
+ * juntos, e multiplicados por quinze cards, o navegador repinta a tela toda a
+ * cada movimento do mouse — daí a sensação de travamento, mesmo já com as
+ * miniaturas de 480px.
+ *
+ * Aqui: sombra virou borda (não desfoca), o zoom saiu, `transition-all` virou
+ * transição só do que muda, e o gradiente preto deu lugar a uma faixa de
+ * legenda sólida. `content-visibility: auto` (classe `.card-galeria`) fecha a
+ * conta: o navegador nem calcula o layout dos cards que estão fora da tela.
+ *
+ * ## Por que ficou mais feminino
+ *
+ * O gradiente preto era o elemento fora do tom: preto puro sobre uma paleta de
+ * rosas, e o texto branco por cima puxava o card para um vocabulário de app de
+ * streaming. A foto agora é emoldurada — respiro de 4px em `primary-fixed`,
+ * como um passe-partout — e a legenda vem embaixo, em rosa sobre superfície
+ * clara, igual ao resto da plataforma. A estação vira uma pílula discreta em
+ * vez de mais uma linha de texto cinza.
+ *
+ * Os tons vêm de `primary-container` (e não de `primary-fixed`) porque
+ * `primary-fixed` é o MESMO rosa claro nos dois temas: no escuro ele viraria
+ * uma moldura fluorescente em volta de cada foto. `primary-container` escurece
+ * junto com o tema.
  */
 function PhotoCard({
   media,
@@ -214,54 +233,52 @@ function PhotoCard({
   const isVideo = (media.mimeType ?? "").startsWith("video/");
 
   return (
-    <div className="group relative aspect-[3/4] overflow-hidden rounded-lg bg-surface-container shadow-level-1">
-      <Thumb
-        media={media}
-        isImage={isImage}
-        isVideo={isVideo}
-        mediaClassName="transition-transform duration-500 ease-out group-hover:scale-[1.05]"
-      />
+    <div className="card-galeria group flex flex-col overflow-hidden rounded-md border border-primary-container/60 bg-surface-container-lowest transition-colors hover:border-primary-container">
+      {/* Passe-partout: o respiro rosa em volta da foto é o que dá o ar de
+          álbum em vez de grade de arquivos. */}
+      <div className="relative aspect-[3/4] w-full overflow-hidden rounded-[1.25rem] bg-primary-container/30 p-1">
+        <div className="h-full w-full overflow-hidden rounded-[1rem] bg-surface-container">
+          <Thumb media={media} isImage={isImage} isVideo={isVideo} />
+        </div>
 
-      {/* Abre o visualizador interno — sem nova aba nem sair do app. */}
-      <button
-        type="button"
-        onClick={onOpen}
-        aria-label={`Abrir ${media.title}`}
-        className="absolute inset-0 flex items-start justify-center bg-black/0 pt-8 transition-colors hover:bg-black/25 focus-visible:bg-black/25"
-      >
-        <span className="flex h-11 w-11 items-center justify-center rounded-full bg-surface/90 text-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-          <Maximize2 className="h-5 w-5" strokeWidth={2} />
-        </span>
-      </button>
-
-      {/*
-        Faixa de metadados. `pointer-events-none` para não roubar o clique do
-        botão que cobre o card inteiro — o rodapé é informação, não alvo.
-      */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent px-sm pb-sm pt-lg">
-        <p className="line-clamp-2 text-label-md font-medium leading-snug text-white">
-          {media.title}
-        </p>
-        <p className="mt-0.5 line-clamp-1 text-label-sm text-white/85">
-          {media.collectionName}
-        </p>
-        <p className="text-label-sm text-white/65">
-          {SEASON_LABEL[media.season]} ·{" "}
-          {MONTHS_SHORT[(media.releaseMonth - 1 + 12) % 12]}/{media.releaseYear}
-        </p>
-      </div>
-
-      {onDelete && (
+        {/* Abre o visualizador interno — sem nova aba nem sair do app. */}
         <button
           type="button"
-          onClick={onDelete}
-          aria-label="Remover mídia"
-          title="Remover"
-          className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-surface/90 text-on-surface-variant opacity-0 transition-all hover:bg-error-container hover:text-on-error-container focus-visible:opacity-100 group-hover:opacity-100"
+          onClick={onOpen}
+          aria-label={`Abrir ${media.title}`}
+          className="absolute inset-0 flex items-center justify-center rounded-[1.25rem] transition-colors hover:bg-primary/15 focus-visible:bg-primary/15"
         >
-          <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-surface/95 text-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+            <Maximize2 className="h-5 w-5" strokeWidth={2} />
+          </span>
         </button>
-      )}
+
+        {onDelete && (
+          <button
+            type="button"
+            onClick={onDelete}
+            aria-label="Remover mídia"
+            title="Remover"
+            className="absolute right-2 top-2 flex h-9 w-9 items-center justify-center rounded-full bg-surface/95 text-on-surface-variant opacity-0 transition-opacity hover:bg-error-container hover:text-on-error-container focus-visible:opacity-100 group-hover:opacity-100"
+          >
+            <Trash2 className="h-4 w-4" strokeWidth={1.75} />
+          </button>
+        )}
+      </div>
+
+      {/* Legenda sólida, na tipografia e nas cores do resto da plataforma. */}
+      <div className="flex flex-col gap-1 px-sm pb-sm pt-2">
+        <p className="line-clamp-1 text-label-md font-medium text-on-surface">
+          {media.title}
+        </p>
+        <p className="line-clamp-1 text-label-sm text-primary">
+          {media.collectionName}
+        </p>
+        <span className="w-fit rounded-full bg-primary-container/30 px-2 py-0.5 text-label-sm text-on-primary-container">
+          {SEASON_LABEL[media.season]} ·{" "}
+          {MONTHS_SHORT[(media.releaseMonth - 1 + 12) % 12]}/{media.releaseYear}
+        </span>
+      </div>
     </div>
   );
 }

@@ -335,3 +335,20 @@ body {
   height: 100vh;
   height: 100dvh;
 }
+
+/* ---------------------------------------------------------------------------
+ * Grade de galeria (Vitrine → Fotos da Coleção).
+ *
+ * `content-visibility: auto` diz ao navegador para não calcular layout, estilo
+ * nem pintura dos cards que estão fora da viewport. Com quinze fotos numa
+ * grade de retratos, isso é a diferença entre repintar quinze cards a cada
+ * rolagem e repintar os três ou quatro visíveis.
+ *
+ * `contain-intrinsic-size` é obrigatório junto: sem uma altura estimada, os
+ * cards não pintados teriam altura zero e a barra de rolagem saltaria durante
+ * a rolagem. O valor é a altura típica de um card (foto 3:4 + legenda).
+ * ------------------------------------------------------------------------- */
+.card-galeria {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 420px;
+}
