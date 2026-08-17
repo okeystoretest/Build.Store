@@ -14,11 +14,20 @@ export const metadata: Metadata = {
   description: "PDV premium para lojas boutique",
   manifest: "/manifest.json",
   icons: {
+    // Favicons pequenos primeiro: o navegador escolhe pelo `sizes`, e sem uma
+    // versão de 16/32px ele reduzia o PNG de 192px, borrando o traço fino do
+    // "B". O .ico em /favicon.ico atende quem pede a raiz sem ler o HTML.
     icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/icons/favicon-16.png", sizes: "16x16", type: "image/png" },
+      { url: "/icons/favicon-32.png", sizes: "32x32", type: "image/png" },
+      { url: "/icons/favicon-48.png", sizes: "48x48", type: "image/png" },
       { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
       { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
-    apple: "/icons/icon-192.png",
+    apple: [
+      { url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
   },
   appleWebApp: { capable: true, title: "Build.Sales", statusBarStyle: "default" },
   other: {

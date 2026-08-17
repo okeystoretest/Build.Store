@@ -6,6 +6,7 @@ import { Sidebar } from "./sidebar";
 import { useStoreName } from "@/hooks/use-store-name";
 import { useStoreLogo } from "@/hooks/use-store-logo";
 import { StoreAvatar } from "@/components/ui/store-avatar";
+import { BrandMark } from "@/components/ui/brand-logo";
 
 /**
  * Shell responsivo das telas autenticadas.
@@ -103,7 +104,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           >
             <Menu className="h-6 w-6" strokeWidth={1.75} />
           </button>
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
             <StoreAvatar
               src={storeLogo}
               alt={storeName}
@@ -113,6 +114,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {storeName}
             </span>
           </div>
+
+          {/*
+            Símbolo da plataforma na ponta direita: no mobile a sidebar vive
+            atrás do hambúrguer, então sem isto a marca desaparece da tela
+            inteira. Fica na borda oposta ao nome da loja para não disputar
+            espaço com ele.
+          */}
+          <BrandMark className="h-8 w-8" alt="Build.Sales" />
         </header>
 
         {/*

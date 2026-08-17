@@ -37,6 +37,7 @@ import {
 } from "@/features/settings/tool-access";
 import { ToolAccessModal } from "@/components/layout/tool-access-modal";
 import { StoreAvatar } from "@/components/ui/store-avatar";
+import { BrandMark, BrandWordmark } from "@/components/ui/brand-logo";
 import { StoreSelector } from "@/features/stores/components/store-selector";
 
 const SUPPORT_WHATSAPP = "558592178804";
@@ -85,10 +86,10 @@ interface SidebarProps {
  * - Mobile: renderizada sempre expandida dentro do drawer do AppShell. Rola
  *   internamente (overflow-y-auto) para caber em telas baixas.
  *
- * Hierarquia do topo: logotipo da PLATAFORMA (Build.Sales) → foto de perfil da
- * LOJA → régua → ferramentas. O nome da loja não é repetido em texto: a foto já
- * identifica quem está logado, e o texto grande competia com o logotipo da
- * plataforma logo acima.
+ * Hierarquia do topo: logotipo da PLATAFORMA → co-marca [foto da loja] ✕
+ * [símbolo da plataforma] → régua → ferramentas. O nome da loja não é repetido
+ * em texto: a foto já identifica quem está logado, e o texto grande competia
+ * com o logotipo da plataforma logo acima.
  *
  * Alvos de toque: todos os itens têm no mínimo 44px de altura, atendendo às
  * diretrizes de acessibilidade para toque no celular.
@@ -144,32 +145,45 @@ export function Sidebar({
       )}
     >
       {/*
-        Logotipo da plataforma. A divisão "Build." / "Sales" usa os dois tokens
-        de marca do sistema (primary e secondary) — nenhuma cor solta.
-        Recolhida, vira "B.S": "Build.Sales" em 80px de largura quebraria ou
-        exigiria um corpo ilegível.
+        Logotipo da plataforma. Expandida: a marca nominal ("Build." primary +
+        "Sales" secondary). Recolhida: o símbolo, não uma abreviação de texto —
+        em 80px de largura o "B.S" era um remendo; o símbolo é a forma que a
+        marca já tem para espaço curto.
       */}
       <div className="flex shrink-0 items-center justify-center">
-        <span
-          className={cn(
-            "font-logo select-none leading-none",
-            isCollapsed ? "text-[1.35rem]" : "text-[1.9rem]",
-          )}
-          title="Build.Sales"
-          aria-label="Build.Sales"
-        >
-          <span className="text-primary">{isCollapsed ? "B." : "Build."}</span>
-          <span className="text-secondary">{isCollapsed ? "S" : "Sales"}</span>
-        </span>
+        {isCollapsed ? (
+          <BrandMark className="h-9 w-9" alt="Build.Sales" />
+        ) : (
+          <BrandWordmark className="text-[1.9rem]" />
+        )}
       </div>
 
-      {/* Perfil: apenas a foto da loja. */}
-      <div className="mt-md flex shrink-0 items-center justify-center">
+      {/*
+        Perfil da loja em co-marca: [foto da loja] ✕ [símbolo da plataforma].
+        O "✕" fica em `aria-hidden` — é um sinal gráfico de parceria, não texto
+        a ser lido.
+
+        Recolhida, só a foto: o símbolo já está no topo, e repeti-lo em 80px de
+        largura deixaria os dois com menos de 24px cada.
+      */}
+      <div className="mt-md flex shrink-0 items-center justify-center gap-2">
         <StoreAvatar
           src={photoUrl}
           alt={storeName}
-          className={isCollapsed ? "h-10 w-10" : "h-16 w-16"}
+          className={isCollapsed ? "h-10 w-10" : "h-14 w-14"}
         />
+
+        {!isCollapsed && (
+          <>
+            <span
+              aria-hidden="true"
+              className="select-none text-body-md font-medium text-on-surface-variant/70"
+            >
+              ✕
+            </span>
+            <BrandMark className="h-12 w-12" alt="Build.Sales" />
+          </>
+        )}
       </div>
 
       {/*
@@ -200,16 +214,16 @@ export function Sidebar({
           // de uma vendedora, o oposto do que a regra de perfis pede.
           if (!allowed) return null;
 
-          // Estado ativo: bloco preenchido em `primary-container` com texto em
-          // `on-primary-container` — um tom acima do resto da paleta, legível
-          // nos dois temas. O fundo translúcido anterior (primary-fixed/60)
-          // quase não se distinguia do hover.
+          // Estado ativo discreto: `primary-container` a 30% de opacidade e
+          // texto em `on-primary-container`. Sem sombra, sem barra lateral e
+          // sem peso extra — o bloco cheio anterior chamava mais atenção que o
+          // conteúdo da tela. A altura mínima de 44px permanece: é alvo de
+          // toque, não decoração, e encolher o item quebraria o mobile.
           const base = cn(
-            // min-h-[44px]: alvo de toque adequado no mobile.
             "relative flex min-h-[44px] w-full items-center rounded-full text-label-md transition-colors",
-            isCollapsed ? "justify-center px-0 py-3" : "gap-3 px-4 py-3",
+            isCollapsed ? "justify-center px-0 py-2.5" : "gap-3 px-4 py-2.5",
             active
-              ? "bg-primary-container font-semibold text-on-primary-container shadow-level-1"
+              ? "bg-primary-container/30 text-on-primary-container"
               : "text-on-surface-variant hover:bg-surface-container",
           );
 
@@ -233,13 +247,9 @@ export function Sidebar({
                 }
                 className={cn(
                   "ml-auto flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors",
-                  // No item ativo o ícone herda o texto do bloco: `text-primary`
-                  // sobre o preenchimento da mesma família sumiria.
-                  active
-                    ? "text-on-primary-container hover:bg-primary/20"
-                    : liberadoParaTodos
-                      ? "text-primary hover:bg-primary-fixed/60"
-                      : "text-error hover:bg-error/10",
+                  liberadoParaTodos
+                    ? "text-primary hover:bg-primary-fixed/60"
+                    : "text-error hover:bg-error/10",
                 )}
               >
                 {liberadoParaTodos ? (
@@ -252,10 +262,10 @@ export function Sidebar({
 
           const conteudo = (
             <>
-              {active && !isCollapsed && (
-                <span className="absolute left-1 h-6 w-1 rounded-full bg-primary" />
-              )}
-              <Icon className="h-5 w-5 shrink-0" strokeWidth={active ? 2.25 : 1.75} />
+              <Icon
+                className="h-5 w-5 shrink-0"
+                strokeWidth={active ? 2 : 1.75}
+              />
               {!isCollapsed && <span className="truncate">{label}</span>}
               {cadeadoAdmin}
             </>

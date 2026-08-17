@@ -10,6 +10,7 @@ import { loginAction } from "@/features/auth/actions/auth";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { BrandLockup } from "@/components/ui/brand-logo";
 
 const loginSchema = z.object({
   username: z.string().min(1, "Informe o usuário"),
@@ -80,7 +81,12 @@ export default function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-background px-margin">
       <div className="w-full max-w-md rounded-xl bg-surface-container-lowest p-lg shadow-level-2">
         <div className="text-center">
-          <h1 className="font-logo text-[2rem] text-primary">Build.Sales</h1>
+          <h1 className="flex justify-center">
+            <BrandLockup
+              markClassName="h-11 w-11"
+              wordClassName="text-[2rem]"
+            />
+          </h1>
           <p className="mt-1 text-label-sm uppercase tracking-wide text-on-surface-variant">
             BUILD.SALES - PDV
           </p>
