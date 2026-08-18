@@ -128,6 +128,81 @@ export async function gerarDerivadas(
   return out;
 }
 
+/** Extensão do original → MIME. Local de propósito: `media.ts` importa este
+ *  módulo, então importar de volta fecharia um ciclo. */
+const EXT_MIME: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  avif: "image/avif",
+  gif: "image/gif",
+  heic: "image/heic",
+};
+
+/**
+ * Gerações em andamento, por caminho. Numa grade de quinze fotos o navegador
+ * dispara os pedidos em paralelo; sem isto, dois pedidos do MESMO arquivo
+ * fariam o Sharp trabalhar duas vezes e escreveriam no mesmo destino ao mesmo
+ * tempo.
+ */
+const emAndamento = new Map<string, Promise<string | null>>();
+
+async function existe(p: string): Promise<boolean> {
+  try {
+    await stat(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Resolve o pedido de uma derivada que não está no disco.
+ *
+ * Recebe o caminho pedido (`.../uuid.thumb.webp`), localiza o original,
+ * tenta gerar a derivada e devolve o caminho do que deve ser servido:
+ *
+ * - a derivada, se foi gerada;
+ * - o ORIGINAL, quando a geração não se aplica (GIF animado, HEIC, ou
+ *   resultado maior que a entrada) — melhor entregar a imagem grande do que
+ *   um 404;
+ * - `null` se nem o original existe.
+ */
+export async function garantirVariante(
+  absPedido: string,
+): Promise<string | null> {
+  const m = /^(.*)\.(thumb|lg)\.webp$/.exec(absPedido);
+  if (!m) return null;
+
+  const [, base, variant] = m;
+
+  const emCurso = emAndamento.get(absPedido);
+  if (emCurso) return emCurso;
+
+  const trabalho = (async (): Promise<string | null> => {
+    for (const ext of Object.keys(EXT_MIME)) {
+      const original = `${base}.${ext}`;
+      if (!(await existe(original))) continue;
+
+      const bytes = await gerarVariante(
+        original,
+        EXT_MIME[ext],
+        variant as MediaVariant,
+      );
+      return bytes !== null ? absPedido : original;
+    }
+    return null;
+  })();
+
+  emAndamento.set(absPedido, trabalho);
+  try {
+    return await trabalho;
+  } finally {
+    emAndamento.delete(absPedido);
+  }
+}
+
 /** Apaga as derivadas de um original (chamado junto da exclusão do arquivo). */
 export async function apagarDerivadas(absOriginal: string): Promise<void> {
   for (const variant of Object.keys(VARIANT_WIDTH) as MediaVariant[]) {

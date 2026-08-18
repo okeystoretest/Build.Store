@@ -5,6 +5,7 @@ import path from "path";
 import { getCurrentSession } from "@/lib/auth/session";
 import { mimeForExt, resolveMediaPath, statMedia } from "@/lib/storage/media";
 import { parseRange } from "@/lib/storage/http-range";
+import { garantirVariante } from "@/lib/storage/image";
 
 /**
  * Leitura das mídias gravadas em disco: GET /api/media/<escopo>/<aaaa-mm>/<arquivo>.
@@ -34,6 +35,18 @@ import { parseRange } from "@/lib/storage/http-range";
  *
  * Cache: o nome do arquivo é um UUID e nunca é reescrito, então o conteúdo é
  * imutável — `private, max-age=1 ano, immutable` + ETag por mtime/tamanho.
+ *
+ * ## Derivada sob demanda
+ *
+ * Um pedido de `uuid.thumb.webp` que não existe no disco NÃO vira 404: a
+ * rota gera a derivada a partir do original ali mesmo e a serve. Só se a
+ * geração não for possível (GIF animado, HEIC, ou conversão que ficaria maior)
+ * é que o ORIGINAL é servido no lugar.
+ *
+ * Isso resolve três coisas de uma vez: o acervo antigo passa a funcionar sem
+ * depender do script de backfill; o console para de acumular 404 por imagem; e
+ * some o pisca-pisca na grade, onde cada card carregava, tomava 404 e trocava
+ * a imagem por outra no meio do caminho.
  */
 
 export const runtime = "nodejs";
@@ -67,7 +80,19 @@ export async function GET(
     );
   }
 
-  const info = await statMedia(abs);
+  // Caminho efetivamente servido. Pode mudar abaixo: se a derivada pedida não
+  // existir e também não puder ser gerada, servimos o original.
+  let servir = abs;
+  let info = await statMedia(servir);
+
+  if (!info) {
+    const resolvida = await garantirVariante(abs);
+    if (resolvida) {
+      servir = resolvida;
+      info = await statMedia(servir);
+    }
+  }
+
   if (!info) {
     return NextResponse.json(
       { ok: false, error: "Arquivo não encontrado." },
@@ -76,7 +101,7 @@ export async function GET(
   }
 
   const etag = `"${info.size.toString(16)}-${Math.floor(info.mtimeMs).toString(16)}"`;
-  const contentType = mimeForExt(path.extname(abs).replace(".", ""));
+  const contentType = mimeForExt(path.extname(servir).replace(".", ""));
 
   const comuns: Record<string, string> = {
     "Content-Type": contentType,
@@ -120,7 +145,7 @@ export async function GET(
   // `as unknown as ReadableStream`: o Web ReadableStream do Node 18+ é aceito
   // como corpo de Response, mas os tipos do DOM e os do Node não se falam.
   const corpo = Readable.toWeb(
-    createReadStream(abs, { start: inicio, end: fim }),
+    createReadStream(servir, { start: inicio, end: fim }),
   ) as unknown as ReadableStream;
 
   return new NextResponse(corpo, {
