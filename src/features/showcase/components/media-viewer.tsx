@@ -75,7 +75,9 @@ export function MediaViewer({
       role="dialog"
       aria-modal="true"
       aria-label={media.title}
-      className="fixed inset-0 z-50 flex flex-col bg-black/90 backdrop-blur-sm"
+      // Sem `backdrop-blur`: sobre um preto a 90% o desfoque não é visível, mas
+      // custa um passe de rasterização da página inteira por quadro.
+      className="fixed inset-0 z-50 flex flex-col bg-black/90"
       // Clicar no fundo fecha; cliques na mídia não sobem (stopPropagation).
       onClick={onClose}
     >

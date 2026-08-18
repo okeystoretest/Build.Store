@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { uploadFile, type UploadProgress } from "@/lib/utils/upload-file";
 import { UploadProgressBar } from "@/components/ui/upload-progress";
+import { MediaImage } from "@/components/ui/media-image";
 
 interface ProductFormProps {
   product?: Product | null;
@@ -152,12 +153,17 @@ export function ProductForm({ product, onSubmit, onCancel, onDelete }: ProductFo
       <div className="flex items-start gap-md">
         <div className="flex shrink-0 flex-col items-center gap-2">
           <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-md bg-surface-container">
-            {imageUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={imageUrl} alt="Prévia" className="h-full w-full object-cover" />
-            ) : (
-              <ImageIcon className="h-7 w-7 text-on-surface-variant/40" strokeWidth={1.5} />
-            )}
+            {/* Prévia de 80px: miniatura. O `blob:` local de um arquivo recém
+                escolhido não é mídia nossa e passa direto pelo MediaImage. */}
+            <MediaImage
+              src={imageUrl}
+              alt="Prévia"
+              variant="thumb"
+              eager
+              fallback={
+                <ImageIcon className="h-7 w-7 text-on-surface-variant/40" strokeWidth={1.5} />
+              }
+            />
           </div>
           <label
             className="flex cursor-pointer items-center gap-1.5 rounded-full border border-primary-container px-3 py-1.5 text-label-sm text-primary transition-colors hover:bg-primary-fixed/40 aria-disabled:pointer-events-none aria-disabled:opacity-60"

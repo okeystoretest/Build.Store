@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/toast";
+import { MediaImage } from "@/components/ui/media-image";
 
 /**
  * Visualização de produto para Lojista/Vendedora.
@@ -69,16 +70,21 @@ export function ProductDetail({ product }: { product: Product }) {
       {/* Cabeçalho compacto: imagem menor lado a lado com os dados. */}
       <div className="flex items-center gap-md">
         <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-surface-container">
-          {product.imageUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={product.imageUrl}
-              alt={product.name}
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <ImageIcon className="h-8 w-8 text-on-surface-variant/40" strokeWidth={1.5} />
-          )}
+          {/*
+            Miniatura, não o original. Esta caixa tem 96px; carregar aqui o
+            arquivo de câmera de vários MB significava decodificar uma imagem de
+            4000px na thread principal no instante do clique — a outra metade do
+            INP alto ao abrir o detalhe do produto.
+          */}
+          <MediaImage
+            src={product.imageUrl}
+            alt={product.name}
+            variant="thumb"
+            eager
+            fallback={
+              <ImageIcon className="h-8 w-8 text-on-surface-variant/40" strokeWidth={1.5} />
+            }
+          />
         </div>
         <div className="min-w-0">
           <p className="text-label-sm uppercase tracking-wide text-on-surface-variant">

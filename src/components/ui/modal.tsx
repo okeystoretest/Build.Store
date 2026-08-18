@@ -12,7 +12,25 @@ interface ModalProps {
   className?: string;
 }
 
-/** Accessible modal with Level 2 elevation. Closes on Escape / backdrop click. */
+/**
+ * Modal acessível. Fecha no Escape e no clique fora.
+ *
+ * ## Sem `backdrop-blur`
+ *
+ * O scrim tinha `backdrop-blur-sm`. Desfocar o pano de fundo obriga o
+ * navegador a rasterizar a PÁGINA INTEIRA e aplicar o filtro a cada quadro —
+ * e atrás do modal de estoque há uma grade de fotos grandes. Era o principal
+ * componente dos 840ms de INP medidos ao clicar num item: o clique não
+ * "demorava a responder", ele respondia e o desenho do efeito atrasava a
+ * pintura. Um scrim mais opaco separa o modal do fundo pelo mesmo preço de um
+ * retângulo sólido.
+ *
+ * ## Borda
+ *
+ * Contorno em `primary-container/60`, o mesmo dos cards de Fotos da Coleção:
+ * no tema claro o painel é branco sobre branco esmaecido, e sem a borda ele só
+ * se distingue do fundo pela sombra.
+ */
 export function Modal({ open, onClose, title, children, className }: ModalProps) {
   useEffect(() => {
     if (!open) return;
@@ -29,7 +47,7 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-inverse-surface/30 p-margin backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-inverse-surface/40 p-margin"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -37,12 +55,12 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
     >
       <div
         className={cn(
-          "w-full max-w-lg rounded-xl bg-surface-container-lowest shadow-level-2",
+          "w-full max-w-lg rounded-xl border border-primary-container/60 bg-surface-container-lowest shadow-level-2",
           className,
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-outline-variant/40 px-md py-md">
+        <div className="flex items-center justify-between border-b border-primary-container/40 px-md py-md">
           <h2 className="text-headline-md text-on-surface">{title}</h2>
           <button
             onClick={onClose}
