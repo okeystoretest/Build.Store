@@ -24,7 +24,7 @@ export function StockAlertCard({ label, items, icon: Icon, tone }: StockAlertCar
       : "bg-[#f0e6a8] text-[#5c5310]";
 
   return (
-    <div className="rounded-lg bg-surface-container-lowest p-md shadow-level-1">
+    <div className="hover-lift rounded-lg bg-surface-container-lowest p-md shadow-level-1">
       <div className="flex items-start justify-between">
         <p className="text-label-md uppercase tracking-wide text-on-surface-variant">
           {label}

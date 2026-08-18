@@ -87,7 +87,7 @@ export function AnalyticsScreen() {
 
       {/* Chart + ranking + cash-closing consolidated into one row to cut scroll. */}
       <div className="mt-sm grid grid-cols-1 gap-sm xl:grid-cols-[1.6fr_1fr_1fr]">
-        <div className="rounded-lg bg-surface-container-lowest p-md shadow-level-1">
+        <div className="hover-lift rounded-lg bg-surface-container-lowest p-md shadow-level-1">
           <h2 className="text-headline-md text-on-surface">
             Performance de Vendas
           </h2>

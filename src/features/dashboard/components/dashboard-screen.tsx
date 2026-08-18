@@ -152,7 +152,7 @@ function SellerCard({ block, rank }: { block: SellerBlock; rank: number }) {
 
   return (
     <div
-      className="animate-pop-in rounded-xl border bg-surface-container-lowest p-sm shadow-level-1"
+      className="animate-pop-in hover-lift rounded-xl border bg-surface-container-lowest p-sm shadow-level-1"
       style={{ borderColor: medal }}
     >
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
@@ -262,7 +262,7 @@ function ProgressBlock({
   const color = progressColor(ratio);
   return (
     <div
-      className="rounded-xl border bg-surface-container-lowest p-md shadow-level-1"
+      className="hover-lift rounded-xl border bg-surface-container-lowest p-md shadow-level-1"
       style={{ borderColor: color }}
     >
       <div className="flex items-center justify-between">
@@ -302,7 +302,7 @@ function Metric({
 }) {
   return (
     <div
-      className={`rounded-xl border ${style.border} bg-surface-container-lowest p-md shadow-level-1`}
+      className={`hover-lift rounded-xl border ${style.border} bg-surface-container-lowest p-md shadow-level-1`}
     >
       <div className="flex items-center justify-between gap-sm">
         <p className="text-label-md uppercase tracking-wide text-on-surface-variant">

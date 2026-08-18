@@ -352,3 +352,55 @@ body {
   content-visibility: auto;
   contain-intrinsic-size: auto 420px;
 }
+
+/* ---------------------------------------------------------------------------
+ * Levantamento no hover — o gesto da dock do macOS, em dose bem menor.
+ *
+ * 2px de subida e nada mais. O movimento precisa ser perceptível pelo canto do
+ * olho e invisível se você parar para olhar: numa grade de estoque com vinte
+ * cards, qualquer coisa acima disso vira um campo de gelatina.
+ *
+ * `transform` de propósito, e só ele. É a única propriedade (junto de
+ * `opacity`) que o navegador anima no compositor, sem recalcular layout nem
+ * repintar o card — é o que permite aplicar isso a TODOS os cards do
+ * aplicativo sem repetir o engasgo que a transição de sombra causava.
+ *
+ * A curva desacelera no fim (ease-out) na subida e é simétrica na descida:
+ * saída abrupta faz o card parecer que "caiu" quando o ponteiro passa rápido
+ * por cima de vários.
+ *
+ * Sem `will-change`: ele promoveria cada card a uma camada própria de GPU e,
+ * multiplicado pela grade inteira, o custo de memória supera o ganho. A
+ * animação é curta o bastante para não precisar.
+ * ------------------------------------------------------------------------- */
+.hover-lift {
+  /*
+   * A lista inclui as cores porque estas regras vêm DEPOIS de
+   * `@tailwind utilities` no arquivo: num card que também usa
+   * `transition-colors`, a declaração daqui vence por ordem de origem e a
+   * transição da borda seria descartada — o card levantaria suave e a cor
+   * mudaria de estalo.
+   */
+  transition:
+    transform 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 180ms ease-out,
+    background-color 180ms ease-out,
+    color 180ms ease-out;
+}
+
+/* `:focus-visible` junto: quem navega por teclado recebe a mesma resposta que
+   o mouse, sem que o clique fique com o card levantado (`:focus` puro faria
+   isso). */
+.hover-lift:hover,
+.hover-lift:focus-visible {
+  transform: translateY(-2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hover-lift,
+  .hover-lift:hover,
+  .hover-lift:focus-visible {
+    transition: none;
+    transform: none;
+  }
+}

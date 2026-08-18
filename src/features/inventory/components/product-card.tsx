@@ -35,7 +35,7 @@ export function ProductCard({ product, onOpen, canManage = false }: ProductCardP
         // o efeito engasgava e às vezes ficava preso no estado alto quando o
         // ponteiro saía durante a transição. Cor de borda é uma propriedade
         // barata, e alinha o card com os de Fotos da Coleção e com os modais.
-        "flex flex-col rounded-lg border border-primary-container/50 bg-surface-container-lowest p-sm text-left shadow-level-1 transition-colors hover:border-primary-container",
+        "hover-lift flex flex-col rounded-lg border border-primary-container/50 bg-surface-container-lowest p-sm text-left shadow-level-1 transition-colors hover:border-primary-container",
         outOfStock && "opacity-50",
       )}
     >
@@ -112,7 +112,7 @@ export function ProductRow({ product, onOpen, canManage = false }: ProductCardPr
     <button
       onClick={() => onOpen(product)}
       className={cn(
-        "flex w-full items-center gap-md rounded-lg border border-primary-container/50 bg-surface-container-lowest px-md py-sm text-left shadow-level-1 transition-colors hover:border-primary-container",
+        "hover-lift flex w-full items-center gap-md rounded-lg border border-primary-container/50 bg-surface-container-lowest px-md py-sm text-left shadow-level-1 transition-colors hover:border-primary-container",
         outOfStock && "opacity-50",
       )}
     >

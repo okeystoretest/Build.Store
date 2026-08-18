@@ -13,7 +13,7 @@ interface StatCardProps {
 /** KPI card: label, large figure, tinted icon, optional trend delta. */
 export function StatCard({ label, value, icon: Icon, delta }: StatCardProps) {
   return (
-    <div className="rounded-lg bg-surface-container-lowest p-md shadow-level-1">
+    <div className="hover-lift rounded-lg bg-surface-container-lowest p-md shadow-level-1">
       <div className="flex items-start justify-between">
         <p className="min-w-0 text-label-md uppercase tracking-wide text-on-surface-variant">
           {label}

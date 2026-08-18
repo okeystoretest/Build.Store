@@ -47,7 +47,7 @@ export function ProductResults({
               onClick={() => !outOfStock && onSelect(p)}
               disabled={outOfStock}
               aria-disabled={outOfStock}
-              className={`group flex w-40 shrink-0 flex-col rounded-md bg-surface-container-lowest p-sm text-left shadow-level-1 transition-colors ${
+              className={`hover-lift group flex w-40 shrink-0 flex-col rounded-md bg-surface-container-lowest p-sm text-left shadow-level-1 transition-colors ${
                 outOfStock
                   ? "cursor-not-allowed opacity-40"
                   : "hover:bg-primary-fixed/30"

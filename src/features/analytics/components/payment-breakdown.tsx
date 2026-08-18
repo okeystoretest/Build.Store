@@ -23,7 +23,7 @@ export function PaymentBreakdown({ data }: PaymentBreakdownProps) {
   const grandTotal = ORDER.reduce((s, m) => s + data[m].totalCents, 0);
 
   return (
-    <div className="rounded-lg bg-surface-container-lowest p-md shadow-level-1">
+    <div className="hover-lift rounded-lg bg-surface-container-lowest p-md shadow-level-1">
       <h3 className="text-headline-md text-on-surface">Fechamento de Caixa</h3>
       <p className="mt-1 text-label-md text-on-surface-variant">
         Receita por forma de pagamento

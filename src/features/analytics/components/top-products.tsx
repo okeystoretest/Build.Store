@@ -7,7 +7,7 @@ import { formatBRL } from "@/lib/utils/money";
 /** Ranking of best-selling products by units sold. */
 export function TopProducts({ items }: { items: ProductRank[] }) {
   return (
-    <div className="rounded-lg bg-surface-container-lowest p-md shadow-level-1">
+    <div className="hover-lift rounded-lg bg-surface-container-lowest p-md shadow-level-1">
       <h3 className="text-headline-md text-on-surface">Top Produtos</h3>
       {items.length === 0 ? (
         <p className="mt-md text-body-md text-on-surface-variant">

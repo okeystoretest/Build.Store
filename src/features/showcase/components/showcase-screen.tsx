@@ -233,7 +233,7 @@ function PhotoCard({
   const isVideo = (media.mimeType ?? "").startsWith("video/");
 
   return (
-    <div className="card-galeria group flex flex-col overflow-hidden rounded-md border border-primary-container/60 bg-surface-container-lowest transition-colors hover:border-primary-container">
+    <div className="card-galeria hover-lift group flex flex-col overflow-hidden rounded-md border border-primary-container/60 bg-surface-container-lowest transition-colors hover:border-primary-container">
       {/* Passe-partout: o respiro rosa em volta da foto é o que dá o ar de
           álbum em vez de grade de arquivos. */}
       <div className="relative aspect-[3/4] w-full overflow-hidden rounded-[1.25rem] bg-primary-container/30 p-1">
@@ -297,7 +297,7 @@ function MediaCard({
   const isVideo = (media.mimeType ?? "").startsWith("video/");
 
   return (
-    <div className="group flex flex-col overflow-hidden rounded-md bg-surface-container-lowest shadow-level-1">
+    <div className="hover-lift group flex flex-col overflow-hidden rounded-md bg-surface-container-lowest shadow-level-1">
       <div className="relative flex h-32 w-full items-center justify-center overflow-hidden bg-surface-container">
         <Thumb media={media} isImage={isImage} isVideo={isVideo} />
 
